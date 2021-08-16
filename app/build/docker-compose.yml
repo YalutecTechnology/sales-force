@@ -1,0 +1,31 @@
+
+version: "3"
+
+services:
+  app:
+    container_name: salesforce-integration
+    build:
+      context: ./../../
+      dockerfile: ./app/build/Dockerfile
+    image: yalochat.com/salesforce-integration
+    environment:
+      "INTEGRATIONS-ADDON-SFSC_REDIS_ADDRESS": "redis:6379"
+      "INTEGRATIONS-ADDON-SFSC_HOST": "0.0.0.0"
+      "INTEGRATIONS-ADDON-SFSC_MONGO_CONNECTION_STRING": "mongodb://mongo:27017"
+    ports:
+      - "8080:8080"
+    links:
+      - mongo
+      - redis
+
+  mongo:
+    container_name: mongo
+    image: mongo:4.0.5
+    ports:
+      - "27017:27017"
+
+  redis:
+    container_name: redis
+    image: 'redis:5.0.5'
+    ports:
+      - "6379:6379"
