@@ -16,18 +16,19 @@ type Envs struct {
 	SalesforceUsername      string `required:"true" split_words:"true" default:"salesforceUser"`
 	SalesforcePassword      string `required:"true" split_words:"true" default:"salesforcePassword"`
 	SecretKey               string `required:"true" split_words:"true" default:"salesforceUser"`
-	SfscClientId            string `split_words:"true"`
-	SfscClientSecret        string `split_words:"true"`
-	SfscApiUsername         string `split_words:"true"`
-	SfscPassword            string `split_words:"true"`
-	SfscBaseUrl             string `split_words:"true"`
-	SfscLoginUrl            string `split_words:"true"`
-	SfscApiVersion          int    `split_words:"true" default:"52"`
-	SfscOrganizationId      string `split_words:"true"`
-	SfscDeploymentId        string `split_words:"true"`
-	SfscButtonId            string `split_words:"true"`
-	SfscOwnerId             string `split_words:"true"`
-	SfscContactId           string `split_words:"true"`
+	SfcClientId             string `split_words:"true"`
+	SfcClientSecret         string `split_words:"true"`
+	SfcUsername             string `split_words:"true"`
+	SfcPassword             string `split_words:"true"`
+	SfcSecurityToken        string `split_words:"true"`
+	SfcBaseUrl              string `split_words:"true"`
+	SfcChatUrl              string `split_words:"true"`
+	SfcLoginUrl             string `split_words:"true"`
+	SfcApiVersion           string `split_words:"true" default:"52"`
+	SfcOrganizationId       string `split_words:"true"`
+	SfcDeploymentId         string `split_words:"true"`
+	SfcButtonId             string `split_words:"true"`
+	SfcOwnerId              string `split_words:"true"`
 	IntegrationsMydomainUrl string `split_words:"true"`
 	IntegrationsBotId       string `split_words:"true"`
 	IntegrationsBotSlug     string `split_words:"true"`
