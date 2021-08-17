@@ -1,0 +1,32 @@
+# This Deployment manifest defines:
+# - single-replica deployment of the container image
+# - Pod exposes port 8080
+# Syntax reference https://kubernetes.io/docs/concepts/configuration/overview/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: salesforce-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: salesforce-integration
+  template:
+    metadata:
+      labels:
+        app: salesforce-integration
+    spec:
+      containers:
+      - name: server
+        image: salesforce-integration
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SALESFORCE-INTEGRATION_HOST
+          value: "0.0.0.0"
+        - name: SALESFORCE-INTEGRATION_PORT
+          value: "8080"
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
