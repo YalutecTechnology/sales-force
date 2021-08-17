@@ -2,6 +2,8 @@ package helpers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
+	"yalochat.com/salesforce-integration/base/constants"
 )
 
 // Govalidator to can validate incoming requests
@@ -30,6 +33,8 @@ const (
 	ValidatePaginationError    = "Error obtain pagination : %s"
 	ValidateFilterAndSortError = "Error obtain filter and sort : %s"
 	DateFormat                 = "2006-01-02 15:04:05"
+	MissingQueryParam          = "A query param is needed to make the request"
+	EmptyResponse              = "No response received"
 )
 
 // FailedResponse for description error
@@ -190,4 +195,20 @@ func ToSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
+}
+
+func ErrorResponseMap(body io.ReadCloser, unmarshalError string, statusCode int) error {
+	responseMap := map[string]interface{}{}
+	readAndUnmarshalError := ReadAndUnmarshal(body, &responseMap)
+
+	if readAndUnmarshalError != nil {
+		errorMessage := fmt.Sprintf("%s : %s", unmarshalError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return errors.New(errorMessage)
+	}
+	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	logrus.WithFields(logrus.Fields{
+		"response": responseMap,
+	}).Error(errorMessage)
+	return errors.New(errorMessage)
 }
