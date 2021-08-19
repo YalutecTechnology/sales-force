@@ -43,6 +43,12 @@ type SuccessResponse struct {
 	Message string
 }
 
+// Error Response for return a stutusCode and error
+type ErrorResponse struct {
+	StatusCode int
+	Error      error
+}
+
 // ReadAndUnmarshal to help with payloads
 func ReadAndUnmarshal(rc io.ReadCloser, destination interface{}) error {
 	payloadBytes, readError := ioutil.ReadAll(rc)

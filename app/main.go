@@ -40,15 +40,20 @@ func main() {
 	})
 
 	managerOptions := &manage.ManagerOptions{
-		AppName:               envs.AppName,
-		ClentId:               envs.SfscClientId,
-		ClientSecret:          envs.SfscClientSecret,
-		SalesforceApiUsername: envs.SfscApiUsername,
-		SalesforceApiPassword: envs.SfscPassword,
-		SalesforceUrl:         envs.SfscBaseUrl,
-		SalesforceLoginUrl:    envs.SfscLoginUrl,
-		SalesforceCaseUrl:     envs.SfscBaseUrl,
-		SalesforceApiVersion:  envs.SfscApiVersion,
+		AppName:           envs.AppName,
+		SfcClientId:       envs.SfcClientId,
+		SfcClientSecret:   envs.SfcClientSecret,
+		SfcUsername:       envs.SfcUsername,
+		SfcPassword:       envs.SfcPassword,
+		SfcSecurityToken:  envs.SfcSecurityToken,
+		SfcBaseUrl:        envs.SfcBaseUrl,
+		SfcLoginUrl:       envs.SfcLoginUrl,
+		SfcChatUrl:        envs.SfcChatUrl,
+		SfcApiVersion:     envs.SfcApiVersion,
+		SfcOrganizationId: envs.SfcOrganizationId,
+		SfcDeploymentId:   envs.SfcDeploymentId,
+		SfcButtonId:       envs.SfcButtonId,
+		SfcOwnerId:        envs.SfcOwnerId,
 	}
 
 	if len(envs.RedisMaster) > 0 {

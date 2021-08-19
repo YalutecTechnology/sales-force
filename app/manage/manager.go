@@ -3,28 +3,37 @@ package manage
 import (
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/cache"
+	"yalochat.com/salesforce-integration/base/clients/chat"
+	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
 	"yalochat.com/salesforce-integration/base/clients/salesforce"
 )
 
 // Manager controls the process of the app
 type Manager struct {
-	clientName       string
-	salesforceClient *salesforce.SalesforceClient
+	clientName     string
+	sfcLoginClient *login.SfcLoginClient
+	sfcChatClient  *chat.SfcChatClient
+	sfcClient      *salesforce.SalesforceClient
 }
 
-// ManagerOptions holds configurations for the agents manager
+// ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName               string
-	RedisOptions          cache.RedisOptions
-	ClentId               string
-	ClientSecret          string
-	SalesforceApiUsername string
-	SalesforceApiPassword string
-	SalesforceUrl         string
-	SalesforceLoginUrl    string
-	SalesforceCaseUrl     string
-	SalesforceApiVersion  int
+	AppName           string
+	RedisOptions      cache.RedisOptions
+	SfcClientId       string
+	SfcClientSecret   string
+	SfcUsername       string
+	SfcPassword       string
+	SfcSecurityToken  string
+	SfcBaseUrl        string
+	SfcChatUrl        string
+	SfcLoginUrl       string
+	SfcApiVersion     string
+	SfcOrganizationId string
+	SfcDeploymentId   string
+	SfcButtonId       string
+	SfcOwnerId        string
 }
 
 // CreateManager retrieves an agents manager
@@ -35,35 +44,40 @@ func CreateManager(config *ManagerOptions) *Manager {
 		logrus.WithError(err).Error("Error initializing Redis Manager")
 	}
 
-	salesforceClient := &salesforce.SalesforceClient{
-		Proxy:         &proxy.Proxy{},
-		LoginURL:      config.SalesforceLoginUrl,
-		CaseURL:       config.SalesforceCaseUrl,
-		SalesforceURL: config.SalesforceUrl,
-		ApiVersion:    config.SalesforceApiVersion,
+	sfcLoginClient := &login.SfcLoginClient{
+		Proxy: proxy.NewProxy(config.SfcLoginUrl),
 	}
 
 	// Get token for salesforce
-	payload := salesforce.TokenPayload{
-		ClientId:     config.ClentId,
-		ClientSecret: config.ClientSecret,
-		Username:     config.SalesforceApiUsername,
-		Password:     config.SalesforceApiPassword,
+	tokenPayload := login.TokenPayload{
+		ClientId:     config.SfcClientId,
+		ClientSecret: config.SfcClientSecret,
+		Username:     config.SfcUsername,
+		Password:     config.SfcPassword + config.SfcSecurityToken,
 	}
-	if _, err := salesforceClient.GetToken(payload); err != nil {
+
+	token, err := sfcLoginClient.GetToken(tokenPayload)
+	if err != nil {
 		logrus.Errorf("Could not get access token from salesforce Server : %s", err.Error())
 	}
 
-	session, err := salesforceClient.CreateSession()
-	if err != nil {
-		logrus.Errorf("Could not create session from salesforce Server : %s", err.Error())
-	} else {
-		logrus.Infof("Session Created: %v", session)
+	sfcChatClient := &chat.SfcChatClient{
+		Proxy:       proxy.NewProxy(config.SfcChatUrl),
+		ApiVersion:  config.SfcApiVersion,
+		AccessToken: token,
+	}
+
+	salesforceClient := &salesforce.SalesforceClient{
+		Proxy:       proxy.NewProxy(config.SfcBaseUrl),
+		ApiVersion:  config.SfcApiVersion,
+		AccessToken: token,
 	}
 
 	m := &Manager{
-		clientName:       config.AppName,
-		salesforceClient: salesforceClient,
+		clientName:     config.AppName,
+		sfcLoginClient: sfcLoginClient,
+		sfcChatClient:  sfcChatClient,
+		sfcClient:      salesforceClient,
 	}
 	return m
 }
