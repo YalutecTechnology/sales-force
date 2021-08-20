@@ -69,7 +69,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	salesforceClient := &salesforce.SalesforceClient{
 		Proxy:       proxy.NewProxy(config.SfcBaseUrl),
-		ApiVersion:  config.SfcApiVersion,
+		APIVersion:  config.SfcApiVersion,
 		AccessToken: token,
 	}
 
