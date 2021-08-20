@@ -6,4 +6,5 @@ const (
 	StatusError     = "Error call with status"
 	RequestError    = "Error making request"
 	QueryParamError = "Error getting query param"
+	ResponseError   = "Error getting response, it was empty or format not handled correctly"
 )
