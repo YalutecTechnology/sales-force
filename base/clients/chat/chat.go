@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,18 +35,18 @@ type SessionResponse struct {
 }
 
 type ChatRequest struct {
-	OrganizationId      string   `json:"organizationId" validate:"required"`
-	DeploymentId        string   `json:"deploymentId" validate:"required"`
-	ButtonId            string   `json:"buttonId" validate:"required"`
-	SessionId           string   `json:"sessionId" validate:"required"`
-	UserAgent           string   `json:"userAgent" validate:"required"`
-	Language            string   `json:"language" validate:"required"`
-	ScreenResolution    string   `json:"screenResolution" validate:"required"`
-	VisitorName         string   `json:"visitorName" validate:"required"`
-	PrechatDetails      []string `json:"prechatDetails" validate:"required"`
-	PrechatEntities     []string `json:"prechatEntities" validate:"required"`
-	ReceiveQueueUpdates bool     `json:"receiveQueueUpdates" validate:"required"`
-	IsPost              bool     `json:"isPost" validate:"required"`
+	OrganizationId      string        `json:"organizationId" validate:"required"`
+	DeploymentId        string        `json:"deploymentId" validate:"required"`
+	ButtonId            string        `json:"buttonId" validate:"required"`
+	SessionId           string        `json:"sessionId" validate:"required"`
+	UserAgent           string        `json:"userAgent" validate:"required"`
+	Language            string        `json:"language" validate:"required"`
+	ScreenResolution    string        `json:"screenResolution" validate:"required"`
+	VisitorName         string        `json:"visitorName" validate:"required"`
+	PrechatDetails      []interface{} `json:"prechatDetails" validate:"required"`
+	PrechatEntities     []interface{} `json:"prechatEntities" validate:"required"`
+	ReceiveQueueUpdates bool          `json:"receiveQueueUpdates" validate:"required"`
+	IsPost              bool          `json:"isPost" validate:"required"`
 }
 
 type MessagePayload struct {
@@ -101,6 +102,23 @@ type SfcChatInterface interface {
 	EndChat(string, string) (bool, error)
 }
 
+func NewChatRequest(organizationID, deployementID, seassionID, ButtonID, userName string) ChatRequest {
+	return ChatRequest{
+		OrganizationId:      organizationID,
+		DeploymentId:        deployementID,
+		ButtonId:            ButtonID,
+		SessionId:           seassionID,
+		VisitorName:         userName,
+		UserAgent:           "WhatsApp",
+		Language:            "en-US",
+		ScreenResolution:    "1900x1080",
+		PrechatDetails:      []interface{}{},
+		PrechatEntities:     []interface{}{},
+		ReceiveQueueUpdates: true,
+		IsPost:              true,
+	}
+}
+
 //To create a new Live Agent session, you must call the SessionId request.
 //SessionId : Establishes a new Live Agent session. The SessionId request is required as the first request to create every new Live Agent session.
 func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
@@ -125,18 +143,11 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 	}
 
 	if proxiedResponse.StatusCode != 200 {
-		responseMap := map[string]interface{}{}
-		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
-
-		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
-			logrus.Error(errorMessage)
-			return nil, errors.New(errorMessage)
-		}
-		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
-		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
-		}).Error(errorMessage)
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(proxiedResponse.Body)
+		bodyResponse := buf.String()
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, proxy.StatusError, bodyResponse)
+		logrus.Error(errorMessage)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -157,6 +168,7 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 }
 
 // We’ll send a chat request. To make sure this works, you should log in as a Live Agent user and make yourself available.
+//Initiates a new chat visitor session. The ChasitorInit request is always required as the first POST request in a new chat session.
 func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request ChatRequest) (bool, error) {
 	var errorMessage string
 	// This log should hide the secrets before sending to production
@@ -194,26 +206,19 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 		return false, errors.New(errorMessage)
 	}
 
-	responseMap := map[string]interface{}{}
-	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
-
-	if readAndUnmarshalError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
-		logrus.Error(errorMessage)
-		return false, errors.New(errorMessage)
-	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(proxiedResponse.Body)
+	bodyResponse := buf.String()
 
 	if proxiedResponse.StatusCode != 200 {
-		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
-		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
-		}).Error(errorMessage)
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, proxy.StatusError, bodyResponse)
+		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
 
 	//check this one if this is a response success
 	logrus.WithFields(logrus.Fields{
-		"response": responseMap,
+		"response": bodyResponse,
 	}).Info("Create chat sucessfully")
 	return true, nil
 }
