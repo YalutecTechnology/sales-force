@@ -2,6 +2,7 @@ package chat
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -37,7 +39,7 @@ func TestCreateSession(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.StatusError
+		expectedError := constants.StatusError
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusBadRequest,
@@ -87,7 +89,7 @@ func TestCreateChat(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.StatusError
+		expectedError := constants.StatusError
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusForbidden,
@@ -108,7 +110,7 @@ func TestCreateChat(t *testing.T) {
 
 	t.Run("Should fail by proxy error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.ForwardError
+		expectedError := constants.ForwardError
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{}, fmt.Errorf("Error proxying a request"))
 
@@ -146,7 +148,7 @@ func TestGetMessages(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.StatusError
+		expectedError := constants.StatusError
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusNoContent,
@@ -237,5 +239,76 @@ func TestSendMessage(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, response)
+	})
+}
+
+func TestChatClient_ReconnectSession(t *testing.T) {
+	t.Run("ReconnectSession case Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		chat := &SfcChatClient{Proxy: mock}
+		expected := MessagesResponse{
+			Messages: []MessageObject{
+				{
+					Type: "type",
+					Message: Message{
+						ResetSequence: true,
+						AffinityToken: "affinity",
+					},
+				},
+			},
+		}
+
+		binExpected, err := json.Marshal(&expected)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(binExpected)),
+		}, nil)
+
+		session, err := chat.ReconnectSession("token", "key", "offset")
+
+		assert.NoError(t, err)
+		assert.Equal(t, &expected, session)
+	})
+
+	t.Run("ReconnectSession Error offset", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		chat := &SfcChatClient{Proxy: mock}
+		expected := MessagesResponse{
+			Messages: []MessageObject{
+				{
+					Type: "type",
+					Message: Message{
+						ResetSequence: true,
+						AffinityToken: "affinity",
+					},
+				},
+			},
+		}
+
+		binExpected, err := json.Marshal(&expected)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(binExpected)),
+		}, nil)
+
+		session, err := chat.ReconnectSession("token", "key", "")
+
+		assert.Error(t, err)
+		assert.Nil(t, session)
+	})
+
+	t.Run("ReconnectSession error request", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		chat := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		session, err := chat.ReconnectSession("token", "key", "offset")
+
+		assert.Error(t, err)
+		assert.Nil(t, session)
 	})
 }
