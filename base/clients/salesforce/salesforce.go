@@ -87,6 +87,14 @@ type SearchResponse struct {
 	Records   []recordResponse `json:"records"`
 }
 
+//ContactRequest handles search document response
+type ContactRequest struct {
+	FirstName   string `json:"FirstName" validate:"required"`
+	LastName    string `json:"LastName" validate:"required"`
+	MobilePhone string `json:"MobilePhone"`
+	Email       string `json:"Email" validate:"required"`
+}
+
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
 	CreateCase(CaseRequest) error
@@ -96,6 +104,7 @@ type SaleforceInterface interface {
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
+	CreateContact(payload ContactRequest) (string, error)
 }
 
 //CreateContentVersion creates a new content version for a file
@@ -342,12 +351,12 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 //CreateCase Create case for Salesforce Requests
 func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 	var errorMessage string
-	// This log should hide the secrets before sending to production
+
 	logrus.WithFields(logrus.Fields{
 		"payload": payload,
 	}).Info("Payload received")
 
-	//validating token Payload struct
+	//validating CaseRequest Payload struct
 	if err := helpers.Govalidator().Struct(payload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
@@ -364,7 +373,7 @@ func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       "/services/data/v52.0/sobjects/Case",
+		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Contact", cc.APIVersion),
 		HeaderMap: header,
 	}
 
@@ -385,12 +394,68 @@ func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 	}
 
 	if proxiedResponse.StatusCode != 200 {
-		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.UnmarshallError, proxiedResponse.StatusCode)
+		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	logrus.WithFields(logrus.Fields{
 		"response": response,
-	}).Info("create case success")
+	}).Info("Create case success")
+
+	return response.ID, nil
+}
+
+//CreateContact Create contact for Salesforce Requests
+func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error) {
+	var errorMessage string
+
+	logrus.WithFields(logrus.Fields{
+		"payload": payload,
+	}).Info("Payload received")
+
+	//validating ContactRequest Payload struct
+	if err := helpers.Govalidator().Struct(payload); err != nil {
+		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
+		logrus.Error(errorMessage)
+		return "", errors.New(errorMessage)
+	}
+
+	//building request to send through proxy
+	requestBytes, _ := json.Marshal(payload)
+
+	header := make(map[string]string)
+	header["Content-Type"] = "application/json"
+	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	newRequest := proxy.Request{
+		Body:      requestBytes,
+		Method:    http.MethodPost,
+		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Contact", cc.APIVersion),
+		HeaderMap: header,
+	}
+
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	if proxyError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
+		logrus.Error(errorMessage)
+		return "", errors.New(errorMessage)
+	}
+
+	var response SalesforceResponse
+	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
+	if readAndUnmarshalError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return "", errors.New(errorMessage)
+
+	}
+
+	if proxiedResponse.StatusCode != http.StatusOK {
+		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("create contact success")
 
 	return response.ID, nil
 }
