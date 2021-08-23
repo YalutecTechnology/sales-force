@@ -161,6 +161,137 @@ func TestCaseClient_SearchDocumentID(t *testing.T) {
 	})
 }
 
+func TestCaseClient_Search(t *testing.T) {
+
+	t.Run("Search Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{ "totalSize": 1,"done": true, "records": [{"attributes": {},"ContentDocumentId": "AA0"}]}`))),
+		}, nil)
+		query := "SELECT+ContentDocumentID+FROM+ContentVersion+WHERE+id+=+'01"
+		id, err := salesforceClient.Search(query)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		expectedResponse := &SearchResponse{
+			TotalSize: 1,
+			Done:      true,
+			Records: []recordResponse{
+				{
+					Attributes:        map[string]interface{}{},
+					ContentDocumentID: "AA0",
+					Id:                ``,
+				},
+			},
+		}
+		assert.Equal(t, expectedResponse, id)
+	})
+
+	t.Run("Search Error validation query", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.Search("")
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		id, err := salesforceClient.Search("query")
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("SearchDocumentID error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.Search("query")
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+}
+
+func TestCaseClient_SearchId(t *testing.T) {
+
+	t.Run("SearchId Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":7,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qn8e5AAB"},"Name":"Mauricio Ruiz","LastName":"Ruiz","Id":"0032300000Qn8e5AAB"}]}`))),
+		}, nil)
+		query := "SELECT+name+,+lastName+,+id+FROM+Contact+WHERE+email+=+%27mauricio.ruiz@intellectsystem.net%27"
+		id, err := salesforceClient.SearchID(query)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		assert.Equal(t, "0032300000Qn8e5AAB", id)
+	})
+
+	t.Run("Search Error validation query", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.SearchID("")
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		id, err := salesforceClient.SearchID("query")
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("SearchDocumentID error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.SearchID("query")
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+}
+
 func TestCaseClient_LinkDocumentToCase(t *testing.T) {
 
 	t.Run("LinkDocumentToCase Succesfull", func(t *testing.T) {
