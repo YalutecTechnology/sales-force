@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
@@ -163,4 +164,78 @@ func TestGetMessages(t *testing.T) {
 		}
 	})
 
+}
+
+func TestSendMessage(t *testing.T) {
+	const (
+		affinityToken = "affinityToken"
+		sessionKey    = "sessionKey"
+	)
+
+	t.Run("Send message succesfully", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+		}, nil)
+		payload := MessagePayload{
+			Text: "A large text",
+		}
+
+		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		assert.Equal(t, true, response)
+	})
+
+	t.Run("Send message error validation payload", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+		}, nil)
+		payload := MessagePayload{}
+		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, response)
+	})
+
+	t.Run("Send message error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		payload := MessagePayload{
+			Text: "A large text",
+		}
+
+		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, response)
+	})
+
+	t.Run("Send message error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+		}, nil)
+		payload := MessagePayload{
+			Text: "A large text",
+		}
+
+		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, response)
+	})
 }

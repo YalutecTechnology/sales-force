@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -280,7 +282,7 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 	return &messages, nil
 }
 
-// To send messages to the live agent user.
+// SendMessage to send messages to the live agent user.
 func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload MessagePayload) (bool, error) {
 	var errorMessage string
 	// This log should hide the secrets before sending to production
@@ -288,7 +290,7 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 		"payload": payload,
 	}).Info("Payload received")
 
-	//validating token Payload struct
+	//validating Payload struct
 	if err := helpers.Govalidator().Struct(payload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
@@ -316,27 +318,26 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
-
-	responseMap := map[string]interface{}{}
-	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
-
-	if readAndUnmarshalError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(proxiedResponse.Body)
+	if err != nil {
+		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, constants.ResponseError)
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
+	response := buf.String()
 
-	if proxiedResponse.StatusCode != 200 {
+	if proxiedResponse.StatusCode != http.StatusOK {
 		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
+			"response": response,
 		}).Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
 
 	//check this one if this is a response success
 	logrus.WithFields(logrus.Fields{
-		"response": responseMap,
+		"response": response,
 	}).Info("Send Message sucessfully")
 	return true, nil
 }
