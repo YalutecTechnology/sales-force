@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	post             = "POST"
-	get              = "GET"
 	granType         = "password"
 	apiVersionHeader = "X-LIVEAGENT-API-VERSION"
 	affinityHeader   = "X-LIVEAGENT-AFFINITY"
@@ -132,23 +130,23 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 	header[affinityHeader] = "null"
 
 	newRequest := proxy.Request{
-		Method:    get,
+		Method:    http.MethodGet,
 		URI:       "/chat/rest/System/SessionId",
 		HeaderMap: header,
 	}
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, proxyError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
 		return nil, errors.New(errorMessage)
 	}
 
-	if proxiedResponse.StatusCode != 200 {
+	if proxiedResponse.StatusCode != http.StatusOK {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(proxiedResponse.Body)
 		bodyResponse := buf.String()
-		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, proxy.StatusError, bodyResponse)
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
 		logrus.Error(errorMessage)
 		return nil, errors.New(errorMessage)
 	}
@@ -157,7 +155,7 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &session)
 
 	if readAndUnmarshalError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
 		return nil, errors.New(errorMessage)
 	}
@@ -196,14 +194,14 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
-		Method:    post,
+		Method:    http.MethodPost,
 		URI:       "/chat/rest/Chasitor/ChasitorInit",
 		HeaderMap: header,
 	}
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, proxyError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
@@ -212,8 +210,8 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 	buf.ReadFrom(proxiedResponse.Body)
 	bodyResponse := buf.String()
 
-	if proxiedResponse.StatusCode != 200 {
-		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, proxy.StatusError, bodyResponse)
+	if proxiedResponse.StatusCode != http.StatusOK {
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
@@ -235,28 +233,28 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 	header[sessionKeyHeader] = sessionKey
 
 	newRequest := proxy.Request{
-		Method:    get,
+		Method:    http.MethodGet,
 		URI:       "/chat/rest/System/Messages",
 		HeaderMap: header,
 	}
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, proxyError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
 		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
 	}
 
-	if proxiedResponse.StatusCode != 200 {
+	if proxiedResponse.StatusCode != http.StatusOK {
 		responseMap := map[string]interface{}{}
 		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
 
 		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
 			return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
 		}
-		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
@@ -270,7 +268,7 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &messages)
 
 	if readAndUnmarshalError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
 		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
 	}
@@ -307,28 +305,29 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
-		Method:    post,
+		Method:    http.MethodPost,
 		URI:       "/chat/rest/Chasitor/ChatMessage",
 		HeaderMap: header,
 	}
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, proxyError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
+
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(proxiedResponse.Body)
 	if err != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, constants.ResponseError)
+		errorMessage = fmt.Sprintf("%s : %s", constants.ResponseError, err.Error())
 		logrus.Error(errorMessage)
 		return false, errors.New(errorMessage)
 	}
 	response := buf.String()
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
 			"response": response,
 		}).Error(errorMessage)

@@ -77,6 +77,7 @@ type SalesforceResponse struct {
 type recordResponse struct {
 	Attributes        map[string]interface{} `json:"attributes"`
 	ContentDocumentID string                 `json:"ContentDocumentId"`
+	Id                string                 `json:"Id"`
 }
 
 //SearchResponse handles search document response
@@ -89,6 +90,8 @@ type SearchResponse struct {
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
 	CreateCase(CaseRequest) error
+	Search(string) (*SearchResponse, error)
+	SearchId(string) (string, error)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
@@ -136,7 +139,7 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
 
 		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
 			return "", errors.New(errorMessage)
 		}
@@ -164,15 +167,15 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 	return response.ID, nil
 }
 
-//SearchDocumentID looks for the DocumentID of the file created
-func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
+//Search for entities in salesforce
+func (cc *SalesforceClient) Search(query string) (*SearchResponse, error) {
 	var errorMessage string
 
 	//validating query param
 	if query == "" || len(query) < 1 {
 		errorMessage = fmt.Sprintf("%s : %s", constants.QueryParamError, helpers.MissingQueryParam)
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return nil, errors.New(errorMessage)
 	}
 
 	header := make(map[string]string)
@@ -189,7 +192,7 @@ func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return nil, errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
@@ -197,16 +200,16 @@ func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
 		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
 
 		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
-			return "", errors.New(errorMessage)
+			return nil, errors.New(errorMessage)
 		}
 
 		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return nil, errors.New(errorMessage)
 	}
 
 	var response SearchResponse
@@ -215,20 +218,56 @@ func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("Search successfully“")
+
+	return &response, nil
+}
+
+//SearchDocumentID looks for the DocumentID of the file created
+func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
+	response, err := cc.Search(query)
+
+	if err != nil {
+		return "", err
 	}
 
 	if len(response.Records) < 1 || response.Records[0].ContentDocumentID == "" {
-		errorMessage = fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
+		errorMessage := fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
 		logrus.Error(errorMessage)
 		return "", errors.New(errorMessage)
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"response": response,
+		"DocumentID": response.Records[0].ContentDocumentID,
 	}).Info("DocumentID found successfully“")
 
 	return response.Records[0].ContentDocumentID, nil
+}
+
+//Search the entity's identifier from Salesforce
+func (cc *SalesforceClient) SearchID(query string) (string, error) {
+	response, err := cc.Search(query)
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(response.Records) < 1 || response.Records[0].Id == "" {
+		errorMessage := fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
+		logrus.Error(errorMessage)
+		return "", errors.New(errorMessage)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"ID": response.Records[0].Id,
+	}).Info("ID found successfully“")
+
+	return response.Records[0].Id, nil
 }
 
 //LinkDocumentToCase associates the file added with an valid case
@@ -272,7 +311,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
 
 		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
 			return "", errors.New(errorMessage)
 		}

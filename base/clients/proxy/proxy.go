@@ -17,10 +17,6 @@ var NewRequest = http.NewRequest
 
 const (
 	FormUrlencodeHeader = "application/x-www-form-urlencoded"
-
-	ForwardError    = "Error forwarding the request through the Proxy"
-	UnmarshallError = "Error unmarshalling the response"
-	StatusError     = "Error call with status"
 )
 
 // Proxy define a third service that will receive our messages to be sent
