@@ -312,3 +312,46 @@ func TestChatClient_ReconnectSession(t *testing.T) {
 		assert.Nil(t, session)
 	})
 }
+
+func TestChatEnd(t *testing.T) {
+	const (
+		affinityToken = "affinityToken"
+		sessionKey    = "sessionKey"
+	)
+
+	t.Run("Chat end succesfully", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+		}, nil)
+
+		err := sfChatClient.ChatEnd(affinityToken, sessionKey)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Chat end error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		err := sfChatClient.ChatEnd(affinityToken, sessionKey)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Chat end error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		sfChatClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+		}, nil)
+
+		err := sfChatClient.ChatEnd(affinityToken, sessionKey)
+
+		assert.Error(t, err)
+	})
+}
