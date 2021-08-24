@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -65,7 +66,7 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.ForwardError, proxyError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
 		return "", errors.New(errorMessage)
 	}
@@ -74,13 +75,13 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
 
 	if readAndUnmarshalError != nil {
-		errorMessage = fmt.Sprintf("%s : %s", proxy.UnmarshallError, readAndUnmarshalError.Error())
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
 		return "", errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != 200 {
-		errorMessage = fmt.Sprintf("%s : %d", proxy.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)

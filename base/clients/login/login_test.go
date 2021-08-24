@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -61,7 +62,7 @@ func TestGetToken(t *testing.T) {
 
 	t.Run("Should fail by unmarshall error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.UnmarshallError
+		expectedError := constants.UnmarshallError
 		salesforceClient := &SfcLoginClient{
 			Proxy: proxy.NewProxy("http://salesforce.com"),
 		}
@@ -90,7 +91,7 @@ func TestGetToken(t *testing.T) {
 
 	t.Run("Should fail by proxy error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.ForwardError
+		expectedError := constants.ForwardError
 		salesforceClient := &SfcLoginClient{
 			Proxy: mock,
 		}
@@ -116,7 +117,7 @@ func TestGetToken(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := proxy.StatusError
+		expectedError := constants.StatusError
 		salesforceClient := &SfcLoginClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,

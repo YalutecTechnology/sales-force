@@ -70,7 +70,7 @@ type Message struct {
 	AgentId               string                 `json:"agentId,omitempty"`
 	Text                  string                 `json:"text,omitempty"`
 	Schedule              map[string]interface{} `json:"schedule,omitempty"`
-	Items                 []string               `json:"items",omitempty`
+	Items                 []string               `json:"items,omitempty"`
 	SneakPeekEnabled      bool                   `json:"sneakPeekEnabled,omitempty"`
 	ChasitorIdleTimeout   map[string]interface{} `json:"chasitorIdleTimeout,omitempty"`
 	ConnectionTimeout     int                    `json:"connectionTimeout,omitempty"`
@@ -84,6 +84,8 @@ type Message struct {
 	VisitorId             string                 `json:"visitorId,omitempty"`
 	Type                  string                 `json:"type,omitempty"`
 	GeoLocation           GeoLocation            `json:"geoLocation,omitempty"`
+	ResetSequence         bool                   `json:"resetSequence,omitempty"`
+	AffinityToken         string                 `json:"affinityToken,omitempty"`
 }
 
 type GeoLocation struct {
@@ -100,6 +102,7 @@ type SfcChatInterface interface {
 	GetMessages(string, string) ([]Message, *helpers.ErrorResponse)
 	SendMessage(string, string, MessagePayload) (bool, error)
 	EndChat(string, string) (bool, error)
+	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
 }
 
 func NewChatRequest(organizationID, deployementID, seassionID, ButtonID, userName string) ChatRequest {
@@ -339,4 +342,57 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 		"response": response,
 	}).Info("Send Message sucessfully")
 	return true, nil
+}
+
+//ReconnectSession Reconnet session to the live agent user.
+func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error) {
+	var errorMessage string
+	logrus.WithFields(logrus.Fields{
+		"offset": offset,
+	}).Info("query params received")
+
+	//validating query params struct
+	if offset == "" {
+		errorMessage = fmt.Sprintf("%s ", constants.QueryParamError)
+		logrus.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	header := make(map[string]string)
+	header[apiVersionHeader] = c.ApiVersion
+	header[affinityHeader] = affinityToken
+	header[sessionKeyHeader] = sessionKey
+
+	newRequest := proxy.Request{
+		Body:      []byte{},
+		Method:    http.MethodPost,
+		URI:       fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
+		HeaderMap: header,
+	}
+
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	if proxyError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
+		logrus.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	if proxiedResponse.StatusCode != 200 {
+		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+	}
+
+	var session MessagesResponse
+	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &session)
+
+	if readAndUnmarshalError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	//check this one if this is a response success
+	logrus.WithFields(logrus.Fields{
+		"response": session,
+	}).Info("Reconnet session sucessfully")
+	return &session, nil
 }
