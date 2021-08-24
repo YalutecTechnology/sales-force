@@ -1,10 +1,11 @@
 
 <a name="v0.0.1"></a>
-## v0.0.1 (2021-08-21)
+## v0.0.1 (2021-08-22)
 
 ### Feat
 
 * **Integration Enviroment:** Create skaffold configuration for stagging. Closes #CSF-23
+* **Integration-Backbone:** requester  to create  contact  in  Salesfo Add service to create contact. Closes #CNF-150
 * **Integration-Backbone:** Create main structure. Add project  base files : in-memory store library, proxy library, add endpoint healtcheck. Closes #CSF-43
 * **Integration-Backbone:** Service to send message to Salesforce. Add endpoint to send a text message to Salesforce API. Closes #CSF-59
 * **Integration-Backbone:** Service to send images to Salesforce. Add endpoints to upload and associate an image to a case. Closes #CSF-60

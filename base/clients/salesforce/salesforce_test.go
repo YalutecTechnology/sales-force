@@ -490,3 +490,105 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		assert.Empty(t, id)
 	})
 }
+
+func TestCaseClient_CreateContact(t *testing.T) {
+
+	t.Run("Create contact Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := ContactRequest{
+			FirstName:   "firstname",
+			LastName:    "lasrname",
+			MobilePhone: "11111111111",
+			Email:       "test@mail.com",
+		}
+		id, err := salesforceClient.CreateContact(payload)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		assert.Equal(t, "dasfasfasd", id)
+	})
+
+	t.Run("Create contact  error validation payload", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := ContactRequest{
+			FirstName:   "firstname",
+			LastName:    "lasrname",
+			MobilePhone: "11111111111",
+		}
+		id, err := salesforceClient.CreateContact(payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("Create contact  error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		payload := ContactRequest{
+			FirstName:   "firstname",
+			LastName:    "lasrname",
+			MobilePhone: "11111111111",
+			Email:       "test@mail.com",
+		}
+		id, err := salesforceClient.CreateContact(payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	// t.Run("Create contact unmarsahal response", func(t *testing.T) {
+	// 	mock := &proxy.Mock{}
+	// 	salesforceClient := NewSalesforceRequester(caseURL,token)
+	// 	salesforceClient.Proxy = mock
+	// 	mock.On("SendHTTPRequest").Return(&http.Response{
+	// 		StatusCode: http.StatusOK,
+	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
+	// 	}, nil)
+	// 	payload := ContactRequest{
+	// 	FirstName: "firstname",
+	// 	LastName: "lasrname",
+	// 	MobilePhone: "11111111111",
+	// 	Email: "test@mail.com",
+	// }
+	// 	id, err := salesforceClient.CreateContact(payload)
+
+	// 	assert.Error(t, err)
+	// 	assert.Empty(t, id)
+	// })
+
+	t.Run("Create contact error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := ContactRequest{
+			FirstName:   "firstname",
+			LastName:    "lasrname",
+			MobilePhone: "11111111111",
+			Email:       "test@mail.com",
+		}
+		id, err := salesforceClient.CreateContact(payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+}
