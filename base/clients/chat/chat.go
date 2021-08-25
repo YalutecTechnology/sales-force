@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,7 @@ const (
 	affinityHeader   = "X-LIVEAGENT-AFFINITY"
 	sessionKeyHeader = "X-LIVEAGENT-SESSION-KEY"
 	sequenceHeader   = "X-LIVEAGENT-SEQUENCE"
+	bodyReason       = `{"reason": "client"}`
 )
 
 type SfcChatClient struct {
@@ -189,18 +191,12 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 	//building request to send through proxy
 	requestBytes, _ := json.Marshal(request)
 
-	header := make(map[string]string)
-	header[apiVersionHeader] = c.ApiVersion
-	header[affinityHeader] = affinityToken
-	header[sessionKeyHeader] = sessionKey
-	header[sequenceHeader] = "1"
-
-	newRequest := proxy.Request{
-		Body:      requestBytes,
-		Method:    http.MethodPost,
-		URI:       "/chat/rest/Chasitor/ChasitorInit",
-		HeaderMap: header,
-	}
+	newRequest := c.getRequest(
+		affinityToken,
+		sessionKey,
+		http.MethodPost,
+		"/chat/rest/Chasitor/ChasitorInit",
+		requestBytes)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
@@ -229,17 +225,13 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 // Get messages from chat of salesforce.
 func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse) {
 	var errorMessage string
-	//building request to send through proxy
-	header := make(map[string]string)
-	header[apiVersionHeader] = c.ApiVersion
-	header[affinityHeader] = affinityToken
-	header[sessionKeyHeader] = sessionKey
 
-	newRequest := proxy.Request{
-		Method:    http.MethodGet,
-		URI:       "/chat/rest/System/Messages",
-		HeaderMap: header,
-	}
+	newRequest := c.getRequest(
+		affinityToken,
+		sessionKey,
+		http.MethodGet,
+		"/chat/rest/System/Messages",
+		nil)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
@@ -301,17 +293,12 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 	//building request to send through proxy
 	requestBytes, _ := json.Marshal(payload)
 
-	header := make(map[string]string)
-	header[apiVersionHeader] = c.ApiVersion
-	header[affinityHeader] = affinityToken
-	header[sessionKeyHeader] = sessionKey
-
-	newRequest := proxy.Request{
-		Body:      requestBytes,
-		Method:    http.MethodPost,
-		URI:       "/chat/rest/Chasitor/ChatMessage",
-		HeaderMap: header,
-	}
+	newRequest := c.getRequest(
+		affinityToken,
+		sessionKey,
+		http.MethodPost,
+		"/chat/rest/Chasitor/ChatMessage",
+		requestBytes)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
@@ -320,14 +307,10 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 		return false, errors.New(errorMessage)
 	}
 
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(proxiedResponse.Body)
+	response, err := stringResponse(proxiedResponse.Body)
 	if err != nil {
-		errorMessage = fmt.Sprintf("%s : %s", constants.ResponseError, err.Error())
-		logrus.Error(errorMessage)
-		return false, errors.New(errorMessage)
+		return false, err
 	}
-	response := buf.String()
 
 	if proxiedResponse.StatusCode != http.StatusOK {
 		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
@@ -358,17 +341,12 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 		return nil, errors.New(errorMessage)
 	}
 
-	header := make(map[string]string)
-	header[apiVersionHeader] = c.ApiVersion
-	header[affinityHeader] = affinityToken
-	header[sessionKeyHeader] = sessionKey
-
-	newRequest := proxy.Request{
-		Body:      []byte{},
-		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
-		HeaderMap: header,
-	}
+	newRequest := c.getRequest(
+		affinityToken,
+		sessionKey,
+		http.MethodPost,
+		fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
+		nil)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
 	if proxyError != nil {
@@ -377,13 +355,12 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 		return nil, errors.New(errorMessage)
 	}
 
-	if proxiedResponse.StatusCode != 200 {
+	if proxiedResponse.StatusCode != http.StatusOK {
 		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	var session MessagesResponse
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &session)
-
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
@@ -395,4 +372,74 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 		"response": session,
 	}).Info("Reconnet session sucessfully")
 	return &session, nil
+}
+
+//ChatEnd end chat of salesforce.
+func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
+	var errorMessage string
+
+	newRequest := c.getRequest(
+		affinityToken,
+		sessionKey,
+		http.MethodPost,
+		"/chat/rest/Chasitor/ChatEnd",
+		[]byte(bodyReason))
+
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	if proxyError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
+		logrus.Error(errorMessage)
+		return errors.New(errorMessage)
+	}
+
+	response, err := stringResponse(proxiedResponse.Body)
+	if err != nil {
+		return err
+	}
+
+	if proxiedResponse.StatusCode != http.StatusOK {
+		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		logrus.WithFields(logrus.Fields{
+			"response": response,
+		}).Error(errorMessage)
+		return errors.New(errorMessage)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("Chat end sucessfully")
+
+	return nil
+}
+
+func stringResponse(body io.ReadCloser) (string, error) {
+	buf := new(bytes.Buffer)
+
+	_, err := buf.ReadFrom(body)
+	if err != nil {
+		errorMessage := fmt.Sprintf("%s : %s", constants.ResponseError, err.Error())
+		logrus.Error(errorMessage)
+		return "", errors.New(errorMessage)
+	}
+
+	return buf.String(), nil
+}
+
+func (c *SfcChatClient) getRequest(affinityToken, sessionKey, method, uri string, body []byte) proxy.Request {
+	header := make(map[string]string)
+	header[apiVersionHeader] = c.ApiVersion
+	header[affinityHeader] = affinityToken
+	header[sessionKeyHeader] = sessionKey
+
+	newRequest := proxy.Request{
+		Method:    method,
+		URI:       uri,
+		HeaderMap: header,
+	}
+
+	if body != nil {
+		newRequest.Body = body
+	}
+
+	return newRequest
 }
