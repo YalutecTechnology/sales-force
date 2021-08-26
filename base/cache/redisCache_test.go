@@ -107,7 +107,7 @@ func TestStoreData(t *testing.T) {
 			client: c,
 		}
 		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
-		err := rc.StoreData("key-test", nil)
+		err := rc.StoreData("key-test", nil, time.Second)
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
 		}
