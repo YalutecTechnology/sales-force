@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/models"
 )
 
 const (
@@ -287,6 +288,73 @@ func TestCaseClient_SearchId(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		id, err := salesforceClient.SearchID("query")
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+}
+
+func TestCaseClient_SearchContact(t *testing.T) {
+
+	t.Run("SearchContact Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":1,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qzu1iAAB"},"Id":"0032300000Qzu1iAAB","FirstName":"name","LastName":"lastname","MobilePhone":"55555","Email":"user@example.com"}]}`))),
+		}, nil)
+		contactExpected := &models.SfcContact{
+			Id:          "0032300000Qzu1iAAB",
+			FirstName:   "name",
+			LastName:    "lastname",
+			Email:       "user@example.com",
+			MobilePhone: "55555",
+		}
+		query := "SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+FROM+Contact+WHERE+mobilePhone+=+%277331175599%27"
+		contact, err := salesforceClient.SearchContact(query)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("Search Error validation query", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		contact, err := salesforceClient.SearchContact("")
+
+		assert.Error(t, err)
+		assert.Empty(t, contact)
+	})
+
+	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		id, err := salesforceClient.SearchContact("query")
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
+
+	t.Run("SearchContact error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.SearchContact("query")
 		assert.Error(t, err)
 		assert.Empty(t, id)
 	})

@@ -35,9 +35,9 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	}
 
 	// This log should hide the secrets before sending to production
-	logrus.WithFields(logrus.Fields{
+	/*logrus.WithFields(logrus.Fields{
 		"payload": tokenPayload,
-	}).Info("Payload received")
+	}).Info("Payload received")*/
 
 	//validating token Payload struct
 	if err := helpers.Govalidator().Struct(tokenPayload); err != nil {
@@ -89,9 +89,10 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	}
 
 	//check this one if this is a response success
-	logrus.WithFields(logrus.Fields{
+	/*logrus.WithFields(logrus.Fields{
 		"response": responseMap,
-	}).Info("Get accessToken sucessfully")
+	}).Info("Get accessToken sucessfully")*/
+	logrus.Info("Get accessToken sucessfully")
 
 	if _, ok := responseMap["access_token"]; ok {
 		return responseMap["access_token"].(string), nil

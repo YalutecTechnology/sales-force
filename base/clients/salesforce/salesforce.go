@@ -10,6 +10,7 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/proxy"
 	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
+	"yalochat.com/salesforce-integration/base/models"
 )
 
 func NewSalesforceRequester(url, token string) *SalesforceClient {
@@ -78,6 +79,10 @@ type recordResponse struct {
 	Attributes        map[string]interface{} `json:"attributes"`
 	ContentDocumentID string                 `json:"ContentDocumentId"`
 	Id                string                 `json:"Id"`
+	FirstName         string                 `json:"FirstName"`
+	LastName          string                 `json:"LastName"`
+	Email             string                 `json:"Email"`
+	MobilePhone       string                 `json:"MobilePhone"`
 }
 
 //SearchResponse handles search document response
@@ -99,7 +104,8 @@ type ContactRequest struct {
 type SaleforceInterface interface {
 	CreateCase(CaseRequest) error
 	Search(string) (*SearchResponse, error)
-	SearchId(string) (string, error)
+	SearchID(string) (string, error)
+	SearchContact(string) (*models.SfcContact, error)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
@@ -279,6 +285,34 @@ func (cc *SalesforceClient) SearchID(query string) (string, error) {
 	return response.Records[0].Id, nil
 }
 
+func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, error) {
+	response, err := cc.Search(query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Records) < 1 || response.Records[0].Id == "" {
+		errorMessage := fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
+		logrus.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	contact := models.SfcContact{
+		Id:          response.Records[0].Id,
+		FirstName:   response.Records[0].FirstName,
+		LastName:    response.Records[0].LastName,
+		Email:       response.Records[0].Email,
+		MobilePhone: response.Records[0].MobilePhone,
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"contact": contact,
+	}).Info("Contact found successfully“")
+
+	return &contact, nil
+}
+
 //LinkDocumentToCase associates the file added with an valid case
 func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentPayload) (string, error) {
 	var errorMessage string
@@ -449,7 +483,7 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 
 	}
 
-	if proxiedResponse.StatusCode != http.StatusOK {
+	if proxiedResponse.StatusCode != http.StatusCreated {
 		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 

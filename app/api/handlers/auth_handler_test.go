@@ -266,7 +266,7 @@ func TestAuthorizeMiddlewareByHeader(t *testing.T) {
 		req, _ := http.NewRequest("GET", requestURL, nil)
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 		response := httptest.NewRecorder()
-		errorExpected := "There was an error, SigningMethod is invalid"
+		errorExpected := "there was an error, SigningMethod is invalid"
 
 		handler.ServeHTTP(response, req)
 		if response.Code != http.StatusInternalServerError {
@@ -349,7 +349,7 @@ func TestParseBearerToken(t *testing.T) {
 	t.Run("Should recover the error by token with invalid signature method", func(t *testing.T) {
 		token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiI1YmFhNjFlNGM5YjkzZjNmMDY4MjI1MGI2Y2Y4MzMxYjdlZTY4ZmQ4In0.nugLnvFL1Znx5xFby5WjIkTUAAbCsqj2ROamzTNsUdqIb1ngBKNkMwvEuQpnK9c-Rki5N3MGYFUVJxpeayLh5AxnixUMvCEkVlZj-M4m-mQUSDP1MmgzvPY7h_jA5e58bjEGnnCqRawXVhXYNcGUZ9hxSu07yPaMhVoXuLIItaYq3nnF6g1s1YPytuvyf_NUmyYW0yzCvr3CMcyXldQN5OO4Jw08Wg1X-Y7S_BPnh9wTBLiSnUdd9R2WQs7k2QfAgKTWPit1xiVHLf76eWJ8-stpXYePtCyvTN3sOOCpqv-tDFvXOGe4QH8AvhYyYTXK-dLwTkPA_E_4l0jBU059Yw"
 		_, err := app.parseBearerToken(token)
-		errorExpected := "There was an error, SigningMethod is invalid"
+		errorExpected := "there was an error, SigningMethod is invalid"
 
 		if err == nil {
 			t.Errorf("Response err not should nil, but it answer with %v ", err)

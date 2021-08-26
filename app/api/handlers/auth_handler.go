@@ -135,7 +135,7 @@ func (app *App) validToken(w http.ResponseWriter, req *http.Request, params http
 func (app *App) parseBearerToken(bearerToken string) (*jwt.Token, error) {
 	return jwt.Parse(bearerToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("There was an error, SigningMethod is invalid")
+			return nil, fmt.Errorf("there was an error, SigningMethod is invalid")
 		}
 		return []byte(app.SecretKey), nil
 	})
