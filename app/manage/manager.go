@@ -2,6 +2,8 @@ package manage
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 
@@ -22,6 +24,15 @@ var (
 	SfcButtonId       string
 )
 
+const (
+	voiceType    = "voice"
+	documentType = "document"
+	imageType    = "image"
+	textType     = "text"
+	fromUser     = "user"
+	fromBot      = "bot"
+)
+
 // Manager controls the process of the app
 type Manager struct {
 	clientName         string
@@ -30,6 +41,7 @@ type Manager struct {
 	sfcContactMap      map[string]*models.SfcContact
 	SalesforceService  *services.SalesforceService
 	integrationsClient *integrations.IntegrationsClient
+	contextCache       cache.ContextCache
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -51,12 +63,16 @@ type ManagerOptions struct {
 	SfcOwnerId        string
 }
 
+type ManagerI interface {
+	SaveContext(integration *models.IntegrationsRequest) error
+}
+
 // CreateManager retrieves an agents manager
 func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationId = config.SfcOrganizationId
 	SfcDeploymentId = config.SfcDeploymentId
 	SfcButtonId = config.SfcButtonId
-	_, err := cache.NewRedisCache(&config.RedisOptions)
+	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
 	if err != nil {
 		logrus.WithError(err).Error("Error initializing Redis Manager")
@@ -99,7 +115,9 @@ func CreateManager(config *ManagerOptions) *Manager {
 		interconnectionMap: make(map[string]*models.Interconnection),
 		sessionMap:         make(map[string]string),
 		sfcContactMap:      make(map[string]*models.SfcContact),
+		contextCache:       contextCache,
 	}
+
 	return m
 }
 
@@ -175,4 +193,51 @@ func (m *Manager) AddInterconnection(interconnection *models.Interconnection) {
 		"sessionMap":             m.sessionMap,
 		"InterconectionMapCount": len(m.interconnectionMap),
 	}).Info("Create interconnection successfully")
+}
+
+// SaveContext method will save context of integration message
+func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
+	timestamp, err := strconv.Atoi(integration.Timestamp)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"integration": integration,
+		}).WithError(err).Error("Error format timestamp")
+		return err
+	}
+
+	ctx := cache.Context{
+		UserID:    integration.From,
+		Timestamp: timestamp,
+		From:      fromUser,
+	}
+
+	switch {
+	case integration.Type == imageType ||
+		integration.Type == voiceType ||
+		integration.Type == documentType:
+		ctx.URL = integration.Image.URL
+		ctx.Caption = integration.Image.Caption
+		ctx.MIMEType = integration.Image.MIMEType
+	case integration.Type == textType:
+		ctx.Text = integration.Text.Body
+	default:
+		logrus.WithFields(logrus.Fields{
+			"integration": integration,
+		}).WithError(err).Error("invalid type message")
+		return fmt.Errorf("invalid type message")
+	}
+
+	if integration.To != "" {
+		ctx.From = fromBot
+		ctx.UserID = integration.To
+	}
+
+	err = m.contextCache.StoreContext(ctx)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"context": ctx,
+		}).WithError(err).Error("Error store context")
+		return err
+	}
+	return nil
 }
