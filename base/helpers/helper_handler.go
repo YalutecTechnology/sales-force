@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "crypto/rand"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
@@ -22,6 +23,7 @@ import (
 var (
 	Govalidator = validator.New
 	MarshalJSON = json.Marshal
+	alphabet    = "abcdefghijklmnopqrstuvwxyz1234567890"
 )
 
 // ValidatePayloadError to validate when there is an error with payload
@@ -211,4 +213,14 @@ func ErrorResponseMap(body io.ReadCloser, unmarshalError string, statusCode int)
 		"response": responseMap,
 	}).Error(errorMessage)
 	return errors.New(errorMessage)
+}
+
+func RandomString(size int) string {
+    ll := len(alphabet)
+    b := make([]byte, size)
+    rand.Read(b)
+    for i := 0; i < size; i++ {
+        b[i] = alphabet[int(b[i])%ll]
+    }
+    return string(b)
 }

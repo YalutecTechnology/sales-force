@@ -18,7 +18,7 @@ import (
 func TestCreateSession(t *testing.T) {
 	sessionResponse := `{"key":"ec550263-354e-477c-b773-7747ebce3f5e!1629334776994!TrfoJ67wmtlYiENsWdaUBu0xZ7M=","id":"ec550263-354e-477c-b773-7747ebce3f5e","clientPollTimeout":40,"affinityToken":"878a1fa0"}`
 
-	t.Run("Get CreateSession Succesfull", func(t *testing.T) {
+	t.Run("Get CreateSession Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
@@ -57,7 +57,7 @@ func TestCreateSession(t *testing.T) {
 
 func TestCreateChat(t *testing.T) {
 
-	t.Run("Get CreateChat Succesfull", func(t *testing.T) {
+	t.Run("Get CreateChat Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
@@ -127,7 +127,7 @@ func TestCreateChat(t *testing.T) {
 func TestGetMessages(t *testing.T) {
 	messagesResponse := `{"messages":[{"type":"ChatRequestSuccess","message":{"connectionTimeout":150000,"estimatedWaitTime":9,"sensitiveDataRules":[],"transcriptSaveEnabled":false,"url":"","queuePosition":1,"customDetails":[],"visitorId":"e5c7268d-ac63-40af-8d1c-d53879f8e637","geoLocation":{"organization":"Telmex","countryName":"Mexico","latitude":19.43,"countryCode":"MX","longitude":-99.13}}},{"type":"QueueUpdate","message":{"estimatedWaitTime":0,"position":0}},{"type":"ChatEstablished","message":{"name":"Everardo G","userId":"0053g000000usWa","items":[],"sneakPeekEnabled":false,"chasitorIdleTimeout":{"isEnabled":false}}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"Ok","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"Lo ayudio","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"que necesita","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"lo ayudo","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}}],"sequence":17,"offset":1636522046}`
 
-	t.Run("Get Messages Succesfull", func(t *testing.T) {
+	t.Run("Get Messages Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
@@ -174,7 +174,7 @@ func TestSendMessage(t *testing.T) {
 		sessionKey    = "sessionKey"
 	)
 
-	t.Run("Send message succesfully", func(t *testing.T) {
+	t.Run("Send message Successfuly", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		sfChatClient := &SfcChatClient{Proxy: mock}
 
@@ -243,7 +243,7 @@ func TestSendMessage(t *testing.T) {
 }
 
 func TestChatClient_ReconnectSession(t *testing.T) {
-	t.Run("ReconnectSession case Succesfull", func(t *testing.T) {
+	t.Run("ReconnectSession case Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		chat := &SfcChatClient{Proxy: mock}
 		expected := MessagesResponse{
@@ -319,7 +319,7 @@ func TestChatEnd(t *testing.T) {
 		sessionKey    = "sessionKey"
 	)
 
-	t.Run("Chat end succesfully", func(t *testing.T) {
+	t.Run("Chat end Successfuly", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		sfChatClient := &SfcChatClient{Proxy: mock}
 
