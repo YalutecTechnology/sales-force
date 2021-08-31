@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-    "crypto/rand"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/sirupsen/logrus"
@@ -216,11 +216,16 @@ func ErrorResponseMap(body io.ReadCloser, unmarshalError string, statusCode int)
 }
 
 func RandomString(size int) string {
-    ll := len(alphabet)
-    b := make([]byte, size)
-    rand.Read(b)
-    for i := 0; i < size; i++ {
-        b[i] = alphabet[int(b[i])%ll]
-    }
-    return string(b)
+	ll := len(alphabet)
+	b := make([]byte, size)
+	rand.Read(b)
+	for i := 0; i < size; i++ {
+		b[i] = alphabet[int(b[i])%ll]
+	}
+	return string(b)
+}
+
+// Return message error with format "[messageTitle] : [error.Error()]"
+func ErrorMessage(messageTitle string, err error) string {
+	return fmt.Sprintf("%s : %s", messageTitle, err)
 }
