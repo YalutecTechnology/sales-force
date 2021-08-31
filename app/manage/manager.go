@@ -2,7 +2,9 @@ package manage
 
 import (
 	"github.com/sirupsen/logrus"
+
 	"yalochat.com/salesforce-integration/base/cache"
+	"yalochat.com/salesforce-integration/base/clients/integrations"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -11,10 +13,11 @@ import (
 
 // Manager controls the process of the app
 type Manager struct {
-	clientName     string
-	sfcLoginClient *login.SfcLoginClient
-	sfcChatClient  *chat.SfcChatClient
-	sfcClient      *salesforce.SalesforceClient
+	clientName        string
+	integrationsClient *integrations.IntegrationsClient
+	sfcLoginClient    *login.SfcLoginClient
+	sfcChatClient     *chat.SfcChatClient
+	sfcClient         *salesforce.SalesforceClient
 }
 
 // ManagerOptions holds configurations for the interactions manager
