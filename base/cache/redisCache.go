@@ -17,7 +17,7 @@ var (
 
 // CommonRedisCache interface that holds method to retrieve cached sessions
 type CommonRedisCache interface {
-	StoreData(string, []byte) error
+	StoreData(string, []byte, time.Duration) error
 	RetrieveData(string) (string, error)
 }
 
@@ -68,8 +68,8 @@ func (rc *RedisCache) ping() error {
 }
 
 // StoreData saves a user session on the Session Cache
-func (rc *RedisCache) StoreData(key string, data []byte) error {
-	_, err := rc.client.Set(key, data, rc.sessionTTL).Result()
+func (rc *RedisCache) StoreData(key string, data []byte, ttl time.Duration) error {
+	_, err := rc.client.Set(key, data, ttl).Result()
 	if err != nil {
 		return err
 	}
