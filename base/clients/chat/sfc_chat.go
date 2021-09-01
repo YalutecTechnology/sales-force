@@ -21,6 +21,15 @@ const (
 	sessionKeyHeader = "X-LIVEAGENT-SESSION-KEY"
 	sequenceHeader   = "X-LIVEAGENT-SEQUENCE"
 	bodyReason       = `{"reason": "client"}`
+
+	ChatRequestFail    = "ChatRequestFail"
+	ChatRequestSuccess = "ChatRequestSuccess"
+	QueueUpdate        = "QueueUpdate"
+	ChatEstablished    = "ChatEstablished"
+	ChatMessage        = "ChatMessage"
+	AgentTyping        = "AgentTyping"
+	AgentNotTyping     = "AgentNotTyping"
+	ChatEnded          = "ChatEnded"
 )
 
 type SfcChatClient struct {
@@ -241,22 +250,12 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		responseMap := map[string]interface{}{}
-		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
-
-		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
-			logrus.Error(errorMessage)
-			return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
-		}
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
-		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
-		}).Error(errorMessage)
-		return nil, &helpers.ErrorResponse{
-			StatusCode: proxiedResponse.StatusCode,
-			Error:      errors.New(errorMessage),
-		}
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(proxiedResponse.Body)
+		bodyResponse := buf.String()
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
+		logrus.Error(errorMessage)
+		return nil, &helpers.ErrorResponse{StatusCode: proxiedResponse.StatusCode, Error: errors.New(errorMessage)}
 	}
 
 	var messages MessagesResponse

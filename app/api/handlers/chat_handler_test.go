@@ -78,6 +78,9 @@ func TestCreateChat(t *testing.T) {
 	}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(sessionResponse))),
+	}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"type":"ChatRequestFail","message":{"geoLocation":{}}}]}`))),
 	}, nil).Once()
 
 	t.Run("Should get a valid response with valid line and agent name", func(t *testing.T) {

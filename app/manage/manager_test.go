@@ -38,10 +38,11 @@ func TestCreateManager(t *testing.T) {
 	t.Run("Should retrieve a manager instance", func(t *testing.T) {
 		expected := &Manager{
 			clientName:         "salesforce-integration",
-			interconnectionMap: make(map[string]*models.Interconnection),
+			interconnectionMap: make(map[string]*Interconnection),
 			sessionMap:         make(map[string]string),
 			sfcContactMap:      make(map[string]*models.SfcContact),
 			SalesforceService:  nil,
+			IntegrationsClient: nil,
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -55,6 +56,10 @@ func TestCreateManager(t *testing.T) {
 		}
 		actual := CreateManager(config)
 		actual.SalesforceService = nil
+		actual.IntegrationsClient = nil
+		expected.integrationsChannel = actual.integrationsChannel
+		expected.salesforceChannel = actual.salesforceChannel
+		expected.finishInterconnection = actual.finishInterconnection
 
 		assert.Equal(t, expected, actual)
 	})
@@ -65,7 +70,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	defer m.Close()
 	defer s.Close()
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
-		interconnection := &models.Interconnection{
+		interconnection := &Interconnection{
 			UserId:      userId,
 			BotSlug:     botSlug,
 			BotId:       botId,
@@ -111,6 +116,9 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(sessionResponse))),
+		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"type":"ChatRequestFail","message":{"geoLocation":{}}}]}`))),
 		}, nil).Once()
 
 		err := manager.CreateChat(interconnection)

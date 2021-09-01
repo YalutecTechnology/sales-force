@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -208,11 +207,11 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}) (*SendMess
 	var errorMessage string
 
 	// If not have Id set a random id
-	fieldId := reflect.ValueOf(messagePayload).Elem().FieldByName("Id")
+	/*fieldId := reflect.ValueOf(messagePayload).Elem().FieldByName("id")
 	if fieldId.IsValid() && fieldId.String() == "" {
 		id := helpers.RandomString(24)
 		fieldId.SetString(id)
-	}
+	}*/
 
 	logrus.WithFields(logrus.Fields{
 		"payload": messagePayload,

@@ -1,7 +1,6 @@
 
 <a name="v0.0.1"></a>
-## v0.0.1 (2021-08-27)
-
+## v0.0.1 (2021-08-31)
 ### Feat
 
 * **Integration Enviroment:** Create skaffold configuration for stagging. Closes #CSF-23
@@ -18,4 +17,5 @@
 * **Integration-Library Salesforce:** Service to long polling messages from Salesforce. Add the request to obtain the agents' messages  of a chat, the security token is added to the request to obtain token. Closes #CSF-58
 * **Integration-Library Salesforce:** Set to Create Chat from Salesforce. We need to create an endpoint to create and initialize a chat with Salesforce. Closes #CSF-155
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
+* **Integration-Library Salesforce:** Set to handle Salesforce messages (receiving and sending). We add start long polling service. Closes #CSF-65
 

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
+	"yalochat.com/salesforce-integration/app/manage"
 	"yalochat.com/salesforce-integration/base/helpers"
-	"yalochat.com/salesforce-integration/base/models"
 )
 
 type ChatPayload struct {
@@ -36,10 +36,10 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 	}
 
 	// Create Interconnection between yalo and salesforce
-	interconnection := &models.Interconnection{
+	interconnection := &manage.Interconnection{
 		UserId:      chatPayload.UserID,
 		Name:        chatPayload.Name,
-		Provider:    models.Provider(chatPayload.Provider),
+		Provider:    manage.Provider(chatPayload.Provider),
 		BotSlug:     chatPayload.BotSlug,
 		BotId:       chatPayload.BotId,
 		PhoneNumber: chatPayload.PhoneNumber,

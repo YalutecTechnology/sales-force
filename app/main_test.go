@@ -8,8 +8,8 @@ import (
 )
 
 func TestMain(t *testing.T) {
-	os.Setenv("INTEGRATIONS-ADDON-SFSC_YALO_PASSWORD", "yaloPassword")
-	os.Setenv("INTEGRATIONS-ADDON-SFSC_SECRET_KEY", "secret")
+	os.Setenv("SALESFORCE-INTEGRATION_YALO_PASSWORD", "yaloPassword")
+	os.Setenv("SALESFORCE-INTEGRATION_SECRET_KEY", "secret")
 
 	t.Run("Should initialize main without errors", func(t *testing.T) {
 		go func() {
