@@ -13,15 +13,15 @@ type ContextCacheMock struct {
 }
 
 // RetrieveContext provides a mock function with given fields: userID
-func (_m *ContextCacheMock) RetrieveContext(userID string) *[]cache.Context {
+func (_m *ContextCacheMock) RetrieveContext(userID string) []cache.Context {
 	ret := _m.Called(userID)
 
-	var r0 *[]cache.Context
-	if rf, ok := ret.Get(0).(func(string) *[]cache.Context); ok {
+	var r0 []cache.Context
+	if rf, ok := ret.Get(0).(func(string) []cache.Context); ok {
 		r0 = rf(userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*[]cache.Context)
+			r0 = ret.Get(0).([]cache.Context)
 		}
 	}
 

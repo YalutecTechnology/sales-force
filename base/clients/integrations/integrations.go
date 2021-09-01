@@ -135,7 +135,7 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 		return nil, errors.New(errorMessage)
 	}
 
-	if proxiedResponse.StatusCode != http.StatusOK {
+	if proxiedResponse.StatusCode != http.StatusCreated {
 		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 

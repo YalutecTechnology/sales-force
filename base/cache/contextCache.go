@@ -25,7 +25,7 @@ type Context struct {
 // ContextCache interface that holds method to retrieve context chat from redis cache
 type ContextCache interface {
 	StoreContext(Context) error
-	RetrieveContext(userID string) *[]Context
+	RetrieveContext(userID string) []Context
 }
 
 // assembleContextKey retrive key by template
@@ -41,7 +41,7 @@ func (rc *RedisCache) StoreContext(context Context) error {
 }
 
 // RetrieveContext returns a context from the Cache
-func (rc *RedisCache) RetrieveContext(userID string) *[]Context {
+func (rc *RedisCache) RetrieveContext(userID string) []Context {
 	var redisContextArray []Context
 	data := rc.client.Keys(fmt.Sprintf("context:user_id:%s:timestamp:*", userID))
 	for _, key := range data.Val() {
@@ -51,5 +51,5 @@ func (rc *RedisCache) RetrieveContext(userID string) *[]Context {
 		redisContextArray = append(redisContextArray, redisContext)
 	}
 
-	return &redisContextArray
+	return redisContextArray
 }

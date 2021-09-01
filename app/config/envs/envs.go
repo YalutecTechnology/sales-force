@@ -8,7 +8,7 @@ type Envs struct {
 	SentryDSN             string `default:"" split_words:"true"`
 	Environment           string `default:"dev" split_words:"true"`
 	MainContextTimeOut    int16  `default:"10" split_words:"true"`
-	RedisAddress          string `split_words:"true" default:"localhost:6379"`
+	RedisAddress          string `split_words:"true"`
 	RedisMaster           string `split_words:"true"`
 	RedisSentinelAddress  string `split_words:"true"`
 	YaloUsername          string `required:"true" split_words:"true" default:"yaloUser"`
@@ -35,4 +35,6 @@ type Envs struct {
 	IntegrationsBotJWT    string `split_words:"true"`
 	IntegrationsBaseUrl   string `split_words:"true"`
 	IntegrationsSignature string `split_words:"true"`
+	WebhookBaseUrl        string `split_words:"true"`
+	IntegrationsBotPhone  string `split_words:"true"`
 }
