@@ -28,7 +28,7 @@ type Proxy struct {
 func NewProxy(baseUrl string) *Proxy {
 	return &Proxy{
 		Client: httptrace.WrapClient(&http.Client{
-			Timeout: time.Second * 10,
+			Timeout: time.Second * 60,
 		}),
 
 		BaseURL: baseUrl,

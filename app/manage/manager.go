@@ -35,32 +35,39 @@ const (
 
 // Manager controls the process of the app
 type Manager struct {
-	clientName         string
-	interconnectionMap map[string]*models.Interconnection
-	sessionMap         map[string]string
-	sfcContactMap      map[string]*models.SfcContact
-	SalesforceService  *services.SalesforceService
-	integrationsClient *integrations.IntegrationsClient
-	contextCache       cache.ContextCache
+	clientName            string
+	interconnectionMap    map[string]*Interconnection
+	sessionMap            map[string]string
+	sfcContactMap         map[string]*models.SfcContact
+	SalesforceService     *services.SalesforceService
+	IntegrationsClient    *integrations.IntegrationsClient
+	salesforceChannel     chan *Message
+	integrationsChannel   chan *Message
+	finishInterconnection chan *Interconnection
+	contextCache          cache.ContextCache
 }
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName           string
-	RedisOptions      cache.RedisOptions
-	SfcClientId       string
-	SfcClientSecret   string
-	SfcUsername       string
-	SfcPassword       string
-	SfcSecurityToken  string
-	SfcBaseUrl        string
-	SfcChatUrl        string
-	SfcLoginUrl       string
-	SfcApiVersion     string
-	SfcOrganizationId string
-	SfcDeploymentId   string
-	SfcButtonId       string
-	SfcOwnerId        string
+	AppName             string
+	RedisOptions        cache.RedisOptions
+	SfcClientId         string
+	SfcClientSecret     string
+	SfcUsername         string
+	SfcPassword         string
+	SfcSecurityToken    string
+	SfcBaseUrl          string
+	SfcChatUrl          string
+	SfcLoginUrl         string
+	SfcApiVersion       string
+	SfcOrganizationId   string
+	SfcDeploymentId     string
+	SfcButtonId         string
+	SfcOwnerId          string
+	IntegrationsUrl     string
+	IntegrationsChannel string
+	IntegrationsToken   string
+	IntegrationsBotId   string
 }
 
 type ManagerI interface {
@@ -109,19 +116,61 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
 
-	m := &Manager{
-		clientName:         config.AppName,
-		SalesforceService:  salesforceService,
-		interconnectionMap: make(map[string]*models.Interconnection),
-		sessionMap:         make(map[string]string),
-		sfcContactMap:      make(map[string]*models.SfcContact),
-		contextCache:       contextCache,
-	}
+	integrationsClient := integrations.NewIntegrationsClient(config.IntegrationsUrl, config.IntegrationsToken, config.IntegrationsChannel, config.IntegrationsBotId)
 
+	m := &Manager{
+		clientName:            config.AppName,
+		SalesforceService:     salesforceService,
+		interconnectionMap:    make(map[string]*Interconnection),
+		sessionMap:            make(map[string]string),
+		sfcContactMap:         make(map[string]*models.SfcContact),
+		IntegrationsClient:    integrationsClient,
+		salesforceChannel:     make(chan *Message),
+		integrationsChannel:   make(chan *Message),
+		finishInterconnection: make(chan *Interconnection),
+		contextCache:          contextCache,
+	}
+	go m.handleInterconnection()
 	return m
 }
 
-func (m *Manager) CreateChat(interconnection *models.Interconnection) error {
+// Esta funcion finaliza las interconecciones y envia los mensajes a salesforce o yalo
+func (m *Manager) handleInterconnection() {
+	for {
+		select {
+		case interconection := <-m.finishInterconnection:
+			m.EndChat(interconection)
+		case messageSf := <-m.salesforceChannel:
+			m.sendMessageToSalesforce(messageSf)
+		case messageInt := <-m.integrationsChannel:
+			m.sendMessageToUser(messageInt)
+		}
+	}
+}
+
+func (m *Manager) sendMessageToUser(message *Message) {
+	_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
+		Id:     helpers.RandomString(36),
+		Type:   "text",
+		UserId: message.UserId,
+		Text:   integrations.TextMessage{Body: message.Text},
+	})
+	if err != nil {
+		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+	}
+	logrus.Infof("Send message to userId : %s", message.UserId)
+}
+
+func (m *Manager) sendMessageToSalesforce(message *Message) {
+	_, err := m.SalesforceService.SfcChatClient.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+	if err != nil {
+		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+	}
+	logrus.Infof("Send message to agent from salesforce : %s", message.UserId)
+}
+
+// Initialize a chat with salesforce
+func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	titleMessage := "could not create chat in salesforce"
 
 	// Validate that user does not have an active session
@@ -151,10 +200,10 @@ func (m *Manager) CreateChat(interconnection *models.Interconnection) error {
 
 	//Add interconection to Redis and interconnectionMap
 	m.AddInterconnection(interconnection)
-	logrus.WithField("Interconnection", interconnection).Info("new chat created")
 	return nil
 }
 
+// We get the contact if it exists by your email or phone.
 func (m *Manager) GetOrCreateContact(userId, name, email, phoneNumber string) (*models.SfcContact, error) {
 	contact, ok := m.sfcContactMap[userId]
 	if ok {
@@ -180,16 +229,20 @@ func (m *Manager) ValidateUserId(userId string) error {
 	return nil
 }
 
-func (m *Manager) AddInterconnection(interconnection *models.Interconnection) {
-	interconnection = models.NewInterconection(interconnection)
+func (m *Manager) AddInterconnection(interconnection *Interconnection) {
+	interconnection = NewInterconection(interconnection)
+	interconnection.SfcChatClient = m.SalesforceService.SfcChatClient
+	interconnection.IntegrationsClient = m.IntegrationsClient
+	interconnection.finishChannel = m.finishInterconnection
+	interconnection.integrationsChannel = m.integrationsChannel
+	interconnection.salesforceChannel = m.salesforceChannel
 	//TODO: Store interconnection in Redis
-
 	m.interconnectionMap[interconnection.Id] = interconnection
 	m.sessionMap[interconnection.UserId] = interconnection.SessionId
-	//TODO: Start long polling with Salesforce
-	//go interconnection.handleLongPolling
+	go interconnection.handleLongPolling()
+	go interconnection.handleStatus()
 	logrus.WithFields(logrus.Fields{
-		"interconnection":        interconnection,
+		"interconnection":        interconnection.Id,
 		"sessionMap":             m.sessionMap,
 		"InterconectionMapCount": len(m.interconnectionMap),
 	}).Info("Create interconnection successfully")
@@ -240,4 +293,11 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) EndChat(interconnection *Interconnection) {
+	// TODO: EndChat
+	delete(m.sessionMap, interconnection.UserId)
+	delete(m.interconnectionMap, interconnection.Id)
+	logrus.Infof("Ending Interconnection : %s", interconnection.UserId)
 }
