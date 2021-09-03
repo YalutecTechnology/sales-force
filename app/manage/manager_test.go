@@ -118,3 +118,153 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	})
 
 }
+
+func TestManager_SaveContext(t *testing.T) {
+
+	t.Run("Should save context voice", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			URL:       "uri",
+			MIMEType:  "voice",
+			Caption:   "caption",
+		}
+		contextCache.On("StoreContext", ctx).Return(nil)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      voiceType,
+			From:      "55555555555",
+			Voice: models.Media{
+				URL:      "uri",
+				MIMEType: "voice",
+				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context document", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			URL:       "uri",
+			MIMEType:  "document",
+			Caption:   "caption",
+		}
+		contextCache.On("StoreContext", ctx).Return(nil)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      documentType,
+			From:      "55555555555",
+			Document: models.Media{
+				URL:      "uri",
+				MIMEType: "document",
+				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context document", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			URL:       "uri",
+			MIMEType:  "image",
+			Caption:   "caption",
+		}
+		contextCache.On("StoreContext", ctx).Return(nil)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      imageType,
+			From:      "55555555555",
+			Image: models.Media{
+				URL:      "uri",
+				MIMEType: "image",
+				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context text", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			Text:      "text",
+		}
+		contextCache.On("StoreContext", ctx).Return(nil)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context error", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			Text:      "text",
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.Error(t, err)
+	})
+}

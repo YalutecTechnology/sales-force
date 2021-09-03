@@ -2,7 +2,6 @@ package services
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -81,10 +80,10 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		salesforceService.SfcClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
+			Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
 		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewBuffer([]byte(`{"totalSize":1,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qzu1iAAB"},"Id":"dasfasfasd","FirstName":"contactName","LastName":"contactName","MobilePhone":"5512345678","Email":"user@example.com"}]}`))),
+			Body:       ioutil.NopCloser(bytes.NewBuffer([]byte(`{"totalSize":1,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qzu1iAAB"},"Id":"dasfasfasd","FirstName":"contactName","LastName":"contactName","MobilePhone":"5512345678","Email":"user@example.com"}]}`))),
 		}, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)

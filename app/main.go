@@ -73,11 +73,12 @@ func main() {
 
 	srv := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
 	handlers.API(srv, managerOptions, handlers.ApiConfig{
-		YaloUsername:       envs.YaloUsername,
-		YaloPassword:       envs.YaloPassword,
-		SalesforceUsername: envs.SalesforceUsername,
-		SalesforcePassword: envs.SalesforcePassword,
-		SecretKey:          envs.SecretKey,
+		YaloUsername:          envs.YaloUsername,
+		YaloPassword:          envs.YaloPassword,
+		SalesforceUsername:    envs.SalesforceUsername,
+		SalesforcePassword:    envs.SalesforcePassword,
+		SecretKey:             envs.SecretKey,
+		IntegrationsSignature: envs.IntegrationsSignature,
 	})
 
 	httpServer = http.Server{

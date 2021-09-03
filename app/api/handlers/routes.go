@@ -12,20 +12,22 @@ import (
 
 // App contains the resources related to the application
 type App struct {
-	ManageManager      *manage.Manager
-	YaloUsername       string
-	YaloPassword       string
-	SalesforceUsername string
-	SalesforcePassword string
-	SecretKey          string
+	ManageManager         *manage.Manager
+	YaloUsername          string
+	YaloPassword          string
+	SalesforceUsername    string
+	SalesforcePassword    string
+	SecretKey             string
+	IntegrationsSignature string
 }
 
 type ApiConfig struct {
-	YaloUsername       string
-	YaloPassword       string
-	SalesforceUsername string
-	SalesforcePassword string
-	SecretKey          string
+	YaloUsername          string
+	YaloPassword          string
+	SalesforceUsername    string
+	SalesforcePassword    string
+	SecretKey             string
+	IntegrationsSignature string
 }
 
 const apiVersion = "/v1"
@@ -50,12 +52,13 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	salesforceHash.Write([]byte(apiConfig.SalesforcePassword))
 
 	app := &App{
-		ManageManager:      manager,
-		YaloUsername:       apiConfig.YaloUsername,
-		YaloPassword:       hex.EncodeToString(yaloHash.Sum(nil)),
-		SalesforceUsername: apiConfig.SalesforceUsername,
-		SalesforcePassword: hex.EncodeToString(salesforceHash.Sum(nil)),
-		SecretKey:          apiConfig.SecretKey,
+		ManageManager:         manager,
+		YaloUsername:          apiConfig.YaloUsername,
+		YaloPassword:          hex.EncodeToString(yaloHash.Sum(nil)),
+		SalesforceUsername:    apiConfig.SalesforceUsername,
+		SalesforcePassword:    hex.EncodeToString(salesforceHash.Sum(nil)),
+		SecretKey:             apiConfig.SecretKey,
+		IntegrationsSignature: apiConfig.IntegrationsSignature,
 	}
 	setApp(*app)
 
@@ -63,4 +66,5 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	srv.POST(fmt.Sprintf("%s/authenticate", apiVersion), app.authenticate)
 	srv.GET(fmt.Sprintf("%s/tokens/check", apiVersion), app.authorizeMiddleware(app.getUserByToken, []RoleType{Yalo, Salesforce}))
 	srv.POST(fmt.Sprintf("%s/chats/connect", apiVersion), app.authorizeMiddleware(app.createChat, []RoleType{Yalo}))
+	srv.POST(fmt.Sprintf("%s/integrations/webhook", apiVersion), app.webhook)
 }
