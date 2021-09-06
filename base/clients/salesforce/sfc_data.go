@@ -102,7 +102,7 @@ type ContactRequest struct {
 
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
-	CreateCase(CaseRequest) error
+	CreateCase(payload CaseRequest) (string, error)
 	Search(string) (*SearchResponse, error)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, error)

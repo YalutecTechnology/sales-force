@@ -110,9 +110,9 @@ type GeoLocation struct {
 type SfcChatInterface interface {
 	CreateSession() (*SessionResponse, error)
 	CreateChat(string, string, ChatRequest) (bool, error)
-	GetMessages(string, string) ([]Message, *helpers.ErrorResponse)
+	GetMessages(affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse)
 	SendMessage(string, string, MessagePayload) (bool, error)
-	EndChat(string, string) (bool, error)
+	ChatEnd(affinityToken, sessionKey string) error
 	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
 }
 

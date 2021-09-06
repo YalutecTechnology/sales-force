@@ -1,21 +1,14 @@
 package manage
 
 import (
-	"bytes"
-	"io/ioutil"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
 
-	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
-	"yalochat.com/salesforce-integration/base/clients/login"
-	"yalochat.com/salesforce-integration/base/clients/proxy"
-	"yalochat.com/salesforce-integration/base/clients/salesforce"
 	"yalochat.com/salesforce-integration/base/models"
 )
 
@@ -39,8 +32,7 @@ func TestCreateManager(t *testing.T) {
 	t.Run("Should retrieve a manager instance", func(t *testing.T) {
 		expected := &Manager{
 			clientName:         "salesforce-integration",
-			interconnectionMap: make(map[string]*Interconnection),
-			sessionMap:         make(map[string]string),
+			interconnectionMap: interconnectionCache{interconnections: make(interconnectionMap)},
 			sfcContactMap:      make(map[string]*models.SfcContact),
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
@@ -61,6 +53,7 @@ func TestCreateManager(t *testing.T) {
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
+		expected.cache = actual.cache
 
 		assert.Equal(t, expected, actual)
 	})
@@ -72,7 +65,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	defer s.Close()
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
 		interconnection := &Interconnection{
-			UserId:      userId,
+			UserID:      userId,
 			BotSlug:     botSlug,
 			BotId:       botId,
 			Name:        name,
@@ -94,33 +87,30 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		SfcOrganizationId = organizationId
 		SfcDeploymentId = deploymentId
 		SfcButtonId = buttonId
-		mock := &proxy.Mock{}
-		mock2 := &proxy.Mock{}
-		salesforceServiceMock := services.NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{})
-		salesforceServiceMock.SfcClient.Proxy = mock
-		salesforceServiceMock.SfcChatClient.Proxy = mock2
-		manager.SalesforceService = salesforceServiceMock
-		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
-		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
-		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusCreated,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd","success":true,"errors":[]}`))),
-		}, nil).Once()
-		sessionResponse := `{"key":"ec550263-354e-477c-b773-7747ebce3f5e!1629334776994!TrfoJ67wmtlYiENsWdaUBu0xZ7M=","id":"ec550263-354e-477c-b773-7747ebce3f5e","clientPollTimeout":40,"affinityToken":"878a1fa0"}`
-		mock2.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(sessionResponse))),
-		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(sessionResponse))),
-		}, nil).Once().On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"type":"ChatRequestFail","message":{"geoLocation":{}}}]}`))),
-		}, nil).Once()
+		salesforceMock := new(SalesforceServiceInterface)
+
+		contact := &models.SfcContact{}
+		salesforceMock.On("GetOrCreateContact",
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber).
+			Return(contact, nil).Once()
+
+		salesforceMock.On("CreatChat",
+			interconnection.Name,
+			SfcOrganizationId,
+			SfcDeploymentId,
+			SfcButtonId).
+			Return(&chat.SessionResponse{
+				AffinityToken: affinityToken,
+				Key:           sessionKey,
+			}, nil).Once()
+
+		salesforceMock.On("GetMessages",
+			affinityToken, sessionKey).
+			Return(&chat.MessagesResponse{}, nil).Once()
+
+		manager.SalesforceService = salesforceMock
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
@@ -129,7 +119,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 }
 
 func TestManager_SaveContext(t *testing.T) {
-
 	t.Run("Should save context voice", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
@@ -138,11 +127,12 @@ func TestManager_SaveContext(t *testing.T) {
 			URL:       "uri",
 			MIMEType:  "voice",
 			Caption:   "caption",
+			From:      fromUser,
 		}
-		contextCache.On("StoreContext", ctx).Return(nil)
+		contextCache.On("StoreContext", ctx).Return(nil).Once()
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -169,18 +159,19 @@ func TestManager_SaveContext(t *testing.T) {
 			URL:       "uri",
 			MIMEType:  "document",
 			Caption:   "caption",
+			From:      fromBot,
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        "id",
 			Timestamp: "123456789",
 			Type:      documentType,
-			From:      "55555555555",
+			To:        "55555555555",
 			Document: models.Media{
 				URL:      "uri",
 				MIMEType: "document",
@@ -200,11 +191,12 @@ func TestManager_SaveContext(t *testing.T) {
 			URL:       "uri",
 			MIMEType:  "image",
 			Caption:   "caption",
+			From:      fromUser,
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -229,11 +221,12 @@ func TestManager_SaveContext(t *testing.T) {
 			UserID:    "55555555555",
 			Timestamp: 123456789,
 			Text:      "text",
+			From:      fromUser,
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -256,11 +249,12 @@ func TestManager_SaveContext(t *testing.T) {
 			UserID:    "55555555555",
 			Timestamp: 123456789,
 			Text:      "text",
+			From:      fromUser,
 		}
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -275,6 +269,97 @@ func TestManager_SaveContext(t *testing.T) {
 		err := manager.SaveContext(integrations)
 
 		assert.Error(t, err)
+	})
+
+	t.Run("Should save context default", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+
+		manager := &Manager{
+			cache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      "error",
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Should save context error timestamp", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+
+		manager := &Manager{
+			cache: contextCache,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "error",
+			Type:      "error",
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Should send message to salesforce", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, chat.MessagePayload{Text: "message"}).
+			Return(false, nil).Once()
+
+		manager := &Manager{
+			cache: contextCache,
+			interconnectionMap: interconnectionCache{
+				interconnections: interconnectionMap{
+					"55555555555": &Interconnection{
+						Status:        Active,
+						AffinityToken: affinityToken,
+						SessionKey:    sessionKey,
+					},
+				},
+			},
+			SalesforceService: salesforceMock,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "message",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
 	})
 }
 
@@ -318,15 +403,15 @@ func TestManager_getContextByUserID(t *testing.T) {
 		contextCache.On("RetrieveContext", userId).Return(ctx)
 
 		manager := &Manager{
-			contextCache: contextCache,
+			cache: contextCache,
 		}
 
 		ctxStr := manager.GetContextByUserID(userId)
-		expected := `Cliente [2021-08-31 05:00:00]:Hello
-Bot [2021-08-31 05:01:00]:Hello I'm a bot
-Cliente [2021-08-31 05:02:00]:I need help
-Cliente [2021-08-31 05:03:00]:this a test
-Bot [2021-08-31 05:04:00]:ok.
+		expected := `Cliente [31-08-2021 05:00:00]:Hello
+Bot [31-08-2021 05:01:00]:Hello I'm a bot
+Cliente [31-08-2021 05:02:00]:I need help
+Cliente [31-08-2021 05:03:00]:this a test
+Bot [31-08-2021 05:04:00]:ok.
 `
 		assert.Equal(t, expected, ctxStr)
 	})
