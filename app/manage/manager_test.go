@@ -16,15 +16,17 @@ import (
 const (
 	name             = "username"
 	email            = "user@exmple.com"
-	userId           = "userId"
 	botSlug          = "coppel-bot"
-	botId            = "5514254524"
+	botID            = "5514254524"
 	provider         = "whatsapp"
 	phoneNumber      = "5512454545"
-	organizationId   = "organizationId"
-	deploymentId     = "deploymentId"
-	buttonId         = "buttonID"
+	organizationID   = "organizationID"
+	deploymentID     = "deploymentID"
+	buttonID         = "buttonID"
 	blockedUserState = "from-sf-blocked"
+	contactID        = "contactID"
+	recordTypeID     = "recordTypeID"
+	caseID           = "caseID"
 )
 
 func TestCreateManager(t *testing.T) {
@@ -35,7 +37,6 @@ func TestCreateManager(t *testing.T) {
 		expected := &Manager{
 			clientName:         "salesforce-integration",
 			interconnectionMap: interconnectionCache{interconnections: make(interconnectionMap)},
-			sfcContactMap:      make(map[string]*models.SfcContact),
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
 			BotrunnnerClient:   nil,
@@ -69,13 +70,14 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	defer s.Close()
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
 		interconnection := &Interconnection{
-			UserID:      userId,
+			UserID:      userID,
 			BotSlug:     botSlug,
-			BotId:       botId,
+			BotID:       botID,
 			Name:        name,
 			Provider:    provider,
 			Email:       email,
 			PhoneNumber: phoneNumber,
+			ExtraData:   map[string]interface{}{"data": "datavalue"},
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -88,23 +90,41 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			},
 		}
 		manager := CreateManager(config)
-		SfcOrganizationId = organizationId
-		SfcDeploymentId = deploymentId
-		SfcButtonId = buttonId
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcButtonID = buttonID
+		SfcRecordTypeID = recordTypeID
+		SfcCustomFieldsCase = []string{"data:data"}
 		salesforceMock := new(SalesforceServiceInterface)
 
-		contact := &models.SfcContact{}
+		contact := &models.SfcContact{
+			Id:          contactID,
+			FirstName:   interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+		}
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
+		salesforceMock.On("CreatCase",
+			SfcRecordTypeID,
+			contact.Id,
+			"Caso levantado por el Bot : ",
+			string(interconnection.Provider),
+			interconnection.ExtraData,
+			SfcCustomFieldsCase).
+			Return(caseID, nil).Once()
+
 		salesforceMock.On("CreatChat",
 			interconnection.Name,
-			SfcOrganizationId,
-			SfcDeploymentId,
-			SfcButtonId).
+			SfcOrganizationID,
+			SfcDeploymentID,
+			SfcButtonID,
+			caseID,
+			contactID).
 			Return(&chat.SessionResponse{
 				AffinityToken: affinityToken,
 				Key:           sessionKey,
@@ -123,9 +143,9 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
 		expectedLog := "could not create chat in salesforce"
 		interconnection := &Interconnection{
-			UserID:      userId,
+			UserID:      userID,
 			BotSlug:     botSlug,
-			BotId:       botId,
+			BotID:       botID,
 			Name:        name,
 			Provider:    provider,
 			Email:       email,
@@ -142,9 +162,9 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			},
 		}
 		manager := CreateManager(config)
-		SfcOrganizationId = organizationId
-		SfcDeploymentId = deploymentId
-		SfcButtonId = buttonId
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcButtonID = buttonID
 		BlockedUserState = "from-sf-blocked"
 		contact := &models.SfcContact{
 			FirstName:   interconnection.Name,
@@ -162,7 +182,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
-		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": "coppel-bot", "message": "", "state": BlockedUserState, "userId": "userId"}).
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": BlockedUserState, "userId": userID}).
 			Return(true, nil).Once()
 		manager.SalesforceService = salesforceServiceMock
 		manager.BotrunnnerClient = botRunnerMock
@@ -457,14 +477,14 @@ func TestManager_getContextByUserID(t *testing.T) {
 			},
 		}
 
-		userId := "userID"
-		contextCache.On("RetrieveContext", userId).Return(ctx)
+		userID := "userID"
+		contextCache.On("RetrieveContext", userID).Return(ctx)
 
 		manager := &Manager{
 			cache: contextCache,
 		}
 
-		ctxStr := manager.GetContextByUserID(userId)
+		ctxStr := manager.GetContextByUserID(userID)
 		expected := `Cliente [31-08-2021 05:00:00]:Hello
 Bot [31-08-2021 05:01:00]:Hello I'm a bot
 Cliente [31-08-2021 05:02:00]:I need help

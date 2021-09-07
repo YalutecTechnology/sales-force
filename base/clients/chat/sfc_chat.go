@@ -46,18 +46,42 @@ type SessionResponse struct {
 }
 
 type ChatRequest struct {
-	OrganizationId      string        `json:"organizationId" validate:"required"`
-	DeploymentId        string        `json:"deploymentId" validate:"required"`
-	ButtonId            string        `json:"buttonId" validate:"required"`
-	SessionId           string        `json:"sessionId" validate:"required"`
-	UserAgent           string        `json:"userAgent" validate:"required"`
-	Language            string        `json:"language" validate:"required"`
-	ScreenResolution    string        `json:"screenResolution" validate:"required"`
-	VisitorName         string        `json:"visitorName" validate:"required"`
-	PrechatDetails      []interface{} `json:"prechatDetails" validate:"required"`
-	PrechatEntities     []interface{} `json:"prechatEntities" validate:"required"`
-	ReceiveQueueUpdates bool          `json:"receiveQueueUpdates" validate:"required"`
-	IsPost              bool          `json:"isPost" validate:"required"`
+	OrganizationId      string                  `json:"organizationId" validate:"required"`
+	DeploymentId        string                  `json:"deploymentId" validate:"required"`
+	ButtonId            string                  `json:"buttonId" validate:"required"`
+	SessionId           string                  `json:"sessionId" validate:"required"`
+	UserAgent           string                  `json:"userAgent" validate:"required"`
+	Language            string                  `json:"language" validate:"required"`
+	ScreenResolution    string                  `json:"screenResolution" validate:"required"`
+	VisitorName         string                  `json:"visitorName" validate:"required"`
+	PrechatDetails      []PreChatDetailsObject  `json:"prechatDetails" validate:"required,dive"`
+	PrechatEntities     []PrechatEntitiesObject `json:"prechatEntities" validate:"required,dive"`
+	ReceiveQueueUpdates bool                    `json:"receiveQueueUpdates"`
+	IsPost              bool                    `json:"isPost"`
+}
+
+type PreChatDetailsObject struct {
+	Label            string   `json:"label" validate:"required"`
+	Value            string   `json:"value" validate:"required"`
+	DisplayToAgent   bool     `json:"displayToAgent"`
+	TranscriptFields []string `json:"transcriptFields" validate:"required"`
+}
+
+type PrechatEntitiesObject struct {
+	EntityName        string        `json:"entityName" validate:"required"`
+	LinkToEntityName  string        `json:"linkToEntityName" validate:"required"`
+	LinkToEntityField string        `json:"linkToEntityField" validate:"required"`
+	SaveToTranscript  string        `json:"saveToTranscript" validate:"required"`
+	ShowOnCreate      bool          `json:"showOnCreate"`
+	EntityFieldsMaps  []EntityField `json:"entityFieldsMaps" validate:"required,dive"`
+}
+
+type EntityField struct {
+	FieldName    string `json:"fieldName" validate:"required"`
+	Label        string `json:"label" validate:"required"`
+	DoFind       bool   `json:"doFind"`
+	IsExactMatch bool   `json:"isExactMatch"`
+	DoCreate     bool   `json:"doCreate"`
 }
 
 type MessagePayload struct {
@@ -116,18 +140,18 @@ type SfcChatInterface interface {
 	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
 }
 
-func NewChatRequest(organizationID, deployementID, seassionID, ButtonID, userName string) ChatRequest {
+func NewChatRequest(organizationID, deployementID, sessionID, ButtonID, userName string) ChatRequest {
 	return ChatRequest{
 		OrganizationId:      organizationID,
 		DeploymentId:        deployementID,
 		ButtonId:            ButtonID,
-		SessionId:           seassionID,
+		SessionId:           sessionID,
 		VisitorName:         userName,
-		UserAgent:           "WhatsApp",
-		Language:            "en-US",
+		UserAgent:           "Yalo Bot",
+		Language:            "es-MX",
 		ScreenResolution:    "1900x1080",
-		PrechatDetails:      []interface{}{},
-		PrechatEntities:     []interface{}{},
+		PrechatDetails:      []PreChatDetailsObject{},
+		PrechatEntities:     []PrechatEntitiesObject{},
 		ReceiveQueueUpdates: true,
 		IsPost:              true,
 	}

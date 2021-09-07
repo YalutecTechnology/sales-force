@@ -13,9 +13,9 @@ import (
 
 const (
 	contactName    = "contactName"
-	organizationId = "organizationId"
-	deploymentId   = "deploymentId"
-	buttonId       = "buttonId"
+	organizationID = "organizationID"
+	deploymentID   = "deploymentID"
+	buttonID       = "buttonID"
 	email          = "user@example.com"
 	phoneNumber    = "5512345678"
 )
@@ -33,13 +33,13 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		}
 		mock.On("CreateSession").Return(sessionExpected, nil).Once()
 
-		request := chat.NewChatRequest(organizationId, deploymentId, sessionExpected.Id, buttonId, contactName)
+		request := chat.ChatRequest{OrganizationId: "organizationID", DeploymentId: "deploymentID", ButtonId: "buttonID", SessionId: "ec550263-354e-477c-b773-7747ebce3f5e", UserAgent: "Yalo Bot", Language: "es-MX", ScreenResolution: "1900x1080", VisitorName: "contactName", PrechatDetails: []chat.PreChatDetailsObject{chat.PreChatDetailsObject{Label: "CaseId", Value: "caseId", DisplayToAgent: true, TranscriptFields: []string{"CaseId"}}, chat.PreChatDetailsObject{Label: "ContactId", Value: "contactId", DisplayToAgent: true, TranscriptFields: []string{"ContactId"}}}, PrechatEntities: []chat.PrechatEntitiesObject{chat.PrechatEntitiesObject{EntityName: "Case", LinkToEntityName: "Case", LinkToEntityField: "Id", SaveToTranscript: "Case", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{chat.EntityField{FieldName: "Id", Label: "CaseId", DoFind: true, IsExactMatch: true, DoCreate: false}}}, chat.PrechatEntitiesObject{EntityName: "Contact", LinkToEntityName: "Contact", LinkToEntityField: "Id", SaveToTranscript: "Contact", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{chat.EntityField{FieldName: "Id", Label: "ContactId", DoFind: true, IsExactMatch: true, DoCreate: false}}}}, ReceiveQueueUpdates: true, IsPost: true}
 		mock.On("CreateChat", sessionExpected.AffinityToken, sessionExpected.Key, request).Return(false, nil).Once()
 
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{})
 		salesforceService.SfcChatClient = mock
 
-		session, err := salesforceService.CreatChat(contactName, organizationId, deploymentId, buttonId)
+		session, err := salesforceService.CreatChat(contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
 
 		assert.NoError(t, err)
 		assert.Equal(t, sessionExpected, session)
@@ -50,7 +50,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 	contactExpected := &models.SfcContact{
 		Id:          "dasfasfasd",
-		FirstName:   "contactName",
+		FirstName:   firstnameDefualt,
 		LastName:    "contactName",
 		Email:       "user@example.com",
 		MobilePhone: "5512345678",
@@ -106,6 +106,25 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
+	})
+
+}
+
+func TestSalesforceService_CreatCase(t *testing.T) {
+	t.Run("Create case Succesfull", func(t *testing.T) {
+		caseIDExpected := "14224111"
+		mock := new(SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{})
+		salesforceService.SfcClient = mock
+
+		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "Caso creado por yalo : Estado de pedido", "Origin": "whatsapp", "Priority": "Medium", "RecordTypeId": "recordTypeId", "Status": "Nuevo", "Subject": "Estado de pedido"}
+		mock.On("CreateCase", payload).Return(caseIDExpected, nil).Once()
+
+		customFields := []string{"source_flow_bot:CP__source_flow_bot__c"}
+		caseId, err := salesforceService.CreatCase("recordTypeId", "contactId", "Caso creado por yalo : ", "whatsapp", map[string]interface{}{"source_flow_bot": "SFB001"}, customFields)
+
+		assert.NoError(t, err)
+		assert.Equal(t, caseIDExpected, caseId)
 	})
 
 }

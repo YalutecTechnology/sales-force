@@ -13,6 +13,8 @@ import (
 	"yalochat.com/salesforce-integration/base/models"
 )
 
+const AutoAsssingHeader = "Sforce-Auto-Assign"
+
 func NewSalesforceRequester(url, token string) *SalesforceClient {
 	return &SalesforceClient{
 		Proxy:       proxy.NewProxy(url),
@@ -45,34 +47,32 @@ type LinkDocumentPayload struct {
 }
 
 type CaseRequest struct {
-	ContactID             string      `json:"ContactId" validate:"required"`
-	Description           string      `json:"Description" validate:"required"`
-	Origin                string      `json:"Origin" validate:"required"`
-	Priority              string      `json:"Priority" validate:"required"`
-	Status                string      `json:"Status" validate:"required"`
-	Subject               string      `json:"Subject" validate:"required"`
-	IsEscalated           bool        `json:"IsEscalated"`
-	AccountID             interface{} `json:"AccountId"`
-	AssetID               interface{} `json:"AssetId"`
-	SourceID              interface{} `json:"SourceId"`
-	ParentID              interface{} `json:"ParentId"`
-	SuppliedName          interface{} `json:"SuppliedName"`
-	SuppliedEmail         interface{} `json:"SuppliedEmail"`
-	SuppliedPhone         interface{} `json:"SuppliedPhone"`
-	SuppliedCompany       interface{} `json:"SuppliedCompany"`
-	Type                  interface{} `json:"Type"`
-	Reason                interface{} `json:"Reason"`
-	Comments              interface{} `json:"Comments"`
-	EngineeringReqNumberC interface{} `json:"EngineeringReqNumber__c"`
-	SLAViolationC         interface{} `json:"SLAViolation__c"`
-	ProductC              interface{} `json:"Product__c"`
-	PotentialLiabilityC   interface{} `json:"PotentialLiability__c"`
+	RecordTypeID    string      `json:"RecordTypeId" validate:"required"`
+	ContactID       string      `json:"ContactId" validate:"required"`
+	Description     string      `json:"Description" validate:"required"`
+	Origin          string      `json:"Origin" validate:"required"`
+	Priority        string      `json:"Priority" validate:"required"`
+	Status          string      `json:"Status" validate:"required"`
+	Subject         string      `json:"Subject" validate:"required"`
+	IsEscalated     bool        `json:"IsEscalated"`
+	AccountID       string      `json:"AccountId"`
+	AssetID         string      `json:"AssetId"`
+	SourceID        string      `json:"SourceId"`
+	ParentID        string      `json:"ParentId"`
+	SuppliedName    interface{} `json:"SuppliedName"`
+	SuppliedEmail   interface{} `json:"SuppliedEmail"`
+	SuppliedPhone   interface{} `json:"SuppliedPhone"`
+	SuppliedCompany interface{} `json:"SuppliedCompany"`
+	Type            interface{} `json:"Type"`
+	Reason          interface{} `json:"Reason"`
+	Comments        string      `json:"Comments"`
 }
 
 //SalesforceResponse handles a generic response
 type SalesforceResponse struct {
-	ID      string `json:"id"`
-	Success bool   `json:"success"`
+	ID      string        `json:"id"`
+	Success bool          `json:"success"`
+	Errors  []interface{} `json:"errors"`
 }
 
 type recordResponse struct {
@@ -103,7 +103,7 @@ type ContactRequest struct {
 
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
-	CreateCase(payload CaseRequest) (string, error)
+	CreateCase(payload interface{}) (string, error)
 	Search(string) (*SearchResponse, error)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, error)
@@ -385,19 +385,12 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 }
 
 //CreateCase Create case for Salesforce Requests
-func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
+func (cc *SalesforceClient) CreateCase(payload interface{}) (string, error) {
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
 		"payload": payload,
 	}).Info("Payload received")
-
-	//validating CaseRequest Payload struct
-	if err := helpers.Govalidator().Struct(payload); err != nil {
-		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
-		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
-	}
 
 	//building request to send through proxy
 	requestBytes, _ := json.Marshal(payload)
@@ -405,11 +398,12 @@ func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
 	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+	header[AutoAsssingHeader] = "false"
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Contact", cc.APIVersion),
+		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Case", cc.APIVersion),
 		HeaderMap: header,
 	}
 
@@ -420,6 +414,10 @@ func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 		return "", errors.New(errorMessage)
 	}
 
+	if proxiedResponse.StatusCode != http.StatusCreated {
+		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+	}
+
 	var response SalesforceResponse
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
 	if readAndUnmarshalError != nil {
@@ -427,10 +425,6 @@ func (cc *SalesforceClient) CreateCase(payload CaseRequest) (string, error) {
 		logrus.Error(errorMessage)
 		return "", errors.New(errorMessage)
 
-	}
-
-	if proxiedResponse.StatusCode != 200 {
-		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -476,6 +470,10 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 		return "", errors.New(errorMessage)
 	}
 
+	if proxiedResponse.StatusCode != http.StatusCreated {
+		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+	}
+
 	var response SalesforceResponse
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
 	if readAndUnmarshalError != nil {
@@ -483,10 +481,6 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 		logrus.Error(errorMessage)
 		return "", errors.New(errorMessage)
 
-	}
-
-	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	logrus.WithFields(logrus.Fields{
