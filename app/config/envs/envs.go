@@ -11,12 +11,14 @@ type Envs struct {
 	RedisAddress          string `split_words:"true"`
 	RedisMaster           string `split_words:"true"`
 	RedisSentinelAddress  string `split_words:"true"`
+	BlockedUserState      string `required:"true" split_words:"true" default:"from-sf-blocked"`
 	YaloUsername          string `required:"true" split_words:"true" default:"yaloUser"`
 	YaloPassword          string `required:"true" split_words:"true"`
 	SalesforceUsername    string `required:"true" split_words:"true" default:"salesforceUser"`
 	SalesforcePassword    string `required:"true" split_words:"true"`
 	SecretKey             string `required:"true" split_words:"true"`
 	BotrunnerUrl          string `split_words:"true"`
+	BotrunnerToken        string `split_words:"true" default:""`
 	SfcClientId           string `split_words:"true"`
 	SfcClientSecret       string `split_words:"true"`
 	SfcUsername           string `split_words:"true"`

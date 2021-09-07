@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -13,16 +14,17 @@ import (
 )
 
 const (
-	name           = "username"
-	email          = "user@exmple.com"
-	userId         = "userId"
-	botSlug        = "coppel-bot"
-	botId          = "5514254524"
-	provider       = "whatsapp"
-	phoneNumber    = "5512454545"
-	organizationId = "organizationId"
-	deploymentId   = "deploymentId"
-	buttonId       = "buttonID"
+	name             = "username"
+	email            = "user@exmple.com"
+	userId           = "userId"
+	botSlug          = "coppel-bot"
+	botId            = "5514254524"
+	provider         = "whatsapp"
+	phoneNumber      = "5512454545"
+	organizationId   = "organizationId"
+	deploymentId     = "deploymentId"
+	buttonId         = "buttonID"
+	blockedUserState = "from-sf-blocked"
 )
 
 func TestCreateManager(t *testing.T) {
@@ -36,6 +38,7 @@ func TestCreateManager(t *testing.T) {
 			sfcContactMap:      make(map[string]*models.SfcContact),
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
+			BotrunnnerClient:   nil,
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -50,6 +53,7 @@ func TestCreateManager(t *testing.T) {
 		actual := CreateManager(config)
 		actual.SalesforceService = nil
 		actual.IntegrationsClient = nil
+		actual.BotrunnnerClient = nil
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
@@ -114,6 +118,60 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
+	})
+
+	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
+		expectedLog := "could not create chat in salesforce"
+		interconnection := &Interconnection{
+			UserID:      userId,
+			BotSlug:     botSlug,
+			BotId:       botId,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+		}
+		config := &ManagerOptions{
+			AppName: "salesforce-integration",
+			RedisOptions: cache.RedisOptions{
+				FailOverOptions: &redis.FailoverOptions{
+					MasterName:    s.MasterInfo().Name,
+					SentinelAddrs: []string{s.Addr()},
+				},
+				SessionsTTL: time.Second,
+			},
+		}
+		manager := CreateManager(config)
+		SfcOrganizationId = organizationId
+		SfcDeploymentId = deploymentId
+		SfcButtonId = buttonId
+		BlockedUserState = "from-sf-blocked"
+		contact := &models.SfcContact{
+			FirstName:   interconnection.Name,
+			LastName:    interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+			Blocked:     true,
+		}
+
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		botRunnerMock := new(BotRunnerInterface)
+
+		salesforceServiceMock.On("GetOrCreateContact",
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber).
+			Return(contact, nil).Once()
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": "coppel-bot", "message": "", "state": BlockedUserState, "userId": "userId"}).
+			Return(true, nil).Once()
+		manager.SalesforceService = salesforceServiceMock
+		manager.BotrunnnerClient = botRunnerMock
+		err := manager.CreateChat(interconnection)
+		assert.Error(t, err)
+
+		if !strings.Contains(err.Error(), expectedLog) {
+			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedLog, err.Error())
+		}
 	})
 
 }

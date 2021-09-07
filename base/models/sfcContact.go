@@ -7,5 +7,5 @@ type SfcContact struct {
 	Email       string `json:"Email"`
 	MobilePhone string `json:"MobilePhone"`
 	// This field will be given to us by salesforce, to know if a user is blocked
-	Blocked bool `json:"-"`
+	Blocked bool `json:"Blocked"`
 }

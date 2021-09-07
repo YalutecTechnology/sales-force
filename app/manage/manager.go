@@ -13,6 +13,7 @@ import (
 
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
+	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
 	"yalochat.com/salesforce-integration/base/clients/login"
@@ -27,6 +28,7 @@ var (
 	SfcOrganizationId string
 	SfcDeploymentId   string
 	SfcButtonId       string
+	BlockedUserState  string
 )
 
 const (
@@ -53,6 +55,7 @@ type Manager struct {
 	sfcContactMap         map[string]*models.SfcContact
 	SalesforceService     services.SalesforceServiceInterface
 	IntegrationsClient    *integrations.IntegrationsClient
+	BotrunnnerClient      botrunner.BotRunnerInterface
 	salesforceChannel     chan *Message
 	integrationsChannel   chan *Message
 	finishInterconnection chan *Interconnection
@@ -62,7 +65,10 @@ type Manager struct {
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
 	AppName               string
+	BlockedUserState      string
 	RedisOptions          cache.RedisOptions
+	BotrunnerUrl          string
+	BotrunnerToken        string
 	SfcClientId           string
 	SfcClientSecret       string
 	SfcUsername           string
@@ -147,6 +153,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
+	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
 	interconnections := cache.RetrieveAllInterconnections()
 
@@ -184,6 +191,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		integrationsChannel:   make(chan *Message),
 		finishInterconnection: make(chan *Interconnection),
 		cache:                 cache,
+		BotrunnnerClient:      botRunnerClient,
 	}
 	go m.handleInterconnection()
 	return m
@@ -239,9 +247,8 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
-	//TODO: Validate if status of contact in Salesforce isn't locked
 	if contact.Blocked {
-		return errors.New(helpers.ErrorMessage(titleMessage, errors.New("This contact is blocked")))
+		return m.SentToBlockedState(interconnection.UserID, interconnection.BotSlug)
 	}
 
 	//Creating chat in Salesforce
@@ -264,14 +271,25 @@ func (m *Manager) GetOrCreateContact(userId, name, email, phoneNumber string) (*
 	if ok {
 		return contact, nil
 	}
+	logrus.Errorf("Obteniendo contacto")
 	contact, err := m.SalesforceService.GetOrCreateContact(name, email, phoneNumber)
-
+	logrus.Errorf("Recibiendo contacto : %v", contact)
 	if contact != nil {
 		logrus.Infof("Contact added in contactMap to user %s", userId)
 		m.sfcContactMap[userId] = contact
 	}
 
 	return contact, err
+}
+
+// Change to from-sf-blocked state
+func (m *Manager) SentToBlockedState(userId, botSlug string) error {
+	ok, err := m.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userId, BlockedUserState, ""))
+
+	if ok {
+		return errors.New(helpers.ErrorMessage("could not create chat in salesforce", err))
+	}
+	return err
 }
 
 func (m *Manager) ValidateUserId(userId string) error {
