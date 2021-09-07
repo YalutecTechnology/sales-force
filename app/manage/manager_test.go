@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
+
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
@@ -274,5 +275,59 @@ func TestManager_SaveContext(t *testing.T) {
 		err := manager.SaveContext(integrations)
 
 		assert.Error(t, err)
+	})
+}
+
+func TestManager_getContextByUserID(t *testing.T) {
+	t.Run("Should save context voice", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := []cache.Context{
+			{
+				UserID:    "55555555555",
+				Timestamp: 1630404180000,
+				Text:      "this a test",
+				From:      fromUser,
+			},
+			{
+				UserID:    "55555555555",
+				Timestamp: 1630404000000,
+				Text:      "Hello",
+				From:      fromUser,
+			},
+			{
+				UserID:    "55555555555",
+				Timestamp: 1630404060000,
+				Text:      "Hello I'm a bot",
+				From:      fromBot,
+			},
+			{
+				UserID:    "55555555555",
+				Timestamp: 1630404240000,
+				Text:      "ok.",
+				From:      fromBot,
+			},
+			{
+				UserID:    "55555555555",
+				Timestamp: 1630404120000,
+				Text:      "I need help",
+				From:      fromUser,
+			},
+		}
+
+		userId := "userID"
+		contextCache.On("RetrieveContext", userId).Return(ctx)
+
+		manager := &Manager{
+			contextCache: contextCache,
+		}
+
+		ctxStr := manager.GetContextByUserID(userId)
+		expected := `Cliente [2021-08-31 05:00:00]:Hello
+Bot [2021-08-31 05:01:00]:Hello I'm a bot
+Cliente [2021-08-31 05:02:00]:I need help
+Cliente [2021-08-31 05:03:00]:this a test
+Bot [2021-08-31 05:04:00]:ok.
+`
+		assert.Equal(t, expected, ctxStr)
 	})
 }

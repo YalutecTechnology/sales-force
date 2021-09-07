@@ -67,4 +67,5 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	srv.GET(fmt.Sprintf("%s/tokens/check", apiVersion), app.authorizeMiddleware(app.getUserByToken, []RoleType{Yalo, Salesforce}))
 	srv.POST(fmt.Sprintf("%s/chats/connect", apiVersion), app.authorizeMiddleware(app.createChat, []RoleType{Yalo}))
 	srv.POST(fmt.Sprintf("%s/integrations/webhook", apiVersion), app.webhook)
+	srv.GET(fmt.Sprintf("%s/context/:user_id", apiVersion), app.authorizeMiddleware(app.getContext, []RoleType{Yalo}))
 }

@@ -3,7 +3,10 @@ package manage
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -14,6 +17,7 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
 	"yalochat.com/salesforce-integration/base/clients/salesforce"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
 )
@@ -49,25 +53,28 @@ type Manager struct {
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName             string
-	RedisOptions        cache.RedisOptions
-	SfcClientId         string
-	SfcClientSecret     string
-	SfcUsername         string
-	SfcPassword         string
-	SfcSecurityToken    string
-	SfcBaseUrl          string
-	SfcChatUrl          string
-	SfcLoginUrl         string
-	SfcApiVersion       string
-	SfcOrganizationId   string
-	SfcDeploymentId     string
-	SfcButtonId         string
-	SfcOwnerId          string
-	IntegrationsUrl     string
-	IntegrationsChannel string
-	IntegrationsToken   string
-	IntegrationsBotId   string
+	AppName               string
+	RedisOptions          cache.RedisOptions
+	SfcClientId           string
+	SfcClientSecret       string
+	SfcUsername           string
+	SfcPassword           string
+	SfcSecurityToken      string
+	SfcBaseUrl            string
+	SfcChatUrl            string
+	SfcLoginUrl           string
+	SfcApiVersion         string
+	SfcOrganizationId     string
+	SfcDeploymentId       string
+	SfcButtonId           string
+	SfcOwnerId            string
+	IntegrationsUrl       string
+	IntegrationsChannel   string
+	IntegrationsToken     string
+	IntegrationsBotId     string
+	IntegrationsSignature string
+	IntegrationsBotPhone  string
+	WebhookBaseUrl        string
 }
 
 type ManagerI interface {
@@ -114,9 +121,22 @@ func CreateManager(config *ManagerOptions) *Manager {
 		AccessToken: token,
 	}
 
-	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
+	integrationsClient := integrations.NewIntegrationsClient(
+		config.IntegrationsUrl,
+		config.IntegrationsToken,
+		config.IntegrationsChannel,
+		config.IntegrationsBotId,
+	)
 
-	integrationsClient := integrations.NewIntegrationsClient(config.IntegrationsUrl, config.IntegrationsToken, config.IntegrationsChannel, config.IntegrationsBotId)
+	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
+		Phone:   config.IntegrationsBotPhone,
+		Webhook: fmt.Sprintf("%s/v1/integrations/webhook", config.WebhookBaseUrl),
+	})
+	if err != nil {
+		logrus.Errorf("could not set webhook on integrations : %s", err.Error())
+	}
+
+	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
 
 	m := &Manager{
 		clientName:            config.AppName,
@@ -300,4 +320,25 @@ func (m *Manager) EndChat(interconnection *Interconnection) {
 	delete(m.sessionMap, interconnection.UserId)
 	delete(m.interconnectionMap, interconnection.Id)
 	logrus.Infof("Ending Interconnection : %s", interconnection.UserId)
+}
+
+func (m *Manager) GetContextByUserID(userID string) string {
+	allContext := m.contextCache.RetrieveContext(userID)
+
+	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
+	builder := strings.Builder{}
+	for _, ctx := range allContext {
+		loc, _ := time.LoadLocation("America/Mexico_City")
+		date := time.Unix(0, int64(ctx.Timestamp)*int64(time.Millisecond)).
+			In(loc).
+			Format(constants.DateFormat)
+
+		if ctx.From == fromUser {
+			fmt.Fprintf(&builder, "Cliente [%s]:%s\n", date, ctx.Text)
+		} else {
+			fmt.Fprintf(&builder, "Bot [%s]:%s\n", date, ctx.Text)
+		}
+	}
+
+	return builder.String()
 }

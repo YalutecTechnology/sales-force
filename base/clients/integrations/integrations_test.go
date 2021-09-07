@@ -26,7 +26,7 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 		client := NewIntegrationsClient(url, token, channel, botId)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botId_test","channel": "channel_test","webhook": "https://webhook.site/test"}`))),
 		}, nil)
 		payload := HealthcheckPayload{
@@ -53,7 +53,7 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 		client := NewIntegrationsClient(url, token, channel, botId)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id":"dasfasfasd","channel":"c","webhook":"http://"}`))),
 		}, nil)
 		payload := HealthcheckPayload{
@@ -103,7 +103,7 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 		client := NewIntegrationsClient(url, token, channel, botId)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`ok`))),
 		}, nil)
 		payload := HealthcheckPayload{
