@@ -1,6 +1,6 @@
 
-<a name="v0.0.1"></a>
-## v0.0.1 (2021-09-06)
+<a name="v0.1"></a>
+## v0.1 (2021-09-07)
 
 ### Feat
 
@@ -20,5 +20,6 @@
 * **Integration-Library Salesforce:** Service to long polling messages from Salesforce. Add the request to obtain the agents' messages  of a chat, the security token is added to the request to obtain token. Closes #CSF-58
 * **Integration-Library Salesforce:** Set to Create Chat from Salesforce. We need to create an endpoint to create and initialize a chat with Salesforce. Closes #CSF-155
 * **Integration-interconnection:** Interconnection for Message Handler. Add handler to send message to salesforce . Closes #CSF-82
+* **Integration-Manager:** Manage blocked user. If user is blocked from salesforce, we send it to the from-sf-blocked state. Closes #CSF-157
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
 

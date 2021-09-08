@@ -24,7 +24,27 @@ type BotRunner struct {
 }
 
 type BotRunnerInterface interface {
-	SendTo(object map[string]string) (bool, error)
+	SendTo(object map[string]interface{}) (bool, error)
+}
+
+func NewBotrunnerClient(url, token string) *BotRunner {
+	return &BotRunner{
+		Proxy: proxy.NewProxy(url),
+		Token: token,
+	}
+}
+
+func GetRequestToSendTo(botSlug, userId, state, message string) map[string]interface{} {
+	requestBody := make(map[string]interface{})
+	requestBody["userId"] = userId
+	requestBody["botSlug"] = botSlug
+	requestBody["state"] = state
+	requestBody["message"] = message
+	//requestBody["clientBot"] = UserBot
+	//requestBody["conversationId"] = conversationId
+	//requestBody["clientId"] = userID
+	//requestBody["extraInfo"] = extraInfo
+	return requestBody
 }
 
 // SendTo attempt to forward a request to the given proxy. Some

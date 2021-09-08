@@ -83,6 +83,7 @@ type recordResponse struct {
 	LastName          string                 `json:"LastName"`
 	Email             string                 `json:"Email"`
 	MobilePhone       string                 `json:"MobilePhone"`
+	BlockedChatYalo   bool                   `json:"CP_BlockedChatYalo__c"`
 }
 
 //SearchResponse handles search document response
@@ -304,6 +305,7 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, err
 		LastName:    response.Records[0].LastName,
 		Email:       response.Records[0].Email,
 		MobilePhone: response.Records[0].MobilePhone,
+		Blocked:     response.Records[0].BlockedChatYalo,
 	}
 
 	logrus.WithFields(logrus.Fields{
