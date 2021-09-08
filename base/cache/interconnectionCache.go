@@ -10,10 +10,6 @@ import (
 type InterconnectionStatus int
 
 const (
-	Failed InterconnectionStatus = iota + 1
-	OnHold
-	Active
-	Closed
 	deleteRedisError           = "Could not delete interconnection with key: %s from Redis"
 	interconnectionKeyTemplate = "%s:%s:interconnection"
 )
@@ -24,7 +20,7 @@ type Interconnection struct {
 	SessionID     string                 `json:"sessionID"`
 	SessionKey    string                 `json:"sessionKey"`
 	AffinityToken string                 `json:"affinityToken"`
-	Status        InterconnectionStatus  `json:"status"`
+	Status        string                 `json:"status"`
 	Timestamp     time.Time              `json:"timestamp"`
 	Provider      string                 `json:"provider"`
 	BotSlug       string                 `json:"botSlug"`

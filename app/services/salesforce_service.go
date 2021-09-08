@@ -15,14 +15,16 @@ import (
 const queryForContactByField = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+FROM+Contact+WHERE+%s+=+` + "%s"
 
 type SalesforceService struct {
-	SfcLoginClient *login.SfcLoginClient
-	SfcChatClient  *chat.SfcChatClient
-	SfcClient      *salesforce.SalesforceClient
+	SfcLoginClient login.SfcLoginInterface
+	SfcChatClient  chat.SfcChatInterface
+	SfcClient      salesforce.SaleforceInterface
 }
 
 type SalesforceServiceInterface interface {
 	CreatChat(contactName, organizationId, deploymentId, buttonId string) (*chat.SessionResponse, error)
-	GetOrCreateContact(name, email, phoneNumber string) *models.SfcContact
+	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
+	SendMessage(string, string, chat.MessagePayload) (bool, error)
+	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 }
 
 func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient) *SalesforceService {
@@ -83,4 +85,12 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 		MobilePhone: contactRequest.MobilePhone,
 	}
 	return contact, nil
+}
+
+func (s *SalesforceService) SendMessage(affinityToken, sessionKey string, message chat.MessagePayload) (bool, error) {
+	return s.SfcChatClient.SendMessage(affinityToken, sessionKey, message)
+}
+
+func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
+	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
 }

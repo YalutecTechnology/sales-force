@@ -37,7 +37,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 
 	// Create Interconnection between yalo and salesforce
 	interconnection := &manage.Interconnection{
-		UserId:      chatPayload.UserID,
+		UserID:      chatPayload.UserID,
 		Name:        chatPayload.Name,
 		Provider:    manage.Provider(chatPayload.Provider),
 		BotSlug:     chatPayload.BotSlug,

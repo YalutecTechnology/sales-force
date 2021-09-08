@@ -12,7 +12,7 @@ import (
 
 // App contains the resources related to the application
 type App struct {
-	ManageManager         *manage.Manager
+	ManageManager         manage.ManagerI
 	YaloUsername          string
 	YaloPassword          string
 	SalesforceUsername    string

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
 )
@@ -25,28 +26,26 @@ const (
 
 // Interconnection struct represents a connection between userBotYalo and salesforce agent
 type Interconnection struct {
-	// The Id has the following structure {userId}-{sessionID}
-	Id                  string                           `json:"id"`
-	UserId              string                           `json:"userId"`
-	SessionId           string                           `json:"sessionId"`
-	SessionKey          string                           `json:"sessionKey"`
-	AffinityToken       string                           `json:"affinityToken"`
-	Status              InterconnectionStatus            `json:"status"`
-	Timestamp           time.Time                        `json:"timestamp"`
-	Provider            Provider                         `json:"provider"`
-	BotSlug             string                           `json:"botSlug"`
-	BotId               string                           `json:"botId"`
-	Name                string                           `json:"name"`
-	Email               string                           `json:"email"`
-	PhoneNumber         string                           `json:"phoneNumber"`
-	CaseId              string                           `json:"caseId"`
-	ExtraData           map[string]interface{}           `json:"extraData"`
-	salesforceChannel   chan *Message                    `json:"-"`
-	integrationsChannel chan *Message                    `json:"-"`
-	finishChannel       chan *Interconnection            `json:"-"`
-	SfcChatClient       *chat.SfcChatClient              `json:"-"`
-	IntegrationsClient  *integrations.IntegrationsClient `json:"-"`
-	runnigLongPolling   bool                             `json:"-"`
+	UserID              string                              `json:"userId"`
+	SessionId           string                              `json:"sessionId"`
+	SessionKey          string                              `json:"sessionKey"`
+	AffinityToken       string                              `json:"affinityToken"`
+	Status              InterconnectionStatus               `json:"status"`
+	Timestamp           time.Time                           `json:"timestamp"`
+	Provider            Provider                            `json:"provider"`
+	BotSlug             string                              `json:"botSlug"`
+	BotId               string                              `json:"botId"`
+	Name                string                              `json:"name"`
+	Email               string                              `json:"email"`
+	PhoneNumber         string                              `json:"phoneNumber"`
+	CaseId              string                              `json:"caseId"`
+	ExtraData           map[string]interface{}              `json:"extraData"`
+	salesforceChannel   chan *Message                       `json:"-"`
+	integrationsChannel chan *Message                       `json:"-"`
+	finishChannel       chan *Interconnection               `json:"-"`
+	SalesforceService   services.SalesforceServiceInterface `json:"-"`
+	IntegrationsClient  *integrations.IntegrationsClient    `json:"-"`
+	runnigLongPolling   bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
 	offset int `json:"-"`
 }
@@ -61,7 +60,6 @@ type Message struct {
 }
 
 func NewInterconection(interconnection *Interconnection) *Interconnection {
-	interconnection.Id = GetKey(interconnection)
 	interconnection.Timestamp = time.Now()
 	interconnection.Status = OnHold
 	return interconnection
@@ -82,15 +80,11 @@ func NewSfMessage(affinityToken, key, text string) *Message {
 	}
 }
 
-func GetKey(interonection *Interconnection) string {
-	return fmt.Sprintf("%s-%s", interonection.UserId, interonection.SessionId)
-}
-
 func (in *Interconnection) handleLongPolling() {
 	logrus.Info("Starting long polling service from salesforce ")
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
-		response, errorResponse := in.SfcChatClient.GetMessages(in.AffinityToken, in.SessionKey)
+		response, errorResponse := in.SalesforceService.GetMessages(in.AffinityToken, in.SessionKey)
 
 		if errorResponse != nil {
 			switch errorResponse.StatusCode {
@@ -127,15 +121,15 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	case chat.ChatRequestFail:
 		// TODO: Send to state `from-sf-timeout` in the bot
 		logrus.Infof("Event [%s]", chat.ChatRequestFail)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, "No hay agentes disponibles")
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "No hay agentes disponibles")
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
 		// TODO : queuePosition and send message to user
 		logrus.Infof("Event [%s]", chat.ChatRequestSuccess)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, "Esperando un agente")
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente")
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
 	case chat.ChatEstablished:
 		// TODO : Activate Chat function
 		in.Status = Active
@@ -144,12 +138,12 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	case chat.ChatMessage:
 		logrus.Infof("Message from salesforce : %s", event.Message.Text)
 		//TODO: Send Message to user
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, event.Message.Text)
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text)
 	case chat.QueueUpdate:
 		//TODO: update queuePosition and send message to user
 		logrus.Infof("Event [%s]", chat.QueueUpdate)
 	case chat.ChatEnded:
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserId, "Terminó el chat")
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Terminó el chat")
 		in.runnigLongPolling = false
 		in.Status = Closed
 	default:

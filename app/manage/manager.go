@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -37,18 +38,25 @@ const (
 	fromBot      = "bot"
 )
 
+type (
+	interconnectionMap   map[string]*Interconnection
+	interconnectionCache struct {
+		interconnections interconnectionMap
+		sync.RWMutex
+	}
+)
+
 // Manager controls the process of the app
 type Manager struct {
 	clientName            string
-	interconnectionMap    map[string]*Interconnection
-	sessionMap            map[string]string
+	interconnectionMap    interconnectionCache
 	sfcContactMap         map[string]*models.SfcContact
-	SalesforceService     *services.SalesforceService
+	SalesforceService     services.SalesforceServiceInterface
 	IntegrationsClient    *integrations.IntegrationsClient
 	salesforceChannel     chan *Message
 	integrationsChannel   chan *Message
 	finishInterconnection chan *Interconnection
-	contextCache          cache.ContextCache
+	cache                 cache.ContextCache
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -79,6 +87,8 @@ type ManagerOptions struct {
 
 type ManagerI interface {
 	SaveContext(integration *models.IntegrationsRequest) error
+	CreateChat(interconnection *Interconnection) error
+	GetContextByUserID(userID string) string
 }
 
 // CreateManager retrieves an agents manager
@@ -86,7 +96,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationId = config.SfcOrganizationId
 	SfcDeploymentId = config.SfcDeploymentId
 	SfcButtonId = config.SfcButtonId
-	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
+	cache, err := cache.NewRedisCache(&config.RedisOptions)
 
 	if err != nil {
 		logrus.WithError(err).Error("Error initializing Redis Manager")
@@ -138,17 +148,42 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
 
+	interconnections := cache.RetrieveAllInterconnections()
+
+	interconnectionsMap := make(interconnectionMap)
+	for _, interconnection := range *interconnections {
+		if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
+			interconnectionID := fmt.Sprintf("%s-%s", interconnection.UserID, interconnection.SessionID)
+			interconnectionsMap[interconnectionID] = &Interconnection{
+				UserID:        interconnection.UserID,
+				SessionId:     interconnection.SessionID,
+				SessionKey:    interconnection.SessionKey,
+				AffinityToken: interconnection.AffinityToken,
+				Status:        InterconnectionStatus(interconnection.Status),
+				Timestamp:     interconnection.Timestamp,
+				Provider:      Provider(interconnection.Provider),
+				BotSlug:       interconnection.BotSlug,
+				BotId:         interconnection.BotID,
+				Name:          interconnection.Name,
+				Email:         interconnection.Email,
+				PhoneNumber:   interconnection.PhoneNumber,
+				CaseId:        interconnection.CaseID,
+				ExtraData:     interconnection.ExtraData,
+			}
+		}
+
+	}
+
 	m := &Manager{
 		clientName:            config.AppName,
 		SalesforceService:     salesforceService,
-		interconnectionMap:    make(map[string]*Interconnection),
-		sessionMap:            make(map[string]string),
+		interconnectionMap:    interconnectionCache{interconnections: make(interconnectionMap)},
 		sfcContactMap:         make(map[string]*models.SfcContact),
 		IntegrationsClient:    integrationsClient,
 		salesforceChannel:     make(chan *Message),
 		integrationsChannel:   make(chan *Message),
 		finishInterconnection: make(chan *Interconnection),
-		contextCache:          contextCache,
+		cache:                 cache,
 	}
 	go m.handleInterconnection()
 	return m
@@ -182,7 +217,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 }
 
 func (m *Manager) sendMessageToSalesforce(message *Message) {
-	_, err := m.SalesforceService.SfcChatClient.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+	_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 	if err != nil {
 		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
 	}
@@ -194,12 +229,12 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	titleMessage := "could not create chat in salesforce"
 
 	// Validate that user does not have an active session
-	err := m.ValidateUserId(interconnection.UserId)
+	err := m.ValidateUserId(interconnection.UserID)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
-	contact, err := m.GetOrCreateContact(interconnection.UserId, interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
+	contact, err := m.GetOrCreateContact(interconnection.UserID, interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
@@ -243,7 +278,7 @@ func (m *Manager) ValidateUserId(userId string) error {
 	//TODO: validate that there is an active user session in redis
 
 	// validate that it exists on the map
-	if _, ok := m.sessionMap[userId]; ok {
+	if _, ok := m.interconnectionMap.interconnections[userId]; ok {
 		return errors.New("Session exists with this userID")
 	}
 	return nil
@@ -251,25 +286,43 @@ func (m *Manager) ValidateUserId(userId string) error {
 
 func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 	interconnection = NewInterconection(interconnection)
-	interconnection.SfcChatClient = m.SalesforceService.SfcChatClient
+	interconnection.SalesforceService = m.SalesforceService
 	interconnection.IntegrationsClient = m.IntegrationsClient
 	interconnection.finishChannel = m.finishInterconnection
 	interconnection.integrationsChannel = m.integrationsChannel
 	interconnection.salesforceChannel = m.salesforceChannel
 	//TODO: Store interconnection in Redis
-	m.interconnectionMap[interconnection.Id] = interconnection
-	m.sessionMap[interconnection.UserId] = interconnection.SessionId
+
+	m.interconnectionMap.Lock()
+	defer m.interconnectionMap.Unlock()
+	m.interconnectionMap.interconnections[interconnection.UserID] = interconnection
+
 	go interconnection.handleLongPolling()
 	go interconnection.handleStatus()
 	logrus.WithFields(logrus.Fields{
-		"interconnection":        interconnection.Id,
-		"sessionMap":             m.sessionMap,
-		"InterconectionMapCount": len(m.interconnectionMap),
+		"InterconectionMapCount": len(m.interconnectionMap.interconnections),
 	}).Info("Create interconnection successfully")
 }
 
 // SaveContext method will save context of integration message
 func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
+	m.interconnectionMap.RWMutex.RLock()
+	defer m.interconnectionMap.RUnlock()
+
+	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok {
+		//TODO: add image
+		if interconnection.Status == Active && integration.Type == textType {
+			m.sendMessageToSalesforce(&Message{
+				Text:          integration.Text.Body,
+				UserId:        integration.From,
+				SessionKey:    interconnection.SessionKey,
+				AffinityToken: interconnection.AffinityToken,
+			})
+		}
+
+		return nil
+	}
+
 	timestamp, err := strconv.Atoi(integration.Timestamp)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -285,12 +338,18 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 	}
 
 	switch {
-	case integration.Type == imageType ||
-		integration.Type == voiceType ||
-		integration.Type == documentType:
+	case integration.Type == imageType:
 		ctx.URL = integration.Image.URL
 		ctx.Caption = integration.Image.Caption
 		ctx.MIMEType = integration.Image.MIMEType
+	case integration.Type == voiceType:
+		ctx.URL = integration.Voice.URL
+		ctx.Caption = integration.Voice.Caption
+		ctx.MIMEType = integration.Voice.MIMEType
+	case integration.Type == documentType:
+		ctx.URL = integration.Document.URL
+		ctx.Caption = integration.Document.Caption
+		ctx.MIMEType = integration.Document.MIMEType
 	case integration.Type == textType:
 		ctx.Text = integration.Text.Body
 	default:
@@ -305,25 +364,27 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.UserID = integration.To
 	}
 
-	err = m.contextCache.StoreContext(ctx)
+	err = m.cache.StoreContext(ctx)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"context": ctx,
 		}).WithError(err).Error("Error store context")
 		return err
 	}
+
 	return nil
 }
 
 func (m *Manager) EndChat(interconnection *Interconnection) {
 	// TODO: EndChat
-	delete(m.sessionMap, interconnection.UserId)
-	delete(m.interconnectionMap, interconnection.Id)
-	logrus.Infof("Ending Interconnection : %s", interconnection.UserId)
+	m.interconnectionMap.Lock()
+	defer m.interconnectionMap.Unlock()
+	delete(m.interconnectionMap.interconnections, interconnection.UserID)
+	logrus.Infof("Ending Interconnection : %s", interconnection.UserID)
 }
 
 func (m *Manager) GetContextByUserID(userID string) string {
-	allContext := m.contextCache.RetrieveContext(userID)
+	allContext := m.cache.RetrieveContext(userID)
 
 	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
 	builder := strings.Builder{}
