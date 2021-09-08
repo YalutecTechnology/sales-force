@@ -101,6 +101,32 @@ type ContactRequest struct {
 	Email       string `json:"Email" validate:"required"`
 }
 
+//CompositeRequest struct to request compose
+type CompositeRequest struct {
+	AllOrNone          bool        `json:"allOrNone"`
+	CollateSubrequests bool        `json:"collateSubrequests"`
+	CompositeRequest   []Composite `json:"compositeRequest" validate:"required"`
+}
+
+//CompositeRequest struct to request compose
+type Composite struct {
+	Method      string      `json:"method" validate:"required"`
+	URL         string      `json:"url" validate:"required"`
+	Body        interface{} `json:"body"`
+	ReferenceId string      `json:"referenceId" validate:"required"`
+}
+
+type CompositeResponse struct {
+	Body           interface{} `json:"body"`
+	HTTPHeaders    HTTPHeaders `json:"httpHeaders"`
+	HTTPStatusCode int64       `json:"httpStatusCode"`
+	ReferenceID    string      `json:"referenceId"`
+}
+
+type HTTPHeaders struct {
+	Location string `json:"Location"`
+}
+
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
 	CreateCase(payload interface{}) (string, error)
@@ -112,15 +138,15 @@ type SaleforceInterface interface {
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
 	CreateContact(payload ContactRequest) (string, error)
+	Composite(compositeRequest CompositeRequest) (CompositeResponse, error)
+	GetContentVersionURL() string
+	GetSearchURL(query string) string
+	GetDocumentLinkURL() string
 }
 
 //CreateContentVersion creates a new content version for a file
 func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVersionPayload) (string, error) {
 	var errorMessage string
-
-	logrus.WithFields(logrus.Fields{
-		"payload": contentVersionPayload,
-	}).Info("ContentVersionPayload received")
 
 	//validating ContentVersionPayload struct
 	if err := helpers.Govalidator().Struct(contentVersionPayload); err != nil {
@@ -488,4 +514,80 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 	}).Info("create contact success")
 
 	return response.ID, nil
+}
+
+//Composite create a composite request
+func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (CompositeResponse, error) {
+	var errorMessage string
+	logrus.Info("************************", compositeRequest)
+
+	//validating CompositeRequest struct
+	if err := helpers.Govalidator().Struct(compositeRequest); err != nil {
+		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
+		logrus.Error(errorMessage)
+		return CompositeResponse{}, errors.New(errorMessage)
+	}
+
+	//building request to send through proxy
+	requestBytes, _ := json.Marshal(compositeRequest)
+
+	header := make(map[string]string)
+	header["Content-Type"] = "application/json"
+	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	newRequest := proxy.Request{
+		Body:      requestBytes,
+		Method:    http.MethodPost,
+		URI:       fmt.Sprintf("/services/data/v%s.0/composite", cc.APIVersion),
+		HeaderMap: header,
+	}
+
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	if proxyError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
+		logrus.Error(errorMessage)
+		return CompositeResponse{}, errors.New(errorMessage)
+	}
+
+	if proxiedResponse.StatusCode != http.StatusOK {
+		responseMap := []map[string]interface{}{}
+		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
+
+		if readAndUnmarshalError != nil {
+			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
+			logrus.Error(errorMessage)
+			return CompositeResponse{}, errors.New(errorMessage)
+		}
+
+		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		logrus.WithFields(logrus.Fields{
+			"response": responseMap,
+		}).Error(errorMessage)
+		return CompositeResponse{}, errors.New(errorMessage)
+	}
+
+	var response CompositeResponse
+	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
+
+	if readAndUnmarshalError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return CompositeResponse{}, errors.New(errorMessage)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("Create composite success")
+
+	return response, nil
+}
+
+func (cc *SalesforceClient) GetContentVersionURL() string {
+	return fmt.Sprintf("/services/data/v%s.0/sobjects/ContentVersion", cc.APIVersion)
+}
+func (cc *SalesforceClient) GetSearchURL(query string) string {
+	return fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, query)
+}
+func (cc *SalesforceClient) GetDocumentLinkURL() string {
+	return fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion)
 }

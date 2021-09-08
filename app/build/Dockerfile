@@ -23,6 +23,9 @@ FROM alpine:3.12
 
 LABEL MAINTAINER="Yalochat <eng@yalochat.com>"
 
+ADD https://github.com/golang/go/raw/master/lib/time/zoneinfo.zip /zoneinfo.zip
+ENV ZONEINFO /zoneinfo.zip
+
 COPY --from=builder /salesforce-integration .
 
 CMD ["./salesforce-integration"]

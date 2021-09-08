@@ -69,6 +69,8 @@ func main() {
 		IntegrationsSignature: envs.IntegrationsSignature,
 		IntegrationsBotPhone:  envs.IntegrationsBotPhone,
 		WebhookBaseUrl:        envs.WebhookBaseUrl,
+		Environment:           envs.Environment,
+		KeywordsRestart:       envs.KeywordsRestart,
 	}
 
 	if len(envs.RedisMaster) > 0 {

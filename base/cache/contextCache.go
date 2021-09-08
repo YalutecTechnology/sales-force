@@ -14,7 +14,7 @@ const (
 // Context is a struct that defines the context related to a conversation between agent and client
 type Context struct {
 	UserID    string `json:"userId"`
-	Timestamp int    `json:"timestamp,omitempty"`
+	Timestamp int64  `json:"timestamp,omitempty"`
 	URL       string `json:"url,omitempty"`
 	MIMEType  string `json:"mimeType,omitempty"`
 	Caption   string `json:"caption,omitempty"`
@@ -36,7 +36,6 @@ func assembleContextKey(context Context) string {
 // StoreContext saves a context on Cache
 func (rc *RedisCache) StoreContext(context Context) error {
 	data, _ := json.Marshal(context)
-
 	return rc.StoreData(assembleContextKey(context), data, ttl)
 }
 
