@@ -61,7 +61,8 @@ func TestCreateManager(t *testing.T) {
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
-		expected.cache = actual.cache
+		expected.contextcache = actual.contextcache
+		expected.interconnectionsCache = actual.interconnectionsCache
 
 		assert.Equal(t, expected, actual)
 	})
@@ -144,6 +145,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
+		manager.EndChat(interconnection)
 	})
 
 	t.Run("Create Chat Succesfull with FB provider", func(t *testing.T) {
@@ -217,10 +219,11 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
+		manager.EndChat(interconnection)
 	})
 
 	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
-		expectedLog := "could not create chat in salesforce"
+		expectedLog := "could not create chat in salesforce, user is blocked"
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -289,7 +292,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(nil).Once()
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -321,7 +324,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -353,7 +356,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -383,7 +386,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(nil)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -411,7 +414,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -439,7 +442,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -467,7 +470,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -492,7 +495,7 @@ func TestManager_SaveContext(t *testing.T) {
 			Return(false, nil).Once()
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 			interconnectionMap: interconnectionCache{
 				interconnections: interconnectionMap{
 					"55555555555": &Interconnection{
@@ -641,7 +644,7 @@ second line
 		contextCache.On("RetrieveContext", userID).Return(ctx)
 
 		manager := &Manager{
-			cache: contextCache,
+			contextcache: contextCache,
 		}
 
 		ctxStr := manager.GetContextByUserID(userID)
