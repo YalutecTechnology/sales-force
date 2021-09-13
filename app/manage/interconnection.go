@@ -18,12 +18,12 @@ type InterconnectionStatus string
 type Provider string
 
 const (
-	Failed            InterconnectionStatus = "FAILED"
-	OnHold            InterconnectionStatus = "ON_HOLD"
-	Active            InterconnectionStatus = "ACTIVE"
-	Closed            InterconnectionStatus = "CLOSED"
-	WhatsappProvider  Provider              = "Whatsapp"
-	MessengerProvider Provider              = "Facebook"
+	Failed           InterconnectionStatus = "FAILED"
+	OnHold           InterconnectionStatus = "ON_HOLD"
+	Active           InterconnectionStatus = "ACTIVE"
+	Closed           InterconnectionStatus = "CLOSED"
+	WhatsappProvider Provider              = "Whatsapp"
+	FacebookProvider Provider              = "facebook"
 )
 
 // Interconnection struct represents a connection between userBotYalo and salesforce agent

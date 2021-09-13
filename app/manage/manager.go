@@ -27,7 +27,8 @@ import (
 var (
 	SfcOrganizationID   string
 	SfcDeploymentID     string
-	SfcButtonID         string
+	SfcWAButtonID       string
+	SfcFBButtonID       string
 	SfcRecordTypeID     string
 	BlockedUserState    string
 	TimeoutState        string
@@ -86,7 +87,8 @@ type ManagerOptions struct {
 	SfcApiVersion         string
 	SfcOrganizationID     string
 	SfcDeploymentID       string
-	SfcButtonID           string
+	SfcWAButtonID         string
+	SfcFBButtonID         string
 	SfcOwnerId            string
 	SfcRecordTypeID       string
 	SfcCustomFieldsCase   []string
@@ -109,12 +111,14 @@ type ManagerI interface {
 func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationID = config.SfcOrganizationID
 	SfcDeploymentID = config.SfcDeploymentID
-	SfcButtonID = config.SfcButtonID
+	SfcWAButtonID = config.SfcWAButtonID
+	SfcFBButtonID = config.SfcFBButtonID
 	SfcRecordTypeID = config.SfcRecordTypeID
 	BlockedUserState = config.BlockedUserState
 	TimeoutState = config.TimeoutState
 	SuccessState = config.SuccessState
 	SfcCustomFieldsCase = config.SfcCustomFieldsCase
+
 	cache, err := cache.NewRedisCache(&config.RedisOptions)
 
 	if err != nil {
@@ -271,8 +275,14 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 	interconnection.CaseID = caseId
 
+	// Switch buttonID
+	buttonID := SfcWAButtonID
+	if interconnection.Provider == FacebookProvider {
+		buttonID = SfcFBButtonID
+	}
+
 	//Creating chat in Salesforce
-	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, SfcButtonID, caseId, contact.Id)
+	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.Id)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
