@@ -41,7 +41,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		Name:        chatPayload.Name,
 		Provider:    manage.Provider(chatPayload.Provider),
 		BotSlug:     chatPayload.BotSlug,
-		BotId:       chatPayload.BotId,
+		BotID:       chatPayload.BotId,
 		PhoneNumber: chatPayload.PhoneNumber,
 		Email:       chatPayload.Email,
 		ExtraData:   chatPayload.ExtraData,

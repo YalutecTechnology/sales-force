@@ -449,7 +449,7 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		payload := CaseRequest{
@@ -566,9 +566,9 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
-		}, nil)
+		}, nil).Once()
 		payload := ContactRequest{
 			FirstName:   "firstname",
 			LastName:    "lasrname",

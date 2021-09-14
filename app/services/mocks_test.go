@@ -149,18 +149,18 @@ type SaleforceInterface struct {
 }
 
 // CreateCase provides a mock function with given fields: payload
-func (_m *SaleforceInterface) CreateCase(payload salesforce.CaseRequest) (string, error) {
+func (_m *SaleforceInterface) CreateCase(payload interface{}) (string, error) {
 	ret := _m.Called(payload)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(salesforce.CaseRequest) string); ok {
+	if rf, ok := ret.Get(0).(func(interface{}) string); ok {
 		r0 = rf(payload)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(salesforce.CaseRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(interface{}) error); ok {
 		r1 = rf(payload)
 	} else {
 		r1 = ret.Error(1)

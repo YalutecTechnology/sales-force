@@ -36,7 +36,7 @@ func TestCreateChat(t *testing.T) {
 		interconnection := &manage.Interconnection{
 			UserID:   "5217331175599",
 			BotSlug:  "coppel-bot",
-			BotId:    "521554578545",
+			BotID:    "521554578545",
 			Name:     "Eduardo Ochoa",
 			Provider: "whatsapp",
 			Email:    "ochoapumas@gmail.com",

@@ -25,19 +25,24 @@ import (
 )
 
 var (
-	SfcOrganizationId string
-	SfcDeploymentId   string
-	SfcButtonId       string
-	BlockedUserState  string
+	SfcOrganizationID   string
+	SfcDeploymentID     string
+	SfcButtonID         string
+	SfcRecordTypeID     string
+	BlockedUserState    string
+	TimeoutState        string
+	SuccessState        string
+	SfcCustomFieldsCase []string
 )
 
 const (
-	voiceType    = "voice"
-	documentType = "document"
-	imageType    = "image"
-	textType     = "text"
-	fromUser     = "user"
-	fromBot      = "bot"
+	voiceType          = "voice"
+	documentType       = "document"
+	imageType          = "image"
+	textType           = "text"
+	fromUser           = "user"
+	fromBot            = "bot"
+	descriptionDefualt = "Caso levantado por el Bot : "
 )
 
 type (
@@ -52,7 +57,6 @@ type (
 type Manager struct {
 	clientName            string
 	interconnectionMap    interconnectionCache
-	sfcContactMap         map[string]*models.SfcContact
 	SalesforceService     services.SalesforceServiceInterface
 	IntegrationsClient    *integrations.IntegrationsClient
 	BotrunnnerClient      botrunner.BotRunnerInterface
@@ -66,10 +70,12 @@ type Manager struct {
 type ManagerOptions struct {
 	AppName               string
 	BlockedUserState      string
+	TimeoutState          string
+	SuccessState          string
 	RedisOptions          cache.RedisOptions
 	BotrunnerUrl          string
 	BotrunnerToken        string
-	SfcClientId           string
+	SfcClientID           string
 	SfcClientSecret       string
 	SfcUsername           string
 	SfcPassword           string
@@ -78,14 +84,16 @@ type ManagerOptions struct {
 	SfcChatUrl            string
 	SfcLoginUrl           string
 	SfcApiVersion         string
-	SfcOrganizationId     string
-	SfcDeploymentId       string
-	SfcButtonId           string
+	SfcOrganizationID     string
+	SfcDeploymentID       string
+	SfcButtonID           string
 	SfcOwnerId            string
+	SfcRecordTypeID       string
+	SfcCustomFieldsCase   []string
 	IntegrationsUrl       string
 	IntegrationsChannel   string
 	IntegrationsToken     string
-	IntegrationsBotId     string
+	IntegrationsBotID     string
 	IntegrationsSignature string
 	IntegrationsBotPhone  string
 	WebhookBaseUrl        string
@@ -99,9 +107,14 @@ type ManagerI interface {
 
 // CreateManager retrieves an agents manager
 func CreateManager(config *ManagerOptions) *Manager {
-	SfcOrganizationId = config.SfcOrganizationId
-	SfcDeploymentId = config.SfcDeploymentId
-	SfcButtonId = config.SfcButtonId
+	SfcOrganizationID = config.SfcOrganizationID
+	SfcDeploymentID = config.SfcDeploymentID
+	SfcButtonID = config.SfcButtonID
+	SfcRecordTypeID = config.SfcRecordTypeID
+	BlockedUserState = config.BlockedUserState
+	TimeoutState = config.TimeoutState
+	SuccessState = config.SuccessState
+	SfcCustomFieldsCase = config.SfcCustomFieldsCase
 	cache, err := cache.NewRedisCache(&config.RedisOptions)
 
 	if err != nil {
@@ -114,7 +127,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	// Get token for salesforce
 	tokenPayload := login.TokenPayload{
-		ClientId:     config.SfcClientId,
+		ClientId:     config.SfcClientID,
 		ClientSecret: config.SfcClientSecret,
 		Username:     config.SfcUsername,
 		Password:     config.SfcPassword + config.SfcSecurityToken,
@@ -141,7 +154,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		config.IntegrationsUrl,
 		config.IntegrationsToken,
 		config.IntegrationsChannel,
-		config.IntegrationsBotId,
+		config.IntegrationsBotID,
 	)
 
 	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
@@ -163,18 +176,18 @@ func CreateManager(config *ManagerOptions) *Manager {
 			interconnectionID := fmt.Sprintf("%s-%s", interconnection.UserID, interconnection.SessionID)
 			interconnectionsMap[interconnectionID] = &Interconnection{
 				UserID:        interconnection.UserID,
-				SessionId:     interconnection.SessionID,
+				SessionID:     interconnection.SessionID,
 				SessionKey:    interconnection.SessionKey,
 				AffinityToken: interconnection.AffinityToken,
 				Status:        InterconnectionStatus(interconnection.Status),
 				Timestamp:     interconnection.Timestamp,
 				Provider:      Provider(interconnection.Provider),
 				BotSlug:       interconnection.BotSlug,
-				BotId:         interconnection.BotID,
+				BotID:         interconnection.BotID,
 				Name:          interconnection.Name,
 				Email:         interconnection.Email,
 				PhoneNumber:   interconnection.PhoneNumber,
-				CaseId:        interconnection.CaseID,
+				CaseID:        interconnection.CaseID,
 				ExtraData:     interconnection.ExtraData,
 			}
 		}
@@ -185,7 +198,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 		clientName:            config.AppName,
 		SalesforceService:     salesforceService,
 		interconnectionMap:    interconnectionCache{interconnections: make(interconnectionMap)},
-		sfcContactMap:         make(map[string]*models.SfcContact),
 		IntegrationsClient:    integrationsClient,
 		salesforceChannel:     make(chan *Message),
 		integrationsChannel:   make(chan *Message),
@@ -215,13 +227,13 @@ func (m *Manager) sendMessageToUser(message *Message) {
 	_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
 		Id:     helpers.RandomString(36),
 		Type:   "text",
-		UserId: message.UserId,
+		UserId: message.UserID,
 		Text:   integrations.TextMessage{Body: message.Text},
 	})
 	if err != nil {
 		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
 	}
-	logrus.Infof("Send message to userId : %s", message.UserId)
+	logrus.Infof("Send message to UserID : %s", message.UserID)
 }
 
 func (m *Manager) sendMessageToSalesforce(message *Message) {
@@ -229,7 +241,7 @@ func (m *Manager) sendMessageToSalesforce(message *Message) {
 	if err != nil {
 		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
 	}
-	logrus.Infof("Send message to agent from salesforce : %s", message.UserId)
+	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }
 
 // Initialize a chat with salesforce
@@ -237,12 +249,13 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	titleMessage := "could not create chat in salesforce"
 
 	// Validate that user does not have an active session
-	err := m.ValidateUserId(interconnection.UserID)
+	err := m.ValidateUserID(interconnection.UserID)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
-	contact, err := m.GetOrCreateContact(interconnection.UserID, interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
+	// We get the contact if it exists by your email or phone.
+	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
@@ -251,40 +264,31 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return m.SentToBlockedState(interconnection.UserID, interconnection.BotSlug)
 	}
 
+	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, string(interconnection.Provider),
+		interconnection.ExtraData, SfcCustomFieldsCase)
+	if err != nil {
+		return errors.New(helpers.ErrorMessage(titleMessage, err))
+	}
+	interconnection.CaseID = caseId
+
 	//Creating chat in Salesforce
-	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationId, SfcDeploymentId, SfcButtonId)
+	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, SfcButtonID, caseId, contact.Id)
 	if err != nil {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.AffinityToken = session.AffinityToken
-	interconnection.SessionId = session.Id
+	interconnection.SessionID = session.Id
 	interconnection.SessionKey = session.Key
+	interconnection.Context = "Contexto:\n" + m.GetContextByUserID(interconnection.UserID)
 
 	//Add interconection to Redis and interconnectionMap
 	m.AddInterconnection(interconnection)
 	return nil
 }
 
-// We get the contact if it exists by your email or phone.
-func (m *Manager) GetOrCreateContact(userId, name, email, phoneNumber string) (*models.SfcContact, error) {
-	contact, ok := m.sfcContactMap[userId]
-	if ok {
-		return contact, nil
-	}
-	logrus.Errorf("Obteniendo contacto")
-	contact, err := m.SalesforceService.GetOrCreateContact(name, email, phoneNumber)
-	logrus.Errorf("Recibiendo contacto : %v", contact)
-	if contact != nil {
-		logrus.Infof("Contact added in contactMap to user %s", userId)
-		m.sfcContactMap[userId] = contact
-	}
-
-	return contact, err
-}
-
 // Change to from-sf-blocked state
-func (m *Manager) SentToBlockedState(userId, botSlug string) error {
-	ok, err := m.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userId, BlockedUserState, ""))
+func (m *Manager) SentToBlockedState(userID, botSlug string) error {
+	ok, err := m.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, BlockedUserState, ""))
 
 	if ok {
 		return errors.New(helpers.ErrorMessage("could not create chat in salesforce", err))
@@ -292,12 +296,12 @@ func (m *Manager) SentToBlockedState(userId, botSlug string) error {
 	return err
 }
 
-func (m *Manager) ValidateUserId(userId string) error {
+func (m *Manager) ValidateUserID(userID string) error {
 	//TODO: validate that there is an active user session in redis
 
 	// validate that it exists on the map
-	if _, ok := m.interconnectionMap.interconnections[userId]; ok {
-		return errors.New("Session exists with this userID")
+	if _, ok := m.interconnectionMap.interconnections[userID]; ok {
+		return errors.New("session exists with this userID")
 	}
 	return nil
 }
@@ -306,6 +310,7 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 	interconnection = NewInterconection(interconnection)
 	interconnection.SalesforceService = m.SalesforceService
 	interconnection.IntegrationsClient = m.IntegrationsClient
+	interconnection.BotrunnnerClient = m.BotrunnnerClient
 	interconnection.finishChannel = m.finishInterconnection
 	interconnection.integrationsChannel = m.integrationsChannel
 	interconnection.salesforceChannel = m.salesforceChannel
@@ -332,7 +337,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		if interconnection.Status == Active && integration.Type == textType {
 			m.sendMessageToSalesforce(&Message{
 				Text:          integration.Text.Body,
-				UserId:        integration.From,
+				UserID:        integration.From,
 				SessionKey:    interconnection.SessionKey,
 				AffinityToken: interconnection.AffinityToken,
 			})

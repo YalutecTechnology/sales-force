@@ -7,8 +7,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/services"
+	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
+	"yalochat.com/salesforce-integration/base/helpers"
 )
 
 // Status that an interconnection can have
@@ -20,29 +22,31 @@ const (
 	OnHold            InterconnectionStatus = "ON_HOLD"
 	Active            InterconnectionStatus = "ACTIVE"
 	Closed            InterconnectionStatus = "CLOSED"
-	WhatsappProvider  Provider              = "whatsapp"
-	MessengerProvider Provider              = "messenger"
+	WhatsappProvider  Provider              = "Whatsapp"
+	MessengerProvider Provider              = "Facebook"
 )
 
 // Interconnection struct represents a connection between userBotYalo and salesforce agent
 type Interconnection struct {
 	UserID              string                              `json:"userId"`
-	SessionId           string                              `json:"sessionId"`
+	SessionID           string                              `json:"sessionId"`
 	SessionKey          string                              `json:"sessionKey"`
 	AffinityToken       string                              `json:"affinityToken"`
 	Status              InterconnectionStatus               `json:"status"`
 	Timestamp           time.Time                           `json:"timestamp"`
 	Provider            Provider                            `json:"provider"`
 	BotSlug             string                              `json:"botSlug"`
-	BotId               string                              `json:"botId"`
+	BotID               string                              `json:"botId"`
 	Name                string                              `json:"name"`
 	Email               string                              `json:"email"`
 	PhoneNumber         string                              `json:"phoneNumber"`
-	CaseId              string                              `json:"caseId"`
+	CaseID              string                              `json:"caseId"`
+	Context             string                              `json:"context"`
 	ExtraData           map[string]interface{}              `json:"extraData"`
 	salesforceChannel   chan *Message                       `json:"-"`
 	integrationsChannel chan *Message                       `json:"-"`
 	finishChannel       chan *Interconnection               `json:"-"`
+	BotrunnnerClient    botrunner.BotRunnerInterface        `json:"-"`
 	SalesforceService   services.SalesforceServiceInterface `json:"-"`
 	IntegrationsClient  *integrations.IntegrationsClient    `json:"-"`
 	runnigLongPolling   bool                                `json:"-"`
@@ -54,7 +58,7 @@ type Interconnection struct {
 type Message struct {
 	Text          string `json:"text"`
 	ImageUrl      string `json:"imageUrl"`
-	UserId        string `json:"userId"`
+	UserID        string `json:"userID"`
 	SessionKey    string `json:"sessionKey"`
 	AffinityToken string `json:"affinityToken"`
 }
@@ -65,9 +69,9 @@ func NewInterconection(interconnection *Interconnection) *Interconnection {
 	return interconnection
 }
 
-func NewIntegrationsMessage(userId, text string) *Message {
+func NewIntegrationsMessage(userID, text string) *Message {
 	return &Message{
-		UserId: userId,
+		UserID: userID,
 		Text:   text,
 	}
 }
@@ -91,7 +95,12 @@ func (in *Interconnection) handleLongPolling() {
 			case http.StatusNoContent:
 				logrus.Info("Not content events")
 			case http.StatusForbidden:
-				// TODO: Send to state `from-sf-timeout` in the bot
+				_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
+
+				if err != nil {
+					logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
+				}
+
 				in.Status = Closed
 				in.runnigLongPolling = false
 				logrus.Info("StatusForbidden")
@@ -102,6 +111,11 @@ func (in *Interconnection) handleLongPolling() {
 				logrus.Info("StatusServiceUnavailable")
 			default:
 				logrus.Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
+				_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
+
+				if err != nil {
+					logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
+				}
 				in.Status = Closed
 				in.runnigLongPolling = false
 			}
@@ -119,31 +133,37 @@ func (in *Interconnection) handleLongPolling() {
 func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	switch event.Type {
 	case chat.ChatRequestFail:
-		// TODO: Send to state `from-sf-timeout` in the bot
 		logrus.Infof("Event [%s]", chat.ChatRequestFail)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "No hay agentes disponibles")
+		_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
+
+		if err != nil {
+			logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
+		}
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
-		// TODO : queuePosition and send message to user
 		logrus.Infof("Event [%s]", chat.ChatRequestSuccess)
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente")
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
+		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
 	case chat.ChatEstablished:
-		// TODO : Activate Chat function
-		in.Status = Active
-		in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, "Aqui el contexto")
-		in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
+		logrus.Infof("Event [%s]", event.Type)
+		in.ActiveChat()
 	case chat.ChatMessage:
 		logrus.Infof("Message from salesforce : %s", event.Message.Text)
-		//TODO: Send Message to user
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text)
 	case chat.QueueUpdate:
-		//TODO: update queuePosition and send message to user
 		logrus.Infof("Event [%s]", chat.QueueUpdate)
+		if event.Message.QueuePosition > 0 {
+			//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
+		}
 	case chat.ChatEnded:
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Terminó el chat")
+		_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, SuccessState, ""))
+
+		if err != nil {
+			logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
+		}
 		in.runnigLongPolling = false
 		in.Status = Closed
 	default:
@@ -166,4 +186,11 @@ func (in *Interconnection) handleStatus() {
 			return
 		}
 	}
+}
+
+func (in *Interconnection) ActiveChat() {
+	in.Status = Active
+	//TODO: Update interconnection in redis
+	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, in.Context)
+	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
 }
