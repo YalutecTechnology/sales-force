@@ -22,7 +22,8 @@ const (
 	phoneNumber      = "5512454545"
 	organizationID   = "organizationID"
 	deploymentID     = "deploymentID"
-	buttonID         = "buttonID"
+	buttonWAID       = "buttonWAID"
+	buttonFBID       = "buttonFBID"
 	blockedUserState = "from-sf-blocked"
 	contactID        = "contactID"
 	recordTypeID     = "recordTypeID"
@@ -92,9 +93,10 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		manager := CreateManager(config)
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
-		SfcButtonID = buttonID
+		SfcWAButtonID = buttonWAID
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = []string{"data:data"}
+
 		salesforceMock := new(SalesforceServiceInterface)
 
 		contact := &models.SfcContact{
@@ -122,7 +124,76 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
-			SfcButtonID,
+			SfcWAButtonID,
+			caseID,
+			contactID).Return(&chat.SessionResponse{
+			AffinityToken: affinityToken,
+			Key:           sessionKey,
+		}, nil).Once()
+
+		salesforceMock.On("GetMessages",
+			affinityToken, sessionKey).
+			Return(&chat.MessagesResponse{}, nil).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.CreateChat(interconnection)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Create Chat Succesfull with FB button", func(t *testing.T) {
+		interconnection := &Interconnection{
+			UserID:      userID,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    FacebookProvider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+		}
+		config := &ManagerOptions{
+			AppName: "salesforce-integration",
+			RedisOptions: cache.RedisOptions{
+				FailOverOptions: &redis.FailoverOptions{
+					MasterName:    s.MasterInfo().Name,
+					SentinelAddrs: []string{s.Addr()},
+				},
+				SessionsTTL: time.Second,
+			},
+		}
+		manager := CreateManager(config)
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcWAButtonID = buttonWAID
+		SfcFBButtonID = buttonFBID
+		salesforceMock := new(SalesforceServiceInterface)
+
+		contact := &models.SfcContact{
+			Id:          contactID,
+			FirstName:   interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+		}
+		salesforceMock.On("GetOrCreateContact",
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber).
+			Return(contact, nil).Once()
+
+		salesforceMock.On("CreatCase",
+			SfcRecordTypeID,
+			contact.Id,
+			"Caso levantado por el Bot : ",
+			string(interconnection.Provider),
+			interconnection.ExtraData,
+			SfcCustomFieldsCase).
+			Return(caseID, nil).Once()
+
+		salesforceMock.On("CreatChat",
+			interconnection.Name,
+			SfcOrganizationID,
+			SfcDeploymentID,
+			SfcFBButtonID,
 			caseID,
 			contactID).
 			Return(&chat.SessionResponse{
@@ -164,7 +235,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		manager := CreateManager(config)
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
-		SfcButtonID = buttonID
+		SfcWAButtonID = buttonWAID
 		BlockedUserState = "from-sf-blocked"
 		contact := &models.SfcContact{
 			FirstName:   interconnection.Name,

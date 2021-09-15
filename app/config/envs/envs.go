@@ -32,7 +32,8 @@ type Envs struct {
 	SfcApiVersion         string   `split_words:"true" default:"52"`
 	SfcOrganizationId     string   `split_words:"true"`
 	SfcDeploymentId       string   `split_words:"true"`
-	SfcButtonId           string   `split_words:"true"`
+	SfcWAButtonId         string   `split_words:"true"`
+	SfcFBButtonId         string   `split_words:"true"`
 	SfcOwnerId            string   `split_words:"true"`
 	SfcRecordTypeId       string   `split_words:"true"`
 	SfcCustomFieldsCase   []string `split_words:"true"`
