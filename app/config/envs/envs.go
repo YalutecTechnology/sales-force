@@ -44,4 +44,5 @@ type Envs struct {
 	IntegrationsSignature string   `split_words:"true"`
 	WebhookBaseUrl        string   `split_words:"true"`
 	IntegrationsBotPhone  string   `split_words:"true"`
+	KeywordsRestart       []string `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
 }

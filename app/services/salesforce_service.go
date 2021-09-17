@@ -3,6 +3,8 @@ package services
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -14,21 +16,26 @@ import (
 )
 
 const (
-	queryForContactByField = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+` + "%s"
-	SFBFieldCustom         = "source_flow_bot"
-	SFB1                   = "SFB001"
-	SFB2                   = "SFB002"
-	SFB3                   = "SFB003"
-	SFB4                   = "SFB004"
-	SFB5                   = "SFB005"
-	SFB6                   = "SFB006"
-	SFB1Subject            = "Estado de pedido"
-	SFB2Subject            = "Devoluciones y cancelaciones"
-	SFB3Subject            = "Estatus de solicitud de crédito"
-	SFB4Subject            = "Consulta de estado de cuenta y abonos"
-	SFB5Subject            = "Solicitud de préstamo"
-	SFB6Subject            = "Otro"
-	firstnameDefualt       = "Contacto Bot - "
+	queryForContactByField     = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+` + "%s"
+	SFBFieldCustom             = "source_flow_bot"
+	SFB1                       = "SFB001"
+	SFB2                       = "SFB002"
+	SFB3                       = "SFB003"
+	SFB4                       = "SFB004"
+	SFB5                       = "SFB005"
+	SFB6                       = "SFB006"
+	SFB1Subject                = "Estado de pedido"
+	SFB2Subject                = "Devoluciones y cancelaciones"
+	SFB3Subject                = "Estatus de solicitud de crédito"
+	SFB4Subject                = "Consulta de estado de cuenta y abonos"
+	SFB5Subject                = "Solicitud de préstamo"
+	SFB6Subject                = "Otro"
+	firstnameDefualt           = "Contacto Bot - "
+	contentLocation            = "S"
+	shareType                  = "V"
+	visibility                 = "allUsers"
+	queryContentDocumentIDByID = `SELECT+ContentDocumentID+FROM+ContentVersion+WHERE+id+=+'@{newContentVersion.id}'`
+	linkReferenceID            = "@{newQuery.records[0].ContentDocumentId}"
 )
 
 type SalesforceService struct {
@@ -42,7 +49,9 @@ type SalesforceServiceInterface interface {
 	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
-	CreatCase(recordType, contactID, description, origin string, extraData map[string]interface{}, customFields []string) (string, error)
+	CreatCase(recordType, contactId, description, origin string, extraData map[string]interface{}, customFields []string) (string, error)
+	InsertImageInCase(uri, title, mimeType, caseID string) error
+	EndChat(affinityToken, sessionKey string) error
 }
 
 func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient) *SalesforceService {
@@ -231,4 +240,65 @@ func (s *SalesforceService) CreatCase(recordType, contactID, description, origin
 	payload["Status"] = caseRequest.Status
 	payload["Subject"] = caseRequest.Subject
 	return s.SfcClient.CreateCase(payload)
+}
+
+func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID string) error {
+	resp, err := http.Get(uri)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("image not found")
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	request := salesforce.CompositeRequest{
+		AllOrNone:          true,
+		CollateSubrequests: false,
+		CompositeRequest: []salesforce.Composite{
+			{
+				Method: http.MethodPost,
+				URL:    s.SfcClient.GetContentVersionURL(),
+				Body: salesforce.ContentVersionPayload{
+					Title:           title,
+					ContentLocation: contentLocation,
+					PathOnClient:    helpers.GetExportFilename(title, mimeType),
+					VersionData:     string(helpers.Encode(body)),
+				},
+				ReferenceId: "newContentVersion",
+			},
+			{
+				Method:      http.MethodGet,
+				URL:         s.SfcClient.GetSearchURL(queryContentDocumentIDByID),
+				ReferenceId: "newQuery",
+			},
+			{
+				Method: http.MethodPost,
+				URL:    s.SfcClient.GetDocumentLinkURL(),
+				Body: salesforce.LinkDocumentPayload{
+					ContentDocumentID: linkReferenceID,
+					LinkedEntityID:    caseID,
+					ShareType:         shareType,
+					Visibility:        visibility,
+				},
+				ReferenceId: "newContentDocumentLink",
+			},
+		},
+	}
+
+	_, err = s.SfcClient.Composite(request)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SalesforceService) EndChat(affinityToken, sessionKey string) error {
+	return s.SfcChatClient.ChatEnd(affinityToken, sessionKey)
 }

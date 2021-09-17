@@ -37,13 +37,15 @@ var (
 )
 
 const (
-	voiceType          = "voice"
-	documentType       = "document"
-	imageType          = "image"
-	textType           = "text"
-	fromUser           = "user"
-	fromBot            = "bot"
-	descriptionDefualt = "Caso levantado por el Bot : "
+	voiceType           = "voice"
+	documentType        = "document"
+	imageType           = "image"
+	textType            = "text"
+	fromUser            = "user"
+	fromBot             = "bot"
+	descriptionDefualt  = "Caso levantado por el Bot : "
+	messageError        = "Imagen no enviada"
+	messageImageSuccess = "**El usuario adjunto una imagen al caso**"
 )
 
 type (
@@ -65,6 +67,8 @@ type Manager struct {
 	integrationsChannel   chan *Message
 	finishInterconnection chan *Interconnection
 	cache                 cache.ContextCache
+	environment           string
+	keywordsRestart       []string
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -99,6 +103,8 @@ type ManagerOptions struct {
 	IntegrationsSignature string
 	IntegrationsBotPhone  string
 	WebhookBaseUrl        string
+	Environment           string
+	KeywordsRestart       []string
 }
 
 type ManagerI interface {
@@ -174,30 +180,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	interconnections := cache.RetrieveAllInterconnections()
 
-	interconnectionsMap := make(interconnectionMap)
-	for _, interconnection := range *interconnections {
-		if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
-			interconnectionID := fmt.Sprintf("%s-%s", interconnection.UserID, interconnection.SessionID)
-			interconnectionsMap[interconnectionID] = &Interconnection{
-				UserID:        interconnection.UserID,
-				SessionID:     interconnection.SessionID,
-				SessionKey:    interconnection.SessionKey,
-				AffinityToken: interconnection.AffinityToken,
-				Status:        InterconnectionStatus(interconnection.Status),
-				Timestamp:     interconnection.Timestamp,
-				Provider:      Provider(interconnection.Provider),
-				BotSlug:       interconnection.BotSlug,
-				BotID:         interconnection.BotID,
-				Name:          interconnection.Name,
-				Email:         interconnection.Email,
-				PhoneNumber:   interconnection.PhoneNumber,
-				CaseID:        interconnection.CaseID,
-				ExtraData:     interconnection.ExtraData,
-			}
-		}
-
-	}
-
 	m := &Manager{
 		clientName:            config.AppName,
 		SalesforceService:     salesforceService,
@@ -208,7 +190,18 @@ func CreateManager(config *ManagerOptions) *Manager {
 		finishInterconnection: make(chan *Interconnection),
 		cache:                 cache,
 		BotrunnnerClient:      botRunnerClient,
+		environment:           config.Environment,
+		keywordsRestart:       config.KeywordsRestart,
 	}
+
+	for _, interconnection := range *interconnections {
+		if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
+			in := convertInterconnectionCacheToInterconnection(interconnection)
+			m.AddInterconnection(in)
+		}
+
+	}
+
 	go m.handleInterconnection()
 	return m
 }
@@ -255,12 +248,18 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	// Validate that user does not have an active session
 	err := m.ValidateUserID(interconnection.UserID)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"interconnection": interconnection,
+		}).WithError(err).Error("error ValidateUserID")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
 	// We get the contact if it exists by your email or phone.
 	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"interconnection": interconnection,
+		}).WithError(err).Error("error GetOrCreateContact")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
@@ -271,6 +270,9 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, string(interconnection.Provider),
 		interconnection.ExtraData, SfcCustomFieldsCase)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"interconnection": interconnection,
+		}).WithError(err).Error("error CreatCase")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.CaseID = caseId
@@ -284,12 +286,17 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	//Creating chat in Salesforce
 	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.Id)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"interconnection": interconnection,
+		}).WithError(err).Error("error CreatChat")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.AffinityToken = session.AffinityToken
 	interconnection.SessionID = session.Id
 	interconnection.SessionKey = session.Key
 	interconnection.Context = "Contexto:\n" + m.GetContextByUserID(interconnection.UserID)
+	interconnection.Status = OnHold
+	interconnection.Timestamp = time.Now()
 
 	//Add interconection to Redis and interconnectionMap
 	m.AddInterconnection(interconnection)
@@ -317,7 +324,6 @@ func (m *Manager) ValidateUserID(userID string) error {
 }
 
 func (m *Manager) AddInterconnection(interconnection *Interconnection) {
-	interconnection = NewInterconection(interconnection)
 	interconnection.SalesforceService = m.SalesforceService
 	interconnection.IntegrationsClient = m.IntegrationsClient
 	interconnection.BotrunnnerClient = m.BotrunnnerClient
@@ -339,24 +345,18 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 
 // SaveContext method will save context of integration message
 func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
-	m.interconnectionMap.RWMutex.RLock()
-	defer m.interconnectionMap.RUnlock()
-
-	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok {
-		//TODO: add image
-		if interconnection.Status == Active && integration.Type == textType {
-			m.sendMessageToSalesforce(&Message{
-				Text:          integration.Text.Body,
-				UserID:        integration.From,
-				SessionKey:    interconnection.SessionKey,
-				AffinityToken: interconnection.AffinityToken,
-			})
-		}
-
+	isSend, err := m.salesforceComunication(integration)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"integration": integration,
+		}).WithError(err).Error("Error salesforce comunication")
+		return err
+	}
+	if isSend {
 		return nil
 	}
 
-	timestamp, err := strconv.Atoi(integration.Timestamp)
+	timestamp, err := strconv.ParseInt(integration.Timestamp, 10, 64)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"integration": integration,
@@ -371,6 +371,8 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 	}
 
 	switch {
+	case integration.Type == textType:
+		ctx.Text = integration.Text.Body
 	case integration.Type == imageType:
 		ctx.URL = integration.Image.URL
 		ctx.Caption = integration.Image.Caption
@@ -383,8 +385,6 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.URL = integration.Document.URL
 		ctx.Caption = integration.Document.Caption
 		ctx.MIMEType = integration.Document.MIMEType
-	case integration.Type == textType:
-		ctx.Text = integration.Text.Body
 	default:
 		logrus.WithFields(logrus.Fields{
 			"integration": integration,
@@ -408,6 +408,60 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 	return nil
 }
 
+func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest) (bool, error) {
+	m.interconnectionMap.RWMutex.RLock()
+	defer m.interconnectionMap.RUnlock()
+
+	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok && interconnection.Status == Active {
+		switch integration.Type {
+		case textType:
+			if strings.Contains(constants.DevEnvironments, m.environment) {
+				for _, keyword := range m.keywordsRestart {
+					if strings.ToLower(integration.Text.Body) == keyword {
+						err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+						if err != nil {
+							return false, err
+						}
+						interconnection.Status = Closed
+						interconnection.runnigLongPolling = false
+						return true, nil
+					}
+				}
+			}
+			m.sendMessageToSalesforce(&Message{
+				Text:          integration.Text.Body,
+				UserID:        integration.From,
+				SessionKey:    interconnection.SessionKey,
+				AffinityToken: interconnection.AffinityToken,
+			})
+		case imageType:
+			err := m.SalesforceService.InsertImageInCase(
+				integration.Image.URL,
+				interconnection.SessionID,
+				integration.Image.MIMEType,
+				interconnection.CaseID)
+			if err != nil {
+				m.sendMessageToUser(&Message{
+					Text:          messageError,
+					UserID:        integration.From,
+					SessionKey:    interconnection.SessionKey,
+					AffinityToken: interconnection.AffinityToken,
+				})
+				return false, err
+			}
+			m.sendMessageToSalesforce(&Message{
+				Text:          messageImageSuccess,
+				UserID:        integration.From,
+				SessionKey:    interconnection.SessionKey,
+				AffinityToken: interconnection.AffinityToken,
+			})
+		}
+
+		return true, nil
+	}
+	return false, nil
+}
+
 func (m *Manager) EndChat(interconnection *Interconnection) {
 	// TODO: EndChat
 	m.interconnectionMap.Lock()
@@ -423,14 +477,16 @@ func (m *Manager) GetContextByUserID(userID string) string {
 	builder := strings.Builder{}
 	for _, ctx := range allContext {
 		loc, _ := time.LoadLocation("America/Mexico_City")
+
 		date := time.Unix(0, int64(ctx.Timestamp)*int64(time.Millisecond)).
 			In(loc).
 			Format(constants.DateFormat)
 
+		ctx.Text = strings.TrimRight(ctx.Text, "\n")
 		if ctx.From == fromUser {
-			fmt.Fprintf(&builder, "Cliente [%s]:%s\n", date, ctx.Text)
+			fmt.Fprintf(&builder, "Cliente [%s]:%s\n\n", date, ctx.Text)
 		} else {
-			fmt.Fprintf(&builder, "Bot [%s]:%s\n", date, ctx.Text)
+			fmt.Fprintf(&builder, "Bot [%s]:%s\n\n", date, ctx.Text)
 		}
 	}
 

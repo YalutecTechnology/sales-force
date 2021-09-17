@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/services"
+	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
@@ -193,4 +194,23 @@ func (in *Interconnection) ActiveChat() {
 	//TODO: Update interconnection in redis
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, in.Context)
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
+}
+
+func convertInterconnectionCacheToInterconnection(interconnection cache.Interconnection) *Interconnection {
+	return &Interconnection{
+		UserID:        interconnection.UserID,
+		SessionID:     interconnection.SessionID,
+		SessionKey:    interconnection.SessionKey,
+		AffinityToken: interconnection.AffinityToken,
+		Status:        InterconnectionStatus(interconnection.Status),
+		Timestamp:     interconnection.Timestamp,
+		Provider:      Provider(interconnection.Provider),
+		BotSlug:       interconnection.BotSlug,
+		BotID:         interconnection.BotID,
+		Name:          interconnection.Name,
+		Email:         interconnection.Email,
+		PhoneNumber:   interconnection.PhoneNumber,
+		CaseID:        interconnection.CaseID,
+		ExtraData:     interconnection.ExtraData,
+	}
 }

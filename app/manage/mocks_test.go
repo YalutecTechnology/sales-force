@@ -77,27 +77,6 @@ type SalesforceServiceInterface struct {
 	mock.Mock
 }
 
-// CreatCase provides a mock function with given fields: recordType, contactId, description, origin, extraData, customFields
-func (_m *SalesforceServiceInterface) CreatCase(recordType string, contactId string, description string, origin string, extraData map[string]interface{}, customFields []string) (string, error) {
-	ret := _m.Called(recordType, contactId, description, origin, extraData, customFields)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string, string, string, string, map[string]interface{}, []string) string); ok {
-		r0 = rf(recordType, contactId, description, origin, extraData, customFields)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string, map[string]interface{}, []string) error); ok {
-		r1 = rf(recordType, contactId, description, origin, extraData, customFields)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreatChat provides a mock function with given fields: contactName, organizationId, deploymentId, buttonId, caseId, contactId
 func (_m *SalesforceServiceInterface) CreatChat(contactName string, organizationId string, deploymentId string, buttonId string, caseId string, contactId string) (*chat.SessionResponse, error) {
 	ret := _m.Called(contactName, organizationId, deploymentId, buttonId, caseId, contactId)
@@ -188,4 +167,53 @@ func (_m *SalesforceServiceInterface) SendMessage(_a0 string, _a1 string, _a2 ch
 	}
 
 	return r0, r1
+}
+
+// InsertImageInCase provides a mock function with given fields: uri, title, mimeType, caseID
+func (_m *SalesforceServiceInterface) InsertImageInCase(uri string, title string, mimeType string, caseID string) error {
+	ret := _m.Called(uri, title, mimeType, caseID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, string, string) error); ok {
+		r0 = rf(uri, title, mimeType, caseID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// CreatCase provides a mock function with given fields: recordType, contactId, description, origin, extraData, customFields
+func (_m *SalesforceServiceInterface) CreatCase(recordType string, contactId string, description string, origin string, extraData map[string]interface{}, customFields []string) (string, error) {
+	ret := _m.Called(recordType, contactId, description, origin, extraData, customFields)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(string, string, string, string, map[string]interface{}, []string) string); ok {
+		r0 = rf(recordType, contactId, description, origin, extraData, customFields)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string, string, string, map[string]interface{}, []string) error); ok {
+		r1 = rf(recordType, contactId, description, origin, extraData, customFields)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EndChat provides a mock function with given fields: affinityToken, sessionKey
+func (_m *SalesforceServiceInterface) EndChat(affinityToken string, sessionKey string) error {
+	ret := _m.Called(affinityToken, sessionKey)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(affinityToken, sessionKey)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }

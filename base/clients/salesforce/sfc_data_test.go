@@ -2,6 +2,7 @@ package salesforce
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -659,4 +660,112 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, id)
 	})
+}
+
+func TestCaseClient_Composite(t *testing.T) {
+
+	t.Run("Create Composite Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		expected := CompositeResponse{
+			Body: "test",
+			HTTPHeaders: HTTPHeaders{
+				Location: "location",
+			},
+			HTTPStatusCode: http.StatusOK,
+			ReferenceID:    "referenceID",
+		}
+		expectedBin, err := json.Marshal(expected)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(expectedBin)),
+		}, nil).Once()
+		payload := CompositeRequest{
+			AllOrNone:          true,
+			CollateSubrequests: true,
+			CompositeRequest: []Composite{
+				{
+					Method: "POST",
+					URL:    "URL",
+					Body: ContentVersionPayload{
+						Title:           "title",
+						Description:     "description",
+						ContentLocation: "location",
+						PathOnClient:    "path",
+						VersionData:     "version",
+					},
+				},
+			},
+		}
+		response, err := salesforceClient.Composite(payload)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		assert.Equal(t, expected, response)
+	})
+
+	t.Run("Create Composite error validation", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		payload := CompositeRequest{
+			AllOrNone:          true,
+			CollateSubrequests: true,
+		}
+		response, err := salesforceClient.Composite(payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, response)
+	})
+
+	t.Run("Create Composite error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		expected := CompositeResponse{
+			Body: "test",
+			HTTPHeaders: HTTPHeaders{
+				Location: "location",
+			},
+			HTTPStatusCode: http.StatusOK,
+			ReferenceID:    "referenceID",
+		}
+		expectedBin, err := json.Marshal(expected)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       ioutil.NopCloser(bytes.NewReader(expectedBin)),
+		}, nil).Once()
+		payload := CompositeRequest{
+			AllOrNone:          true,
+			CollateSubrequests: true,
+			CompositeRequest: []Composite{
+				{
+					Method: "POST",
+					URL:    "URL",
+					Body: ContentVersionPayload{
+						Title:           "title",
+						Description:     "description",
+						ContentLocation: "location",
+						PathOnClient:    "path",
+						VersionData:     "version",
+					},
+				},
+			},
+		}
+		response, err := salesforceClient.Composite(payload)
+
+		assert.Error(t, err)
+		assert.Empty(t, response)
+	})
+
 }

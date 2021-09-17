@@ -272,7 +272,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
 			UserID:    "55555555555",
-			Timestamp: 123456789,
+			Timestamp: 1631202334957,
 			URL:       "uri",
 			MIMEType:  "voice",
 			Caption:   "caption",
@@ -286,7 +286,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 		integrations := &models.IntegrationsRequest{
 			ID:        "id",
-			Timestamp: "123456789",
+			Timestamp: "1631202334957",
 			Type:      voiceType,
 			From:      "55555555555",
 			Voice: models.Media{
@@ -510,6 +510,85 @@ func TestManager_SaveContext(t *testing.T) {
 
 		assert.NoError(t, err)
 	})
+
+	t.Run("Should send message end chat", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(nil).Once()
+
+		manager := &Manager{
+			cache: contextCache,
+			interconnectionMap: interconnectionCache{
+				interconnections: interconnectionMap{
+					"55555555555": &Interconnection{
+						Status:        Active,
+						AffinityToken: affinityToken,
+						SessionKey:    sessionKey,
+					},
+				},
+			},
+			SalesforceService: salesforceMock,
+			keywordsRestart:   []string{"restart", "test"},
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "ReStArt",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send image to salesforce", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertImageInCase",
+			"http://test.com", sessionID, "image/png", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			Return(false, nil).Once()
+
+		manager := &Manager{
+			cache: contextCache,
+			interconnectionMap: interconnectionCache{
+				interconnections: interconnectionMap{
+					"55555555555": &Interconnection{
+						Status:        Active,
+						AffinityToken: affinityToken,
+						SessionKey:    sessionKey,
+						SessionID:     sessionID,
+						CaseID:        "caseID",
+					},
+				},
+			},
+			SalesforceService: salesforceMock,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        "id",
+			Timestamp: "123456789",
+			Type:      imageType,
+			From:      "55555555555",
+			Image: models.Media{
+				URL:      "http://test.com",
+				MIMEType: "image/png",
+				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
 }
 
 func TestManager_getContextByUserID(t *testing.T) {
@@ -518,9 +597,11 @@ func TestManager_getContextByUserID(t *testing.T) {
 		ctx := []cache.Context{
 			{
 				UserID:    "55555555555",
-				Timestamp: 1630404180000,
-				Text:      "this a test",
-				From:      fromUser,
+				Timestamp: 1631202337350,
+				Text: `this a test
+second line
+`,
+				From: fromUser,
 			},
 			{
 				UserID:    "55555555555",
@@ -557,10 +638,16 @@ func TestManager_getContextByUserID(t *testing.T) {
 
 		ctxStr := manager.GetContextByUserID(userID)
 		expected := `Cliente [31-08-2021 05:00:00]:Hello
+
 Bot [31-08-2021 05:01:00]:Hello I'm a bot
+
 Cliente [31-08-2021 05:02:00]:I need help
-Cliente [31-08-2021 05:03:00]:this a test
+
 Bot [31-08-2021 05:04:00]:ok.
+
+Cliente [09-09-2021 10:45:37]:this a test
+second line
+
 `
 		assert.Equal(t, expected, ctxStr)
 	})
