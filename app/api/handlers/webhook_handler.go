@@ -66,3 +66,32 @@ func (app *App) getContext(w http.ResponseWriter, r *http.Request, params httpro
 
 	helpers.WriteSuccessResponse(w, ctx)
 }
+
+// webhook to save messages from integrations API
+func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	var integrationsRequest models.IntegrationsFacebook
+	if err := json.NewDecoder(r.Body).Decode(&integrationsRequest); err != nil {
+		logrus.WithError(err).Error("error decode body request")
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.InvalidPayload+" : "+err.Error())
+		return
+	}
+
+	if err := helpers.Govalidator().Struct(integrationsRequest); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"request": integrationsRequest,
+		}).WithError(err).Error("error validation payload")
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.ValidatePayloadError+" : "+err.Error())
+		return
+	}
+
+	err := app.ManageManager.SaveContextFB(&integrationsRequest)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"request": integrationsRequest,
+		}).WithError(err).Error("error SaveContext")
+		helpers.WriteFailedResponse(w, http.StatusNotFound, fmt.Sprintf(insertError, err))
+		return
+	}
+
+	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "insert success"})
+}

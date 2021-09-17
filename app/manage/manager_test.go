@@ -7,9 +7,11 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
+	mock "github.com/stretchr/testify/mock"
 
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
+	"yalochat.com/salesforce-integration/base/clients/integrations"
 	"yalochat.com/salesforce-integration/base/models"
 )
 
@@ -83,17 +85,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			PhoneNumber: phoneNumber,
 			ExtraData:   map[string]interface{}{"data": "datavalue"},
 		}
-		config := &ManagerOptions{
-			AppName: "salesforce-integration",
-			RedisOptions: cache.RedisOptions{
-				FailOverOptions: &redis.FailoverOptions{
-					MasterName:    s.MasterInfo().Name,
-					SentinelAddrs: []string{s.Addr()},
-				},
-				SessionsTTL: time.Second,
-			},
-		}
-		manager := CreateManager(config)
+
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcWAButtonID = buttonWAID
@@ -103,6 +95,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		SfcCustomFieldsCase = []string{"data:data"}
 
 		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionMock := new(InterconnectionCache)
 
 		contact := &models.SfcContact{
 			Id:          contactID,
@@ -141,7 +134,36 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
-		manager.SalesforceService = salesforceMock
+		interconnectionMock.On("RetrieveInterconnectionActiveByUserId", userID).
+			Return(nil, nil).Once()
+		interconnectionMock.On("StoreInterconnection", mock.Anything).
+			Return(nil).Once()
+
+		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock.On("RetrieveContext", userID).
+			Return([]cache.Context{
+				{
+					UserID:    userID,
+					Timestamp: 1111111111,
+					Text:      "text",
+				},
+			}).Once()
+		manager := &Manager{
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+			contextcache:          cacheContextMock,
+			interconnectionMap: interconnectionCache{
+				interconnections: interconnectionMap{
+					"55555555555": &Interconnection{
+						Status:        Active,
+						AffinityToken: affinityToken,
+						SessionKey:    sessionKey,
+						SessionID:     sessionID,
+						UserID:        userID,
+					},
+				},
+			},
+		}
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
@@ -158,17 +180,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Email:       email,
 			PhoneNumber: phoneNumber,
 		}
-		config := &ManagerOptions{
-			AppName: "salesforce-integration",
-			RedisOptions: cache.RedisOptions{
-				FailOverOptions: &redis.FailoverOptions{
-					MasterName:    s.MasterInfo().Name,
-					SentinelAddrs: []string{s.Addr()},
-				},
-				SessionsTTL: time.Second,
-			},
-		}
-		manager := CreateManager(config)
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcWAButtonID = buttonWAID
@@ -215,7 +226,14 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
-		manager.SalesforceService = salesforceMock
+		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock.On("RetrieveInterconnectionActiveByUserId", userID).
+			Return(nil, nil).Once()
+
+		manager := &Manager{
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+		}
 
 		err := manager.CreateChat(interconnection)
 		assert.NoError(t, err)
@@ -223,7 +241,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	})
 
 	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
-		expectedLog := "could not create chat in salesforce, user is blocked"
+		expectedLog := "could not create chat in salesforce: this contact is blocked"
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -233,17 +251,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Email:       email,
 			PhoneNumber: phoneNumber,
 		}
-		config := &ManagerOptions{
-			AppName: "salesforce-integration",
-			RedisOptions: cache.RedisOptions{
-				FailOverOptions: &redis.FailoverOptions{
-					MasterName:    s.MasterInfo().Name,
-					SentinelAddrs: []string{s.Addr()},
-				},
-				SessionsTTL: time.Second,
-			},
-		}
-		manager := CreateManager(config)
+
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcWAButtonID = buttonWAID
@@ -266,8 +274,15 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Return(contact, nil).Once()
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": BlockedUserState, "userId": userID}).
 			Return(true, nil).Once()
-		manager.SalesforceService = salesforceServiceMock
-		manager.BotrunnnerClient = botRunnerMock
+
+		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock.On("RetrieveInterconnectionActiveByUserId", userID).
+			Return(nil, nil).Once()
+		manager := &Manager{
+			SalesforceService:     salesforceServiceMock,
+			BotrunnnerClient:      botRunnerMock,
+			interconnectionsCache: interconnectionMock,
+		}
 		err := manager.CreateChat(interconnection)
 		assert.Error(t, err)
 
@@ -494,18 +509,31 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, chat.MessagePayload{Text: "message"}).
 			Return(false, nil).Once()
 
+		channelSaleforce := make(chan *Message)
+		channelIntegrations := make(chan *Message)
+		channelFinish := make(chan *Interconnection)
 		manager := &Manager{
-			contextcache: contextCache,
-			interconnectionMap: interconnectionCache{
-				interconnections: interconnectionMap{
-					"55555555555": &Interconnection{
-						Status:        Active,
-						AffinityToken: affinityToken,
-						SessionKey:    sessionKey,
-					},
+			contextcache:          contextCache,
+			salesforceChannel:     channelSaleforce,
+			integrationsChannel:   channelIntegrations,
+			finishInterconnection: channelFinish,
+			SalesforceService:     salesforceMock,
+		}
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				"55555555555": &Interconnection{
+					Status:              Active,
+					AffinityToken:       affinityToken,
+					SessionKey:          sessionKey,
+					SessionID:           sessionID,
+					UserID:              userID,
+					salesforceChannel:   manager.salesforceChannel,
+					integrationsChannel: manager.integrationsChannel,
+					finishChannel:       manager.finishInterconnection,
 				},
 			},
-			SalesforceService: salesforceMock,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -518,30 +546,58 @@ func TestManager_SaveContext(t *testing.T) {
 			},
 		}
 		err := manager.SaveContext(integrations)
-
 		assert.NoError(t, err)
 	})
 
 	t.Run("Should send message end chat", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
+		interconnectionCacheMock := new(InterconnectionCache)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
 
+		cacheMock := &cache.Interconnection{
+			UserID:     userID,
+			SessionID:  sessionID,
+			SessionKey: sessionID,
+			Status:     string(Active),
+		}
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{
+				UserID:    userID,
+				SessionID: sessionID,
+			}).
+			Return(cacheMock, nil).Once()
+		cacheMock.Status = string(Closed)
+		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
+			Return(nil).Once()
+
 		manager := &Manager{
-			cache: contextCache,
-			interconnectionMap: interconnectionCache{
-				interconnections: interconnectionMap{
-					"55555555555": &Interconnection{
-						Status:        Active,
-						AffinityToken: affinityToken,
-						SessionKey:    sessionKey,
-					},
+			contextcache:          contextCache,
+			salesforceChannel:     make(chan *Message),
+			integrationsChannel:   make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			interconnectionsCache: interconnectionCacheMock,
+		}
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				"55555555555": &Interconnection{
+					Status:               Active,
+					AffinityToken:        affinityToken,
+					SessionKey:           sessionKey,
+					SessionID:            sessionID,
+					UserID:               userID,
+					salesforceChannel:    manager.salesforceChannel,
+					integrationsChannel:  manager.integrationsChannel,
+					finishChannel:        manager.finishInterconnection,
+					interconnectionCache: interconnectionCacheMock,
 				},
 			},
-			SalesforceService: salesforceMock,
-			keywordsRestart:   []string{"restart", "test"},
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -570,19 +626,29 @@ func TestManager_SaveContext(t *testing.T) {
 			Return(false, nil).Once()
 
 		manager := &Manager{
-			cache: contextCache,
-			interconnectionMap: interconnectionCache{
-				interconnections: interconnectionMap{
-					"55555555555": &Interconnection{
-						Status:        Active,
-						AffinityToken: affinityToken,
-						SessionKey:    sessionKey,
-						SessionID:     sessionID,
-						CaseID:        "caseID",
-					},
+			contextcache:          contextCache,
+			salesforceChannel:     make(chan *Message),
+			integrationsChannel:   make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+		}
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				"55555555555": &Interconnection{
+					Status:              Active,
+					AffinityToken:       affinityToken,
+					SessionKey:          sessionKey,
+					SessionID:           sessionID,
+					UserID:              userID,
+					CaseID:              caseID,
+					salesforceChannel:   manager.salesforceChannel,
+					integrationsChannel: manager.integrationsChannel,
+					finishChannel:       manager.finishInterconnection,
 				},
 			},
-			SalesforceService: salesforceMock,
 		}
 
 		integrations := &models.IntegrationsRequest{
@@ -661,5 +727,449 @@ second line
 
 `
 		assert.Equal(t, expected, ctxStr)
+	})
+}
+
+func TestManager_SaveContextFB(t *testing.T) {
+	t.Run("Should save context text from user", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 1631202334957,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache: contextCache,
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  "mid",
+									Text: "text",
+								},
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context text from bot", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 1631202334957,
+			Text:      "text",
+			From:      fromBot,
+		}
+		contextCache.On("StoreContext", ctx).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache: contextCache,
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromBot,
+			BotID:      "botID",
+			Timestamp:  163120233495,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  "mid",
+									Text: "text",
+								},
+								Recipient: models.Recipient{
+									ID: userID,
+								},
+								Sender: models.Recipient{
+									ID: botID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should interaction text from user", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 1631202334957,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(nil).Once()
+
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, chat.MessagePayload{Text: "text"}).
+			Return(false, nil).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			salesforceChannel:     make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			integrationsChannel:   make(chan *Message),
+		}
+
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				userID: &Interconnection{
+					Status:              Active,
+					AffinityToken:       affinityToken,
+					SessionKey:          sessionKey,
+					salesforceChannel:   manager.salesforceChannel,
+					integrationsChannel: manager.integrationsChannel,
+					finishChannel:       manager.finishInterconnection,
+				},
+			},
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  "mid",
+									Text: "text",
+								},
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should interaction  image from user", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertImageInCase",
+			"http://test.com", sessionID, "", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			Return(false, nil).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			salesforceChannel:     make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			integrationsChannel:   make(chan *Message),
+		}
+
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				userID: &Interconnection{
+					Status:              Active,
+					AffinityToken:       affinityToken,
+					SessionKey:          sessionKey,
+					CaseID:              caseID,
+					SessionID:           sessionID,
+					salesforceChannel:   manager.salesforceChannel,
+					integrationsChannel: manager.integrationsChannel,
+					finishChannel:       manager.finishInterconnection,
+					SalesforceService:   salesforceMock,
+				},
+			},
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Message: models.MessagingMessage{
+									Mid: "mid",
+									Attachments: []models.Attachment{
+										{
+											Payload: models.Payload{
+												URL: "http://test.com",
+											},
+											Type: imageType,
+										},
+									},
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context endchat", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(nil).Once()
+
+		cacheMock := &cache.Interconnection{
+			UserID:     userID,
+			SessionID:  sessionID,
+			SessionKey: sessionID,
+			Status:     string(Active),
+		}
+		interconnectionCacheMock := new(InterconnectionCache)
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{
+				UserID:    userID,
+				SessionID: sessionID,
+			}).
+			Return(cacheMock, nil).Once()
+		cacheMock.Status = string(Closed)
+		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
+			Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			salesforceChannel:     make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			integrationsChannel:   make(chan *Message),
+		}
+
+		go manager.handleInterconnection()
+
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				userID: &Interconnection{
+					Status:               Active,
+					AffinityToken:        affinityToken,
+					SessionKey:           sessionKey,
+					CaseID:               caseID,
+					UserID:               userID,
+					SessionID:            sessionID,
+					salesforceChannel:    manager.salesforceChannel,
+					integrationsChannel:  manager.integrationsChannel,
+					finishChannel:        manager.finishInterconnection,
+					SalesforceService:    salesforceMock,
+					interconnectionCache: interconnectionCacheMock,
+				},
+			},
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  "mid",
+									Text: "ResTart",
+								},
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should interaction  image from user error", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertImageInCase",
+			"http://test.com", sessionID, "", "caseID").
+			Return(assert.AnError).Once()
+
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			Return(false, nil).Once()
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", integrations.SendTextPayloadFB{
+			MessagingType: "RESPONSE",
+			Recipient: integrations.Recipient{
+				ID: userID,
+			},
+			Message: integrations.Message{
+				Text: messageError,
+			},
+			Metadata: "YALOSOURCE:FIREHOSE",
+		}, string(FacebookProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			salesforceChannel:     make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			integrationsChannel:   make(chan *Message),
+			IntegrationsClient:    integrationsIMock,
+		}
+		go manager.handleInterconnection()
+
+		time.Sleep(time.Second)
+		manager.interconnectionMap = interconnectionCache{
+			interconnections: interconnectionMap{
+				userID: &Interconnection{
+					Status:              Active,
+					AffinityToken:       affinityToken,
+					SessionKey:          sessionKey,
+					CaseID:              caseID,
+					SessionID:           sessionID,
+					UserID:              userID,
+					salesforceChannel:   manager.salesforceChannel,
+					integrationsChannel: manager.integrationsChannel,
+					finishChannel:       manager.finishInterconnection,
+					SalesforceService:   salesforceMock,
+					IntegrationsClient:  integrationsIMock,
+				},
+			},
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Message: models.MessagingMessage{
+									Mid: "mid",
+									Attachments: []models.Attachment{
+										{
+											Payload: models.Payload{
+												URL: "http://test.com",
+											},
+											Type: imageType,
+										},
+									},
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+
+		err := manager.SaveContextFB(integrations)
+
+		assert.Error(t, err)
 	})
 }

@@ -1,6 +1,10 @@
 
 <a name="v0.1.0"></a>
-## [v0.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.0..v0.1.0-alpha) (2021-09-20)
+## [v0.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.0..v0.1.0-alpha) (2021-09-17)
+
+### Feat
+
+* **Integration-interconnection:** Create facebook passthrough integration. Add integration library Facebook  and flow webhook_fb interconnection. Add update status cache interconection redis in endChat Closes #CSF-171
 
 ### Fix
 
