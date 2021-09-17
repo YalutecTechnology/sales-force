@@ -204,7 +204,7 @@ func TestCaseClient_Search(t *testing.T) {
 		}, nil)
 		id, err := salesforceClient.Search("")
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -216,7 +216,7 @@ func TestCaseClient_Search(t *testing.T) {
 
 		id, err := salesforceClient.Search("query")
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -229,7 +229,7 @@ func TestCaseClient_Search(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		id, err := salesforceClient.Search("query")
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 }
@@ -331,7 +331,7 @@ func TestCaseClient_SearchContact(t *testing.T) {
 		}, nil)
 		contact, err := salesforceClient.SearchContact("")
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, contact)
 	})
 
@@ -343,7 +343,7 @@ func TestCaseClient_SearchContact(t *testing.T) {
 
 		id, err := salesforceClient.SearchContact("query")
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -356,7 +356,7 @@ func TestCaseClient_SearchContact(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		id, err := salesforceClient.SearchContact("query")
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 }
@@ -489,7 +489,7 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateCase(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -509,7 +509,7 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateCase(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -555,7 +555,7 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateCase(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 }
@@ -600,7 +600,7 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateContact(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -617,7 +617,7 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateContact(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 
@@ -657,7 +657,7 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		}
 		id, err := salesforceClient.CreateContact(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
 }
@@ -767,5 +767,15 @@ func TestCaseClient_Composite(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, response)
 	})
+}
 
+func TestCaseClient_UpdateToken(t *testing.T) {
+
+	t.Run("Update token Succesfull", func(t *testing.T) {
+		tokenExpected := "14525542211224"
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+
+		salesforceClient.UpdateToken(tokenExpected)
+		assert.Equal(t, tokenExpected, salesforceClient.AccessToken)
+	})
 }

@@ -24,6 +24,8 @@ const (
 	deploymentID     = "deploymentID"
 	buttonWAID       = "buttonWAID"
 	buttonFBID       = "buttonFBID"
+	ownerWAID        = "ownerWAID"
+	ownerFBID        = "ownerFBID"
 	blockedUserState = "from-sf-blocked"
 	contactID        = "contactID"
 	recordTypeID     = "recordTypeID"
@@ -94,6 +96,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcWAButtonID = buttonWAID
+		SfcWAOwnerID = ownerWAID
+		SfcFBOwnerID = ownerFBID
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = []string{"data:data"}
 
@@ -116,6 +120,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			contact.Id,
 			"Caso levantado por el Bot : ",
 			string(interconnection.Provider),
+			ownerWAID,
 			interconnection.ExtraData,
 			SfcCustomFieldsCase).
 			Return(caseID, nil).Once()
@@ -141,7 +146,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Create Chat Succesfull with FB button", func(t *testing.T) {
+	t.Run("Create Chat Succesfull with FB provider", func(t *testing.T) {
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -166,6 +171,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		SfcDeploymentID = deploymentID
 		SfcWAButtonID = buttonWAID
 		SfcFBButtonID = buttonFBID
+		SfcWAOwnerID = ownerWAID
+		SfcFBOwnerID = ownerFBID
 		salesforceMock := new(SalesforceServiceInterface)
 
 		contact := &models.SfcContact{
@@ -185,6 +192,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			contact.Id,
 			"Caso levantado por el Bot : ",
 			string(interconnection.Provider),
+			ownerFBID,
 			interconnection.ExtraData,
 			SfcCustomFieldsCase).
 			Return(caseID, nil).Once()

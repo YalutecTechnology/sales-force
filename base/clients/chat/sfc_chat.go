@@ -138,6 +138,7 @@ type SfcChatInterface interface {
 	SendMessage(string, string, MessagePayload) (bool, error)
 	ChatEnd(affinityToken, sessionKey string) error
 	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
+	UpdateToken(accessToken string)
 }
 
 func NewChatRequest(organizationID, deployementID, sessionID, ButtonID, userName string) ChatRequest {
@@ -465,4 +466,8 @@ func (c *SfcChatClient) getRequest(affinityToken, sessionKey, method, uri string
 	}
 
 	return newRequest
+}
+
+func (c *SfcChatClient) UpdateToken(accessToken string) {
+	c.AccessToken = accessToken
 }

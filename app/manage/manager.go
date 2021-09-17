@@ -29,11 +29,14 @@ var (
 	SfcDeploymentID     string
 	SfcWAButtonID       string
 	SfcFBButtonID       string
+	SfcWAOwnerID        string
+	SfcFBOwnerID        string
 	SfcRecordTypeID     string
 	BlockedUserState    string
 	TimeoutState        string
 	SuccessState        string
 	SfcCustomFieldsCase []string
+	BotrunnerTimeout    int
 )
 
 const (
@@ -80,6 +83,7 @@ type ManagerOptions struct {
 	RedisOptions          cache.RedisOptions
 	BotrunnerUrl          string
 	BotrunnerToken        string
+	BotrunnerTimeout      int
 	SfcClientID           string
 	SfcClientSecret       string
 	SfcUsername           string
@@ -93,7 +97,8 @@ type ManagerOptions struct {
 	SfcDeploymentID       string
 	SfcWAButtonID         string
 	SfcFBButtonID         string
-	SfcOwnerId            string
+	SfcWAOwnerID          string
+	SfcFBOwnerID          string
 	SfcRecordTypeID       string
 	SfcCustomFieldsCase   []string
 	IntegrationsUrl       string
@@ -124,6 +129,9 @@ func CreateManager(config *ManagerOptions) *Manager {
 	TimeoutState = config.TimeoutState
 	SuccessState = config.SuccessState
 	SfcCustomFieldsCase = config.SfcCustomFieldsCase
+	SfcWAOwnerID = config.SfcWAOwnerID
+	SfcFBOwnerID = config.SfcFBOwnerID
+	BotrunnerTimeout = config.BotrunnerTimeout
 
 	cache, err := cache.NewRedisCache(&config.RedisOptions)
 
@@ -143,21 +151,14 @@ func CreateManager(config *ManagerOptions) *Manager {
 		Password:     config.SfcPassword + config.SfcSecurityToken,
 	}
 
-	token, err := sfcLoginClient.GetToken(tokenPayload)
-	if err != nil {
-		logrus.Errorf("Could not get access token from salesforce Server : %s", err.Error())
-	}
-
 	sfcChatClient := &chat.SfcChatClient{
-		Proxy:       proxy.NewProxy(config.SfcChatUrl),
-		ApiVersion:  config.SfcApiVersion,
-		AccessToken: token,
+		Proxy:      proxy.NewProxy(config.SfcChatUrl),
+		ApiVersion: config.SfcApiVersion,
 	}
 
 	salesforceClient := &salesforce.SalesforceClient{
-		Proxy:       proxy.NewProxy(config.SfcBaseUrl),
-		APIVersion:  config.SfcApiVersion,
-		AccessToken: token,
+		Proxy:      proxy.NewProxy(config.SfcBaseUrl),
+		APIVersion: config.SfcApiVersion,
 	}
 
 	integrationsClient := integrations.NewIntegrationsClient(
@@ -175,7 +176,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		logrus.Errorf("could not set webhook on integrations : %s", err.Error())
 	}
 
-	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient)
+	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload)
 	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
 	interconnections := cache.RetrieveAllInterconnections()
@@ -264,10 +265,13 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	if contact.Blocked {
-		return m.SentToBlockedState(interconnection.UserID, interconnection.BotSlug)
+		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState, m.BotrunnnerClient, BotrunnerTimeout)
+		return errors.New(fmt.Sprintf("%s: %s", "could not create chat in salesforce", "this contact is blocked"))
 	}
 
-	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, string(interconnection.Provider),
+	buttonID, ownerID := ChangeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
+
+	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData, SfcCustomFieldsCase)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -276,12 +280,6 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.CaseID = caseId
-
-	// Switch buttonID
-	buttonID := SfcWAButtonID
-	if interconnection.Provider == FacebookProvider {
-		buttonID = SfcFBButtonID
-	}
 
 	//Creating chat in Salesforce
 	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.Id)
@@ -297,20 +295,20 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	interconnection.Context = "Contexto:\n" + m.GetContextByUserID(interconnection.UserID)
 	interconnection.Status = OnHold
 	interconnection.Timestamp = time.Now()
+	time.Sleep(time.Second * 1)
 
 	//Add interconection to Redis and interconnectionMap
 	m.AddInterconnection(interconnection)
 	return nil
 }
 
-// Change to from-sf-blocked state
-func (m *Manager) SentToBlockedState(userID, botSlug string) error {
-	ok, err := m.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, BlockedUserState, ""))
-
-	if ok {
-		return errors.New(helpers.ErrorMessage("could not create chat in salesforce", err))
+// Change to state with botrunner
+func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotRunnerInterface, seconds int) {
+	time.Sleep(time.Second * time.Duration(seconds))
+	_, err := botRunnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, state, ""))
+	if err != nil {
+		logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
 	}
-	return err
 }
 
 func (m *Manager) ValidateUserID(userID string) error {
@@ -491,4 +489,17 @@ func (m *Manager) GetContextByUserID(userID string) string {
 	}
 
 	return builder.String()
+}
+
+// Change button or owner according to the provider or by custom fields
+func ChangeButtonIDAndOwnerID(provider Provider, extraData map[string]interface{}) (buttonID, ownerID string) {
+	buttonID = SfcWAButtonID
+	ownerID = SfcWAOwnerID
+	if provider == FacebookProvider {
+		buttonID = SfcFBButtonID
+		ownerID = SfcFBOwnerID
+	}
+
+	// custom instructions to change a buttonID or ownerID
+	return buttonID, ownerID
 }

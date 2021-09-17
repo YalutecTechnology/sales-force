@@ -49,6 +49,7 @@ type LinkDocumentPayload struct {
 type CaseRequest struct {
 	RecordTypeID    string      `json:"RecordTypeId" validate:"required"`
 	ContactID       string      `json:"ContactId" validate:"required"`
+	OwnerID         string      `json:"OwnerId"`
 	Description     string      `json:"Description" validate:"required"`
 	Origin          string      `json:"Origin" validate:"required"`
 	Priority        string      `json:"Priority" validate:"required"`
@@ -129,19 +130,20 @@ type HTTPHeaders struct {
 
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
-	CreateCase(payload interface{}) (string, error)
-	Search(string) (*SearchResponse, error)
+	CreateCase(payload interface{}) (string, *helpers.ErrorResponse)
+	Search(string) (*SearchResponse, *helpers.ErrorResponse)
 	SearchID(string) (string, error)
-	SearchContact(string) (*models.SfcContact, error)
+	SearchContact(string) (*models.SfcContact, *helpers.ErrorResponse)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
-	CreateContact(payload ContactRequest) (string, error)
+	CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse)
 	Composite(compositeRequest CompositeRequest) (CompositeResponse, error)
 	GetContentVersionURL() string
 	GetSearchURL(query string) string
 	GetDocumentLinkURL() string
+	UpdateToken(accessToken string)
 }
 
 //CreateContentVersion creates a new content version for a file
@@ -210,14 +212,14 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 }
 
 //Search for entities in salesforce
-func (cc *SalesforceClient) Search(query string) (*SearchResponse, error) {
+func (cc *SalesforceClient) Search(query string) (*SearchResponse, *helpers.ErrorResponse) {
 	var errorMessage string
 
 	//validating query param
 	if query == "" || len(query) < 1 {
 		errorMessage = fmt.Sprintf("%s : %s", constants.QueryParamError, helpers.MissingQueryParam)
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	header := make(map[string]string)
@@ -234,7 +236,7 @@ func (cc *SalesforceClient) Search(query string) (*SearchResponse, error) {
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
@@ -244,14 +246,14 @@ func (cc *SalesforceClient) Search(query string) (*SearchResponse, error) {
 		if readAndUnmarshalError != nil {
 			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
-			return nil, errors.New(errorMessage)
+			return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
 		}
 
 		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
 	}
 
 	var response SearchResponse
@@ -260,7 +262,7 @@ func (cc *SalesforceClient) Search(query string) (*SearchResponse, error) {
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusOK}
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -275,7 +277,7 @@ func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
 	response, err := cc.Search(query)
 
 	if err != nil {
-		return "", err
+		return "", err.Error
 	}
 
 	if len(response.Records) < 1 || response.Records[0].ContentDocumentID == "" {
@@ -296,7 +298,7 @@ func (cc *SalesforceClient) SearchID(query string) (string, error) {
 	response, err := cc.Search(query)
 
 	if err != nil {
-		return "", err
+		return "", err.Error
 	}
 
 	if len(response.Records) < 1 || response.Records[0].Id == "" {
@@ -312,7 +314,7 @@ func (cc *SalesforceClient) SearchID(query string) (string, error) {
 	return response.Records[0].Id, nil
 }
 
-func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, error) {
+func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *helpers.ErrorResponse) {
 	response, err := cc.Search(query)
 
 	if err != nil {
@@ -322,7 +324,7 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, err
 	if len(response.Records) < 1 || response.Records[0].Id == "" {
 		errorMessage := fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: err.StatusCode}
 	}
 
 	contact := models.SfcContact{
@@ -411,7 +413,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 }
 
 //CreateCase Create case for Salesforce Requests
-func (cc *SalesforceClient) CreateCase(payload interface{}) (string, error) {
+func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.ErrorResponse) {
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -437,11 +439,11 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, error) {
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		return "", helpers.GetErrorResponse(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	var response SalesforceResponse
@@ -449,7 +451,7 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, error) {
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusCreated}
 
 	}
 
@@ -461,7 +463,7 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, error) {
 }
 
 //CreateContact Create contact for Salesforce Requests
-func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error) {
+func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse) {
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -472,7 +474,7 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 	if err := helpers.Govalidator().Struct(payload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
 	}
 
 	//building request to send through proxy
@@ -493,11 +495,11 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		return "", helpers.GetErrorResponse(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	var response SalesforceResponse
@@ -505,7 +507,7 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, error
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
-		return "", errors.New(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
 
 	}
 
@@ -590,4 +592,8 @@ func (cc *SalesforceClient) GetSearchURL(query string) string {
 }
 func (cc *SalesforceClient) GetDocumentLinkURL() string {
 	return fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion)
+}
+
+func (cc *SalesforceClient) UpdateToken(accessToken string) {
+	cc.AccessToken = accessToken
 }

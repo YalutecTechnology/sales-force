@@ -11,7 +11,6 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
-	"yalochat.com/salesforce-integration/base/helpers"
 )
 
 // Status that an interconnection can have
@@ -96,12 +95,7 @@ func (in *Interconnection) handleLongPolling() {
 			case http.StatusNoContent:
 				logrus.Info("Not content events")
 			case http.StatusForbidden:
-				_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
-
-				if err != nil {
-					logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
-				}
-
+				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
 				in.Status = Closed
 				in.runnigLongPolling = false
 				logrus.Info("StatusForbidden")
@@ -112,11 +106,7 @@ func (in *Interconnection) handleLongPolling() {
 				logrus.Info("StatusServiceUnavailable")
 			default:
 				logrus.Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
-				_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
-
-				if err != nil {
-					logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
-				}
+				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
 				in.Status = Closed
 				in.runnigLongPolling = false
 			}
@@ -135,11 +125,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	switch event.Type {
 	case chat.ChatRequestFail:
 		logrus.Infof("Event [%s]", chat.ChatRequestFail)
-		_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, TimeoutState, ""))
-
-		if err != nil {
-			logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
-		}
+		go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
@@ -160,11 +146,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
 		}
 	case chat.ChatEnded:
-		_, err := in.BotrunnnerClient.SendTo(botrunner.GetRequestToSendTo(in.BotSlug, in.UserID, SuccessState, ""))
-
-		if err != nil {
-			logrus.Infof(helpers.ErrorMessage("could not sent to state timeout", err))
-		}
+		go ChangeToState(in.UserID, in.BotSlug, SuccessState, in.BotrunnnerClient, 0)
 		in.runnigLongPolling = false
 		in.Status = Closed
 	default:

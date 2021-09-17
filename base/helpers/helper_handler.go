@@ -21,9 +21,10 @@ import (
 
 // Govalidator to can validate incoming requests
 var (
-	Govalidator = validator.New
-	MarshalJSON = json.Marshal
-	alphabet    = "abcdefghijklmnopqrstuvwxyz1234567890"
+	Govalidator   = validator.New
+	MarshalJSON   = json.Marshal
+	UnmarshalJSON = json.Unmarshal
+	alphabet      = "abcdefghijklmnopqrstuvwxyz1234567890"
 )
 
 // ValidatePayloadError to validate when there is an error with payload
@@ -213,6 +214,22 @@ func ErrorResponseMap(body io.ReadCloser, unmarshalError string, statusCode int)
 		"response": responseMap,
 	}).Error(errorMessage)
 	return errors.New(errorMessage)
+}
+
+func GetErrorResponse(body io.ReadCloser, unmarshalError string, statusCode int) *ErrorResponse {
+	responseMap := map[string]interface{}{}
+	readAndUnmarshalError := ReadAndUnmarshal(body, &responseMap)
+
+	if readAndUnmarshalError != nil {
+		errorMessage := fmt.Sprintf("%s : %s", unmarshalError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
+	}
+	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	logrus.WithFields(logrus.Fields{
+		"response": responseMap,
+	}).Error(errorMessage)
+	return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
 }
 
 func RandomString(size int) string {
