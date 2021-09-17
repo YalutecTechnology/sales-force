@@ -39,6 +39,7 @@ const (
 )
 
 type SalesforceService struct {
+	TokenPayload   login.TokenPayload
 	SfcLoginClient login.SfcLoginInterface
 	SfcChatClient  chat.SfcChatInterface
 	SfcClient      salesforce.SaleforceInterface
@@ -49,25 +50,29 @@ type SalesforceServiceInterface interface {
 	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
-	CreatCase(recordType, contactId, description, origin string, extraData map[string]interface{}, customFields []string) (string, error)
+	CreatCase(recordType, contactID, description, origin, ownerID string, extraData map[string]interface{}, customFields []string) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient) *SalesforceService {
-	return &SalesforceService{
+func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload) *SalesforceService {
+	salesforceService := &SalesforceService{
 		SfcLoginClient: &loginClient,
 		SfcChatClient:  &chatClient,
 		SfcClient:      &salesforceClient,
+		TokenPayload:   tokenPayload,
 	}
+	salesforceService.RefreshToken()
+	return salesforceService
 }
 
-func NewCaseRequest(recordTypeID, contactID, subject, description, origin string) *salesforce.CaseRequest {
+func NewCaseRequest(recordTypeID, contactID, subject, description, origin, ownerID string) *salesforce.CaseRequest {
 	return &salesforce.CaseRequest{
 		RecordTypeID: recordTypeID,
 		ContactID:    contactID,
 		Subject:      subject,
 		Description:  description,
+		OwnerID:      ownerID,
 		Origin:       origin,
 		Status:       "Nuevo",
 		Priority:     "Medium",
@@ -152,7 +157,10 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	contact, err := s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27"))
 
 	if err != nil {
-		logrus.Infof("Not found contact by email : [%s]-[%s]", email, err.Error())
+		logrus.Infof("Not found contact by email : [%s]-[%s]", email, err.Error.Error())
+		if err.StatusCode == http.StatusUnauthorized {
+			s.RefreshToken()
+		}
 	} else {
 		return contact, nil
 	}
@@ -160,7 +168,10 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	contact, err = s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27"))
 
 	if err != nil {
-		logrus.Infof("Not found contact by mobile phone : [%s]-[%s]", phoneNumber, err.Error())
+		logrus.Infof("Not found contact by mobile phone : [%s]-[%s]", phoneNumber, err.Error.Error())
+		if err.StatusCode == http.StatusUnauthorized {
+			s.RefreshToken()
+		}
 	} else {
 		return contact, nil
 	}
@@ -173,7 +184,10 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	}
 	contactID, err := s.SfcClient.CreateContact(contactRequest)
 	if err != nil {
-		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err))
+		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err.Error))
+		if err.StatusCode == http.StatusUnauthorized {
+			s.RefreshToken()
+		}
 	}
 	contact = &models.SfcContact{
 		Id:          contactID,
@@ -193,7 +207,7 @@ func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat
 	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
 }
 
-func (s *SalesforceService) CreatCase(recordType, contactID, description, origin string, extraData map[string]interface{}, customFields []string) (string, error) {
+func (s *SalesforceService) CreatCase(recordType, contactID, description, origin, ownerID string, extraData map[string]interface{}, customFields []string) (string, error) {
 	payload := make(map[string]interface{})
 	for _, field := range customFields {
 		fields := strings.Split(field, ":")
@@ -226,7 +240,7 @@ func (s *SalesforceService) CreatCase(recordType, contactID, description, origin
 		description = value.(string)
 	}
 
-	caseRequest := NewCaseRequest(recordType, contactID, subject, description, origin)
+	caseRequest := NewCaseRequest(recordType, contactID, subject, description, origin, ownerID)
 	//validating CaseRequest Payload struct
 	if err := helpers.Govalidator().Struct(caseRequest); err != nil {
 		return "", errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
@@ -239,7 +253,27 @@ func (s *SalesforceService) CreatCase(recordType, contactID, description, origin
 	payload["Priority"] = caseRequest.Priority
 	payload["Status"] = caseRequest.Status
 	payload["Subject"] = caseRequest.Subject
-	return s.SfcClient.CreateCase(payload)
+	payload["OwnerId"] = caseRequest.OwnerID
+	caseID, errorResponse := s.SfcClient.CreateCase(payload)
+
+	if errorResponse != nil {
+		if errorResponse.StatusCode == http.StatusUnauthorized {
+			s.RefreshToken()
+		}
+		return "", errorResponse.Error
+	}
+	return caseID, nil
+}
+
+func (s *SalesforceService) RefreshToken() {
+	token, err := s.SfcLoginClient.GetToken(s.TokenPayload)
+	if err != nil {
+		logrus.Errorf("Could not get access token from salesforce Server : %s", err.Error())
+		return
+	}
+	s.SfcChatClient.UpdateToken(token)
+	s.SfcClient.UpdateToken(token)
+	logrus.Info("Refresh token successful")
 }
 
 func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID string) error {

@@ -355,3 +355,14 @@ func TestChatEnd(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestCaseClient_UpdateToken(t *testing.T) {
+
+	t.Run("Update token Succesfull", func(t *testing.T) {
+		tokenExpected := "14525542211224"
+		sfChatClient := &SfcChatClient{AccessToken: "accessToken"}
+
+		sfChatClient.UpdateToken(tokenExpected)
+		assert.Equal(t, tokenExpected, sfChatClient.AccessToken)
+	})
+}

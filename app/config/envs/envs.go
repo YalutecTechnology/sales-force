@@ -21,6 +21,7 @@ type Envs struct {
 	SecretKey             string   `required:"true" split_words:"true"`
 	BotrunnerUrl          string   `split_words:"true"`
 	BotrunnerToken        string   `split_words:"true" default:""`
+	BotrunnerTimeout      int      `split_words:"true" default:"4"`
 	SfcClientId           string   `split_words:"true"`
 	SfcClientSecret       string   `split_words:"true"`
 	SfcUsername           string   `split_words:"true"`
@@ -34,7 +35,8 @@ type Envs struct {
 	SfcDeploymentId       string   `split_words:"true"`
 	SfcWAButtonId         string   `split_words:"true"`
 	SfcFBButtonId         string   `split_words:"true"`
-	SfcOwnerId            string   `split_words:"true"`
+	SfcWAOwnerId          string   `split_words:"true"`
+	SfcFBOwnerId          string   `split_words:"true"`
 	SfcRecordTypeId       string   `split_words:"true"`
 	SfcCustomFieldsCase   []string `split_words:"true"`
 	IntegrationsChannel   string   `split_words:"true" default:"outgoing_webhook"`
