@@ -69,7 +69,8 @@ type Manager struct {
 	salesforceChannel     chan *Message
 	integrationsChannel   chan *Message
 	finishInterconnection chan *Interconnection
-	cache                 cache.ContextCache
+	contextcache          cache.ContextCache
+	interconnectionsCache cache.InterconnectionCache
 	environment           string
 	keywordsRestart       []string
 }
@@ -133,10 +134,16 @@ func CreateManager(config *ManagerOptions) *Manager {
 	SfcFBOwnerID = config.SfcFBOwnerID
 	BotrunnerTimeout = config.BotrunnerTimeout
 
-	cache, err := cache.NewRedisCache(&config.RedisOptions)
+	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
 	if err != nil {
-		logrus.WithError(err).Error("Error initializing Redis Manager")
+		logrus.WithError(err).Error("Error initializing Context Redis Manager")
+	}
+
+	interconnectionsCache, err := cache.NewRedisCache(&config.RedisOptions)
+
+	if err != nil {
+		logrus.WithError(err).Error("Error initializing Interconnection Redis Manager")
 	}
 
 	sfcLoginClient := &login.SfcLoginClient{
@@ -179,7 +186,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload)
 	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
-	interconnections := cache.RetrieveAllInterconnections()
+	interconnections := interconnectionsCache.RetrieveAllInterconnections()
 
 	m := &Manager{
 		clientName:            config.AppName,
@@ -189,7 +196,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 		salesforceChannel:     make(chan *Message),
 		integrationsChannel:   make(chan *Message),
 		finishInterconnection: make(chan *Interconnection),
-		cache:                 cache,
+		contextcache:          contextCache,
+		interconnectionsCache: interconnectionsCache,
 		BotrunnnerClient:      botRunnerClient,
 		environment:           config.Environment,
 		keywordsRestart:       config.KeywordsRestart,
@@ -312,7 +320,11 @@ func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotR
 }
 
 func (m *Manager) ValidateUserID(userID string) error {
-	//TODO: validate that there is an active user session in redis
+	sessionRedis := m.interconnectionsCache.RetrieveInterconnectionActiveByUserId(userID)
+
+	if sessionRedis != nil {
+		return errors.New("Session exists in redis with this userID")
+	}
 
 	// validate that it exists on the map
 	if _, ok := m.interconnectionMap.interconnections[userID]; ok {
@@ -328,7 +340,12 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 	interconnection.finishChannel = m.finishInterconnection
 	interconnection.integrationsChannel = m.integrationsChannel
 	interconnection.salesforceChannel = m.salesforceChannel
-	//TODO: Store interconnection in Redis
+	interconnection.interconnectionCache = m.interconnectionsCache
+
+	err := m.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
+	if err != nil {
+		logrus.Errorf("Could not store interconnection with userID[%s] in redis[%s]", interconnection.UserID, interconnection.SessionID)
+	}
 
 	m.interconnectionMap.Lock()
 	defer m.interconnectionMap.Unlock()
@@ -395,7 +412,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.UserID = integration.To
 	}
 
-	err = m.cache.StoreContext(ctx)
+	err = m.contextcache.StoreContext(ctx)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"context": ctx,
@@ -461,7 +478,6 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 }
 
 func (m *Manager) EndChat(interconnection *Interconnection) {
-	// TODO: EndChat
 	m.interconnectionMap.Lock()
 	defer m.interconnectionMap.Unlock()
 	delete(m.interconnectionMap.interconnections, interconnection.UserID)
@@ -469,7 +485,7 @@ func (m *Manager) EndChat(interconnection *Interconnection) {
 }
 
 func (m *Manager) GetContextByUserID(userID string) string {
-	allContext := m.cache.RetrieveContext(userID)
+	allContext := m.contextcache.RetrieveContext(userID)
 
 	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
 	builder := strings.Builder{}
@@ -502,4 +518,23 @@ func ChangeButtonIDAndOwnerID(provider Provider, extraData map[string]interface{
 
 	// custom instructions to change a buttonID or ownerID
 	return buttonID, ownerID
+}
+
+func NewInterconectionCache(interconnection *Interconnection) cache.Interconnection {
+	return cache.Interconnection{
+		UserID:        interconnection.UserID,
+		SessionID:     interconnection.SessionID,
+		SessionKey:    interconnection.SessionKey,
+		AffinityToken: interconnection.AffinityToken,
+		Status:        string(interconnection.Status),
+		Timestamp:     interconnection.Timestamp,
+		Provider:      string(interconnection.Provider),
+		BotSlug:       interconnection.BotSlug,
+		BotID:         interconnection.BotID,
+		Name:          interconnection.Name,
+		Email:         interconnection.Email,
+		PhoneNumber:   interconnection.PhoneNumber,
+		CaseID:        interconnection.CaseID,
+		ExtraData:     interconnection.ExtraData,
+	}
 }

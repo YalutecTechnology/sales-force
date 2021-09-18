@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStoreInterconnection(t *testing.T) {
@@ -281,5 +282,73 @@ func TestDeleteInterconnection(t *testing.T) {
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be <%v>, but this was retrieved <%v>", expectedErr, err)
 		}
+	})
+}
+
+func TestRetrieveInterconnectionActiveByUserId(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	ttl := time.Second * 2
+	opts := &RedisOptions{
+		FailOverOptions: &redis.FailoverOptions{
+			MasterName:    s.MasterInfo().Name,
+			SentinelAddrs: []string{s.Addr()},
+		},
+		SessionsTTL: ttl,
+	}
+	rcs, _ := NewRedisCache(opts)
+
+	t.Run("Should retrieve a interconnection without errors", func(t *testing.T) {
+		interconnectionExpected := Interconnection{
+			BotID:         "botID",
+			BotSlug:       "coppel-bot",
+			UserID:        "userID",
+			Status:        "ON_HOLD",
+			SessionID:     "session",
+			SessionKey:    "sessionID",
+			AffinityToken: "affinityToken",
+			Timestamp:     time.Time{},
+			Provider:      "provider",
+			Name:          "name",
+			Email:         "email",
+			PhoneNumber:   "55555555555",
+			CaseID:        "caseID",
+			ExtraData: map[string]interface{}{
+				"data": "data",
+			},
+		}
+		rcs.StoreInterconnection(interconnectionExpected)
+
+		actual := rcs.RetrieveInterconnectionActiveByUserId(interconnectionExpected.UserID)
+
+		assert.NotNil(t, actual)
+		assert.Equal(t, &interconnectionExpected, actual)
+	})
+
+	t.Run("Should fail to retrieve a interconnection", func(t *testing.T) {
+		interconnection := Interconnection{
+			BotID:         "botID",
+			BotSlug:       "coppel-bot",
+			UserID:        "userID",
+			Status:        "CLOSED",
+			SessionID:     "session",
+			SessionKey:    "sessionID",
+			AffinityToken: "affinityToken",
+			Timestamp:     time.Time{},
+			Provider:      "provider",
+			Name:          "name",
+			Email:         "email",
+			PhoneNumber:   "55555555555",
+			CaseID:        "caseID",
+			ExtraData: map[string]interface{}{
+				"data": "data",
+			},
+		}
+		rcs.StoreInterconnection(interconnection)
+
+		actual := rcs.RetrieveInterconnectionActiveByUserId(interconnection.UserID)
+
+		assert.Nil(t, actual)
 	})
 }

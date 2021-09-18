@@ -39,6 +39,7 @@ type InterconnectionCache interface {
 	DeleteAllInterconnections() error
 	DeleteInterconnection(Interconnection) (bool, error)
 	RetrieveAllInterconnections() *[]Interconnection
+	RetrieveInterconnectionActiveByUserId(userId string) *Interconnection
 }
 
 // assembleKey retrive key by template
@@ -75,6 +76,20 @@ func (rc *RedisCache) RetrieveAllInterconnections() *[]Interconnection {
 		redisInterconnectionsArray = append(redisInterconnectionsArray, redisInterconnections)
 	}
 	return &redisInterconnectionsArray
+}
+
+// RetrieveInterconnectionActiveByUserId returns interconnection from the Cache with status OnHold or Active
+func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userId string) *Interconnection {
+	var redisInterconnection Interconnection
+	data := rc.client.Keys(fmt.Sprintf("%s:*:interconnection", userId))
+	for _, key := range data.Val() {
+		data, _ := rc.RetrieveData(key)
+		json.Unmarshal([]byte(data), &redisInterconnection)
+		if redisInterconnection.Status == "ON_HOLD" || redisInterconnection.Status == "ACTIVE" {
+			return &redisInterconnection
+		}
+	}
+	return nil
 }
 
 // DeleteAllInterconnections delete all Interconnections from Cache

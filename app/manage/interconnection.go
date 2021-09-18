@@ -28,28 +28,29 @@ const (
 
 // Interconnection struct represents a connection between userBotYalo and salesforce agent
 type Interconnection struct {
-	UserID              string                              `json:"userId"`
-	SessionID           string                              `json:"sessionId"`
-	SessionKey          string                              `json:"sessionKey"`
-	AffinityToken       string                              `json:"affinityToken"`
-	Status              InterconnectionStatus               `json:"status"`
-	Timestamp           time.Time                           `json:"timestamp"`
-	Provider            Provider                            `json:"provider"`
-	BotSlug             string                              `json:"botSlug"`
-	BotID               string                              `json:"botId"`
-	Name                string                              `json:"name"`
-	Email               string                              `json:"email"`
-	PhoneNumber         string                              `json:"phoneNumber"`
-	CaseID              string                              `json:"caseId"`
-	Context             string                              `json:"context"`
-	ExtraData           map[string]interface{}              `json:"extraData"`
-	salesforceChannel   chan *Message                       `json:"-"`
-	integrationsChannel chan *Message                       `json:"-"`
-	finishChannel       chan *Interconnection               `json:"-"`
-	BotrunnnerClient    botrunner.BotRunnerInterface        `json:"-"`
-	SalesforceService   services.SalesforceServiceInterface `json:"-"`
-	IntegrationsClient  *integrations.IntegrationsClient    `json:"-"`
-	runnigLongPolling   bool                                `json:"-"`
+	UserID               string                              `json:"userId"`
+	SessionID            string                              `json:"sessionId"`
+	SessionKey           string                              `json:"sessionKey"`
+	AffinityToken        string                              `json:"affinityToken"`
+	Status               InterconnectionStatus               `json:"status"`
+	Timestamp            time.Time                           `json:"timestamp"`
+	Provider             Provider                            `json:"provider"`
+	BotSlug              string                              `json:"botSlug"`
+	BotID                string                              `json:"botId"`
+	Name                 string                              `json:"name"`
+	Email                string                              `json:"email"`
+	PhoneNumber          string                              `json:"phoneNumber"`
+	CaseID               string                              `json:"caseId"`
+	Context              string                              `json:"context"`
+	ExtraData            map[string]interface{}              `json:"extraData"`
+	salesforceChannel    chan *Message                       `json:"-"`
+	integrationsChannel  chan *Message                       `json:"-"`
+	finishChannel        chan *Interconnection               `json:"-"`
+	BotrunnnerClient     botrunner.BotRunnerInterface        `json:"-"`
+	SalesforceService    services.SalesforceServiceInterface `json:"-"`
+	IntegrationsClient   *integrations.IntegrationsClient    `json:"-"`
+	interconnectionCache cache.InterconnectionCache          `json:"-"`
+	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
 	offset int `json:"-"`
 }
@@ -96,17 +97,20 @@ func (in *Interconnection) handleLongPolling() {
 				logrus.Info("Not content events")
 			case http.StatusForbidden:
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
 				logrus.Info("StatusForbidden")
 			case http.StatusServiceUnavailable:
 				// TODO: Reconnect Session
+				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
 				logrus.Info("StatusServiceUnavailable")
 			default:
 				logrus.Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
 			}
@@ -126,6 +130,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	case chat.ChatRequestFail:
 		logrus.Infof("Event [%s]", chat.ChatRequestFail)
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
@@ -147,6 +152,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		}
 	case chat.ChatEnded:
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState, in.BotrunnnerClient, 0)
+		in.updateStatusRedis(string(Closed))
 		in.runnigLongPolling = false
 		in.Status = Closed
 	default:
@@ -173,7 +179,7 @@ func (in *Interconnection) handleStatus() {
 
 func (in *Interconnection) ActiveChat() {
 	in.Status = Active
-	//TODO: Update interconnection in redis
+	in.updateStatusRedis(string(in.Status))
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, in.Context)
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
 }
@@ -194,5 +200,21 @@ func convertInterconnectionCacheToInterconnection(interconnection cache.Intercon
 		PhoneNumber:   interconnection.PhoneNumber,
 		CaseID:        interconnection.CaseID,
 		ExtraData:     interconnection.ExtraData,
+	}
+}
+
+func (in *Interconnection) updateStatusRedis(status string) {
+	interconnectionCache, err := in.interconnectionCache.RetrieveInterconnection(cache.Interconnection{UserID: in.UserID, SessionID: in.SessionID})
+
+	if err != nil {
+		logrus.Errorf("Could not update status in interconnection userID[%s]-sessionId[%s] from redis : [%s]", in.UserID, in.SessionID, err.Error())
+	}
+
+	logrus.Errorf("Interconnection in Cache %v", interconnectionCache)
+	interconnectionCache.Status = status
+	in.interconnectionCache.StoreInterconnection(*interconnectionCache)
+
+	if err != nil {
+		logrus.Errorf("Could not update status in interconnection userID[%s]-sessionId[%s] from redis : [%s]", in.UserID, in.SessionID, err.Error())
 	}
 }

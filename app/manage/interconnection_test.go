@@ -43,17 +43,19 @@ func TestHandleLongPolling_test(t *testing.T) {
 	SuccessState = successState
 	TimeoutState = timeoutState
 	interconnection := &Interconnection{
-		UserID:              userID,
-		BotSlug:             botSlug,
-		SessionID:           sessionID,
-		SessionKey:          sessionKey,
-		AffinityToken:       affinityToken,
-		Status:              OnHold,
-		Provider:            provider,
-		finishChannel:       manager.finishInterconnection,
-		integrationsChannel: manager.integrationsChannel,
-		salesforceChannel:   manager.salesforceChannel,
+		UserID:               userID,
+		BotSlug:              botSlug,
+		SessionID:            sessionID,
+		SessionKey:           sessionKey,
+		AffinityToken:        affinityToken,
+		Status:               OnHold,
+		Provider:             provider,
+		finishChannel:        manager.finishInterconnection,
+		integrationsChannel:  manager.integrationsChannel,
+		salesforceChannel:    manager.salesforceChannel,
+		interconnectionCache: manager.interconnectionsCache,
 	}
+	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 
 	t.Run("Handle 204 not content", func(t *testing.T) {
 		expectedLog := "Not content events"
@@ -196,16 +198,18 @@ func TestCheckEvent_test(t *testing.T) {
 	}
 	manager := CreateManager(config)
 	interconnection := &Interconnection{
-		UserID:              userID,
-		SessionID:           sessionID,
-		SessionKey:          sessionKey,
-		AffinityToken:       affinityToken,
-		Status:              OnHold,
-		Provider:            provider,
-		finishChannel:       manager.finishInterconnection,
-		integrationsChannel: manager.integrationsChannel,
-		salesforceChannel:   manager.salesforceChannel,
+		UserID:               userID,
+		SessionID:            sessionID,
+		SessionKey:           sessionKey,
+		AffinityToken:        affinityToken,
+		Status:               OnHold,
+		Provider:             provider,
+		finishChannel:        manager.finishInterconnection,
+		integrationsChannel:  manager.integrationsChannel,
+		salesforceChannel:    manager.salesforceChannel,
+		interconnectionCache: manager.interconnectionsCache,
 	}
+	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 
 	t.Run("Chat request success event received", func(t *testing.T) {
 		expectedLog := "ChatRequestSuccess"
