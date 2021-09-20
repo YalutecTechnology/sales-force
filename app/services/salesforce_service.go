@@ -184,10 +184,10 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	}
 	contactID, err := s.SfcClient.CreateContact(contactRequest)
 	if err != nil {
-		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err.Error))
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}
+		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err.Error))
 	}
 	contact = &models.SfcContact{
 		Id:          contactID,
