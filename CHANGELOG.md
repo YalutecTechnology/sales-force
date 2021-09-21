@@ -1,6 +1,14 @@
 
+<a name="v0.1.0"></a>
+## [v0.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.0..v0.1.0-alpha) (2021-09-20)
+
+### Fix
+
+* **Integration-Library Salesforce:** Refresh Token fix. Moving return and fix not found reference. Closes #CSF-170
+
+
 <a name="v0.1.0-alpha"></a>
-## v0.1.0-alpha (2021-09-17)
+## v0.1.0-alpha (2021-09-20)
 
 ### Feat
 
