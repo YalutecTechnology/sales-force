@@ -12,6 +12,7 @@
 
 ### Feat
 
+* **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
 * **Integration-interconnection:** Create facebook passthrough integration. Add integration library Facebook  and flow webhook_fb interconnection. Add update status cache interconection redis in endChat Closes #CSF-171
 
 ### Fix

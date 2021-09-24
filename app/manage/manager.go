@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
@@ -27,15 +28,11 @@ import (
 var (
 	SfcOrganizationID   string
 	SfcDeploymentID     string
-	SfcWAButtonID       string
-	SfcFBButtonID       string
-	SfcWAOwnerID        string
-	SfcFBOwnerID        string
 	SfcRecordTypeID     string
 	BlockedUserState    string
 	TimeoutState        string
 	SuccessState        string
-	SfcCustomFieldsCase []string
+	SfcCustomFieldsCase map[string]string
 	BotrunnerTimeout    int
 )
 
@@ -49,6 +46,7 @@ const (
 	descriptionDefualt  = "Caso levantado por el Bot : "
 	messageError        = "Imagen no enviada"
 	messageImageSuccess = "**El usuario adjunto una imagen al caso**"
+	defaultFieldCustom  = "default"
 )
 
 type (
@@ -74,6 +72,8 @@ type Manager struct {
 	environment           string
 	keywordsRestart       []string
 	cacheMessage          cache.IMessageCache
+	SfcSourceFlowBot      envs.SfcSourceFlowBot
+	SfcSourceFlowField    string
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -97,12 +97,8 @@ type ManagerOptions struct {
 	SfcApiVersion          string
 	SfcOrganizationID      string
 	SfcDeploymentID        string
-	SfcWAButtonID          string
-	SfcFBButtonID          string
-	SfcWAOwnerID           string
-	SfcFBOwnerID           string
 	SfcRecordTypeID        string
-	SfcCustomFieldsCase    []string
+	SfcCustomFieldsCase    map[string]string
 	IntegrationsUrl        string
 	IntegrationsWAChannel  string
 	IntegrationsFBChannel  string
@@ -116,6 +112,8 @@ type ManagerOptions struct {
 	WebhookBaseUrl         string
 	Environment            string
 	KeywordsRestart        []string
+	SfcSourceFlowBot       envs.SfcSourceFlowBot
+	SfcSourceFlowField     string
 }
 
 type ManagerI interface {
@@ -129,15 +127,11 @@ type ManagerI interface {
 func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationID = config.SfcOrganizationID
 	SfcDeploymentID = config.SfcDeploymentID
-	SfcWAButtonID = config.SfcWAButtonID
-	SfcFBButtonID = config.SfcFBButtonID
 	SfcRecordTypeID = config.SfcRecordTypeID
 	BlockedUserState = config.BlockedUserState
 	TimeoutState = config.TimeoutState
 	SuccessState = config.SuccessState
 	SfcCustomFieldsCase = config.SfcCustomFieldsCase
-	SfcWAOwnerID = config.SfcWAOwnerID
-	SfcFBOwnerID = config.SfcFBOwnerID
 	BotrunnerTimeout = config.BotrunnerTimeout
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
@@ -202,7 +196,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		logrus.Errorf("could not set facebook webhook on integrations : %s", err.Error())
 	}
 
-	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload)
+	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload, config.SfcCustomFieldsCase)
 	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
 	interconnections := interconnectionsCache.RetrieveAllInterconnections()
@@ -220,7 +214,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 		BotrunnnerClient:      botRunnerClient,
 		environment:           config.Environment,
 		keywordsRestart:       config.KeywordsRestart,
-		cacheMessage:          cache.NewMessageCache(cache.New()),
+		SfcSourceFlowBot:      config.SfcSourceFlowBot,
+		SfcSourceFlowField:    config.SfcSourceFlowField,
 	}
 
 	for _, interconnection := range *interconnections {
@@ -315,10 +310,10 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return fmt.Errorf("%s: %s", "could not create chat in salesforce", "this contact is blocked")
 	}
 
-	buttonID, ownerID := ChangeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
+	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
-	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, string(interconnection.Provider), ownerID,
-		interconnection.ExtraData, SfcCustomFieldsCase)
+	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
+		interconnection.ExtraData)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"interconnection": interconnection,
@@ -540,16 +535,21 @@ func (m *Manager) GetContextByUserID(userID string) string {
 }
 
 // Change button or owner according to the provider or by custom fields
-func ChangeButtonIDAndOwnerID(provider Provider, extraData map[string]interface{}) (buttonID, ownerID string) {
-	buttonID = SfcWAButtonID
-	ownerID = SfcWAOwnerID
-	if provider == FacebookProvider {
-		buttonID = SfcFBButtonID
-		ownerID = SfcFBOwnerID
+func (m *Manager) changeButtonIDAndOwnerID(provider Provider, extraData map[string]interface{}) (buttonID, ownerID, subject string) {
+	var sourceFlow envs.SourceFlowBot
+	if SourceFlowBotOption, ok := extraData[m.SfcSourceFlowField]; ok {
+		sourceFlow = m.SfcSourceFlowBot[SourceFlowBotOption.(string)]
+	} else {
+		if sourceFlow, ok = m.SfcSourceFlowBot[defaultFieldCustom]; !ok {
+			return
+		}
 	}
+	providerConf := sourceFlow.Providers[string(provider)]
+	buttonID = providerConf.ButtonID
+	ownerID = providerConf.OwnerID
+	subject = sourceFlow.Subject
 
-	// custom instructions to change a buttonID or ownerID
-	return buttonID, ownerID
+	return
 }
 
 func NewInterconectionCache(interconnection *Interconnection) cache.Interconnection {

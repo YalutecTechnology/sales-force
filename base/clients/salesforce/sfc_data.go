@@ -1,6 +1,7 @@
 package salesforce
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -443,7 +444,15 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.GetErrorResponse(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(proxiedResponse.Body)
+		bodyResponse := buf.String()
+		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
+		if proxiedResponse.StatusCode != http.StatusNoContent {
+			logrus.Error(errorMessage)
+		}
+
+		return "", &helpers.ErrorResponse{StatusCode: proxiedResponse.StatusCode, Error: errors.New(errorMessage)}
 	}
 
 	var response SalesforceResponse
