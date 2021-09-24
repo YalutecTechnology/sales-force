@@ -279,7 +279,10 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 		buf.ReadFrom(proxiedResponse.Body)
 		bodyResponse := buf.String()
 		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
-		logrus.Error(errorMessage)
+		if proxiedResponse.StatusCode != http.StatusNoContent {
+			logrus.Error(errorMessage)
+		}
+
 		return nil, &helpers.ErrorResponse{StatusCode: proxiedResponse.StatusCode, Error: errors.New(errorMessage)}
 	}
 

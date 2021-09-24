@@ -32,6 +32,8 @@ const (
 	contactID        = "contactID"
 	recordTypeID     = "recordTypeID"
 	caseID           = "caseID"
+	messageID        = "messageID"
+	ttlMessage       = time.Second * 3
 )
 
 func TestCreateManager(t *testing.T) {
@@ -306,12 +308,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "1631202334957",
 			Type:      voiceType,
 			From:      "55555555555",
@@ -338,12 +344,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      documentType,
 			To:        "55555555555",
@@ -370,12 +380,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      imageType,
 			From:      "55555555555",
@@ -400,12 +414,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
 			From:      "55555555555",
@@ -428,12 +446,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
 			From:      "55555555555",
@@ -456,12 +478,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      "error",
 			From:      "55555555555",
@@ -484,12 +510,16 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(assert.AnError)
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "error",
 			Type:      "error",
 			From:      "55555555555",
@@ -502,6 +532,38 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("Should save context repeated message", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    "55555555555",
+			Timestamp: 123456789,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
+
+		manager := &Manager{
+			contextcache: contextCache,
+			cacheMessage: cacheMessage,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "error",
+			Type:      "error",
+			From:      "55555555555",
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
 	t.Run("Should send message to salesforce", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
@@ -512,12 +574,17 @@ func TestManager_SaveContext(t *testing.T) {
 		channelSaleforce := make(chan *Message)
 		channelIntegrations := make(chan *Message)
 		channelFinish := make(chan *Interconnection)
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			salesforceChannel:     channelSaleforce,
 			integrationsChannel:   channelIntegrations,
 			finishInterconnection: channelFinish,
 			SalesforceService:     salesforceMock,
+			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
 
@@ -537,7 +604,7 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
 			From:      "55555555555",
@@ -573,6 +640,9 @@ func TestManager_SaveContext(t *testing.T) {
 		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
 			Return(nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			salesforceChannel:     make(chan *Message),
@@ -581,6 +651,7 @@ func TestManager_SaveContext(t *testing.T) {
 			SalesforceService:     salesforceMock,
 			keywordsRestart:       []string{"restart", "test"},
 			interconnectionsCache: interconnectionCacheMock,
+			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
 
@@ -601,7 +672,7 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
 			From:      "55555555555",
@@ -625,6 +696,9 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
 			Return(false, nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			salesforceChannel:     make(chan *Message),
@@ -632,6 +706,7 @@ func TestManager_SaveContext(t *testing.T) {
 			finishInterconnection: make(chan *Interconnection),
 			SalesforceService:     salesforceMock,
 			keywordsRestart:       []string{"restart", "test"},
+			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
 
@@ -652,7 +727,7 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 
 		integrations := &models.IntegrationsRequest{
-			ID:        "id",
+			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      imageType,
 			From:      "55555555555",
@@ -741,8 +816,12 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsFacebook{
@@ -756,7 +835,51 @@ func TestManager_SaveContextFB(t *testing.T) {
 						Messaging: []models.Messaging{
 							{
 								Message: models.MessagingMessage{
-									Mid:  "mid",
+									Mid:  messageID,
+									Text: "text",
+								},
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context repited message", func(t *testing.T) {
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
+
+		manager := &Manager{
+			cacheMessage: cacheMessage,
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  messageID,
 									Text: "text",
 								},
 								Recipient: models.Recipient{
@@ -791,8 +914,12 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 		contextCache.On("StoreContext", ctx).Return(nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache: contextCache,
+			cacheMessage: cacheMessage,
 		}
 
 		integrations := &models.IntegrationsFacebook{
@@ -806,7 +933,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 						Messaging: []models.Messaging{
 							{
 								Message: models.MessagingMessage{
-									Mid:  "mid",
+									Mid:  messageID,
 									Text: "text",
 								},
 								Recipient: models.Recipient{
@@ -845,6 +972,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 		salesforceMock.On("SendMessage",
 			affinityToken, sessionKey, chat.MessagePayload{Text: "text"}).
 			Return(false, nil).Once()
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
 			contextcache:          contextCache,
@@ -853,6 +982,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			salesforceChannel:     make(chan *Message),
 			finishInterconnection: make(chan *Interconnection),
 			integrationsChannel:   make(chan *Message),
+			cacheMessage:          cacheMessage,
 		}
 
 		go manager.handleInterconnection()
@@ -881,7 +1011,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 						Messaging: []models.Messaging{
 							{
 								Message: models.MessagingMessage{
-									Mid:  "mid",
+									Mid:  messageID,
 									Text: "text",
 								},
 								Recipient: models.Recipient{
@@ -917,6 +1047,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
 			Return(false, nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			SalesforceService:     salesforceMock,
@@ -924,6 +1057,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			salesforceChannel:     make(chan *Message),
 			finishInterconnection: make(chan *Interconnection),
 			integrationsChannel:   make(chan *Message),
+			cacheMessage:          cacheMessage,
 		}
 
 		go manager.handleInterconnection()
@@ -961,7 +1095,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 									ID: userID,
 								},
 								Message: models.MessagingMessage{
-									Mid: "mid",
+									Mid: messageID,
 									Attachments: []models.Attachment{
 										{
 											Payload: models.Payload{
@@ -1011,6 +1145,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
 			Return(nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			SalesforceService:     salesforceMock,
@@ -1018,6 +1155,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			salesforceChannel:     make(chan *Message),
 			finishInterconnection: make(chan *Interconnection),
 			integrationsChannel:   make(chan *Message),
+			cacheMessage:          cacheMessage,
 		}
 
 		go manager.handleInterconnection()
@@ -1051,7 +1189,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 						Messaging: []models.Messaging{
 							{
 								Message: models.MessagingMessage{
-									Mid:  "mid",
+									Mid:  messageID,
 									Text: "ResTart",
 								},
 								Recipient: models.Recipient{
@@ -1099,6 +1237,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Metadata: "YALOSOURCE:FIREHOSE",
 		}, string(FacebookProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
 		manager := &Manager{
 			contextcache:          contextCache,
 			SalesforceService:     salesforceMock,
@@ -1107,6 +1248,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			finishInterconnection: make(chan *Interconnection),
 			integrationsChannel:   make(chan *Message),
 			IntegrationsClient:    integrationsIMock,
+			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
 
@@ -1146,7 +1288,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 									ID: userID,
 								},
 								Message: models.MessagingMessage{
-									Mid: "mid",
+									Mid: messageID,
 									Attachments: []models.Attachment{
 										{
 											Payload: models.Payload{
