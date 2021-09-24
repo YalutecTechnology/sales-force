@@ -23,9 +23,9 @@ type Text struct {
 }
 
 type IntegrationsFacebook struct {
-	AuthorRole  string      `json:"authorRole"`
-	BotID       string      `json:"botId"`
-	Message     Message     `json:"message"`
+	AuthorRole  string      `json:"authorRole" validate:"required"`
+	BotID       string      `json:"botId" validate:"required"`
+	Message     Message     `json:"message" validate:"required"`
 	MsgTracking MsgTracking `json:"msgTracking"`
 	Provider    string      `json:"provider"`
 	Timestamp   int64       `json:"timestamp"`

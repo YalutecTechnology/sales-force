@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
 	"yalochat.com/salesforce-integration/app/manage"
 )
@@ -34,18 +36,21 @@ func TestCreateChat(t *testing.T) {
 		managerMock := new(ManagerI)
 
 		interconnection := &manage.Interconnection{
-			UserID:   "5217331175599",
-			BotSlug:  "coppel-bot",
-			BotID:    "521554578545",
-			Name:     "Eduardo Ochoa",
-			Provider: "whatsapp",
-			Email:    "ochoapumas@gmail.com",
+			UserID:      "5217331175599",
+			BotSlug:     "coppel-bot",
+			BotID:       "521554578545",
+			Name:        "Eduardo Ochoa",
+			Provider:    "whatsapp",
+			Email:       "ochoapumas@gmail.com",
+			PhoneNumber: "55555555555",
 		}
 		managerMock.On("CreateChat", interconnection).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
-		body := `{"userID":"5217331175599","botSlug":"coppel-bot","botId":"521554578545","name":"Eduardo Ochoa","provider":"whatsapp","email":"ochoapumas@gmail.com"}`
-		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer([]byte(body)))
+		interconnectionBin, err := json.Marshal(interconnection)
+		assert.NoError(t, err)
+
+		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer(interconnectionBin))
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, req)

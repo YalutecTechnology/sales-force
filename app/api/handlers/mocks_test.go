@@ -53,3 +53,17 @@ func (_m *ManagerI) GetContextByUserID(userID string) string {
 
 	return r0
 }
+
+// SaveContext provides a mock function with given fields: integration
+func (_m *ManagerI) SaveContextFB(integration *models.IntegrationsFacebook) error {
+	ret := _m.Called(integration)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*models.IntegrationsFacebook) error); ok {
+		r0 = rf(integration)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}

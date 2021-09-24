@@ -8,30 +8,36 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/constants"
 )
 
 const (
-	url     = "test"
-	token   = "token_test"
-	channel = "channel_test"
-	botId   = "botId_test"
-	phone   = "+5212222222222"
-	webhook = "https://webhook.site/test"
+	url       = "test"
+	tokenWA   = "token_wa_test"
+	tokenFB   = "token_fb_test"
+	channelWA = "channel_wa_test"
+	channelFB = "channel_fb_test"
+	botWAID   = "botWAID_test"
+	botFBID   = "botFBID_test"
+	phone     = "+5212222222222"
+	webhook   = "https://webhook.site/test"
+	userID    = "userID"
 )
 
 func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
-	t.Run("Webhook Register Successful", func(t *testing.T) {
+	t.Run("Webhook WA Register Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botId_test","channel": "channel_test","webhook": "https://webhook.site/test"}`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botWAID_test","channel": "channel_wa_test","webhook": "https://webhook.site/test"}`))),
 		}, nil)
 		payload := HealthcheckPayload{
-			Phone:   phone,
-			Webhook: webhook,
+			Phone:    phone,
+			Webhook:  webhook,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRegister(payload)
 
@@ -40,8 +46,36 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 		}
 
 		expectedResponse := &HealthcheckResponse{
-			BotId:   botId,
-			Channel: channel,
+			BotId:   botWAID,
+			Channel: channelWA,
+			Webhook: webhook,
+		}
+
+		assert.Equal(t, expectedResponse, id)
+	})
+
+	t.Run("Webhook FB Register Successful", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
+		client.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botFBID_test","channel": "channel_fb_test","webhook": "https://webhook.site/test"}`))),
+		}, nil)
+		payload := HealthcheckPayload{
+			Phone:    phone,
+			Webhook:  webhook,
+			Provider: constants.FacebookProvider,
+		}
+		id, err := client.WebhookRegister(payload)
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		expectedResponse := &HealthcheckResponse{
+			BotId:   botFBID,
+			Channel: channelFB,
 			Webhook: webhook,
 		}
 
@@ -50,14 +84,15 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
 	t.Run("Webhook Register Error validation payload", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id":"dasfasfasd","channel":"c","webhook":"http://"}`))),
 		}, nil)
 		payload := HealthcheckPayload{
-			Phone: phone,
+			Phone:    phone,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRegister(payload)
 
@@ -67,12 +102,13 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
 	t.Run("Webhook Register error SendHTTPRequest", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
 		payload := HealthcheckPayload{
-			Phone:   phone,
-			Webhook: webhook,
+			Phone:    phone,
+			Webhook:  webhook,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRegister(payload)
 
@@ -82,15 +118,16 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
 	t.Run("Webhook Register error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
 		payload := HealthcheckPayload{
-			Phone:   phone,
-			Webhook: webhook,
+			Phone:    phone,
+			Webhook:  webhook,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRegister(payload)
 
@@ -100,15 +137,16 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
 	t.Run("Webhook Register error response", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`ok`))),
 		}, nil)
 		payload := HealthcheckPayload{
-			Phone:   phone,
-			Webhook: webhook,
+			Phone:    phone,
+			Webhook:  webhook,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRegister(payload)
 
@@ -121,13 +159,14 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 	t.Run("Webhook Remove Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusNoContent,
 		}, nil)
 		payload := RemoveWebhookPayload{
-			Phone: phone,
+			Phone:    phone,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRemove(payload)
 
@@ -140,13 +179,14 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 	t.Run("Webhook Remove Error validation payload", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusNoContent,
 		}, nil)
 		payload := RemoveWebhookPayload{
-			Phone: "",
+			Phone:    "",
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRemove(payload)
 
@@ -156,11 +196,12 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 	t.Run("Webhook Remove error SendHTTPRequest", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
 		payload := RemoveWebhookPayload{
-			Phone: phone,
+			Phone:    phone,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRemove(payload)
 
@@ -170,14 +211,15 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 	t.Run("Webhook Remove error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
 		payload := RemoveWebhookPayload{
-			Phone: phone,
+			Phone:    phone,
+			Provider: constants.WhatsappProvider,
 		}
 		id, err := client.WebhookRemove(payload)
 
@@ -188,20 +230,20 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 }
 
 func TestIntegrationsClient_SendMessage(t *testing.T) {
-
 	t.Run("Send Text Message Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
 		payload := &SendTextPayload{
-			Type: "text",
-			Text: TextMessage{Body: "Hola!!"},
+			Type:   "text",
+			Text:   TextMessage{Body: "Hola!!"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -218,18 +260,19 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Send Image Message Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
 		payload := &SendImagePayload{
-			Id:    "212222222222",
-			Type:  "image",
-			Image: Media{Url: "http://miimagen.com/test.jpg", Caption: "Test Image"},
+			ID:     "212222222222",
+			Type:   "image",
+			Image:  Media{Url: "http://miimagen.com/test.jpg", Caption: "Test Image"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -246,18 +289,19 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Send Audio Message Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
 		payload := &SendAudioPayload{
-			Id:    "212222222222",
-			Type:  "audio",
-			Audio: Media{Url: "http://miimagen.com/test.mp3"},
+			Id:     "212222222222",
+			Type:   "audio",
+			Audio:  Media{Url: "http://miimagen.com/test.mp3"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -274,18 +318,19 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Send Video Message Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
 		payload := &SendVideoPayload{
-			Id:    "212222222222",
-			Type:  "video",
-			Video: Media{Url: "http://mitest.com/test.mp4", Caption: "Test video"},
+			Id:     "212222222222",
+			Type:   "video",
+			Video:  Media{Url: "http://mitest.com/test.mp4", Caption: "Test video"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -302,7 +347,7 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Send Document Message Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
@@ -312,8 +357,9 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 			Id:       "212222222222",
 			Type:     "document",
 			Document: Media{Url: "http://mitest.com/test.pdf", Caption: "Test document"},
+			UserID:   userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -330,7 +376,7 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Webhook Register Error validation payload", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusOK,
@@ -338,11 +384,12 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 		}, nil)
 
 		payload := &SendTextPayload{
-			Id:   "212222222222",
-			Text: TextMessage{Body: "Hola!!"},
+			Id:     "212222222222",
+			Text:   TextMessage{Body: "Hola!!"},
+			UserID: userID,
 		}
 
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		assert.Error(t, err)
 		assert.Empty(t, id)
@@ -350,16 +397,17 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Webhook Register error SendHTTPRequest", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
 
 		payload := &SendTextPayload{
-			Id:   "212222222222",
-			Type: "text",
-			Text: TextMessage{Body: "Hola!!"},
+			Id:     "212222222222",
+			Type:   "text",
+			Text:   TextMessage{Body: "Hola!!"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		assert.Error(t, err)
 		assert.Empty(t, id)
@@ -367,18 +415,19 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Webhook Register error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
 		payload := &SendTextPayload{
-			Id:   "212222222222",
-			Type: "text",
-			Text: TextMessage{Body: "Hola!!"},
+			Id:     "212222222222",
+			Type:   "text",
+			Text:   TextMessage{Body: "Hola!!"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		assert.Error(t, err)
 		assert.Empty(t, id)
@@ -386,18 +435,19 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 
 	t.Run("Send Message error response", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		client := NewIntegrationsClient(url, token, channel, botId)
+		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
 		client.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`ok`))),
 		}, nil)
 		payload := &SendTextPayload{
-			Id:   "212222222222",
-			Type: "text",
-			Text: TextMessage{Body: "Hola!!"},
+			Id:     "212222222222",
+			Type:   "text",
+			Text:   TextMessage{Body: "Hola!!"},
+			UserID: userID,
 		}
-		id, err := client.SendMessage(payload)
+		id, err := client.SendMessage(payload, constants.WhatsappProvider)
 
 		assert.Error(t, err)
 		assert.Empty(t, id)

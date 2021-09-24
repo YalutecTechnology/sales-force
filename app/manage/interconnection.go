@@ -22,7 +22,7 @@ const (
 	OnHold           InterconnectionStatus = "ON_HOLD"
 	Active           InterconnectionStatus = "ACTIVE"
 	Closed           InterconnectionStatus = "CLOSED"
-	WhatsappProvider Provider              = "Whatsapp"
+	WhatsappProvider Provider              = "whatsapp"
 	FacebookProvider Provider              = "facebook"
 )
 
@@ -48,20 +48,22 @@ type Interconnection struct {
 	finishChannel        chan *Interconnection               `json:"-"`
 	BotrunnnerClient     botrunner.BotRunnerInterface        `json:"-"`
 	SalesforceService    services.SalesforceServiceInterface `json:"-"`
-	IntegrationsClient   *integrations.IntegrationsClient    `json:"-"`
+	IntegrationsClient   integrations.IntegrationInterface   `json:"-"`
 	interconnectionCache cache.InterconnectionCache          `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
-	offset int `json:"-"`
+	offset        int    `json:"-"`
+	lastMessageId string `json:"-"`
 }
 
 // Message represents the messages that will be sent through the chat
 type Message struct {
-	Text          string `json:"text"`
-	ImageUrl      string `json:"imageUrl"`
-	UserID        string `json:"userID"`
-	SessionKey    string `json:"sessionKey"`
-	AffinityToken string `json:"affinityToken"`
+	Text          string   `json:"text"`
+	ImageUrl      string   `json:"imageUrl"`
+	UserID        string   `json:"userID"`
+	SessionKey    string   `json:"sessionKey"`
+	AffinityToken string   `json:"affinityToken"`
+	Provider      Provider `json:"provider"`
 }
 
 func NewInterconection(interconnection *Interconnection) *Interconnection {
@@ -70,10 +72,11 @@ func NewInterconection(interconnection *Interconnection) *Interconnection {
 	return interconnection
 }
 
-func NewIntegrationsMessage(userID, text string) *Message {
+func NewIntegrationsMessage(userID, text string, provider Provider) *Message {
 	return &Message{
-		UserID: userID,
-		Text:   text,
+		UserID:   userID,
+		Text:     text,
+		Provider: provider,
 	}
 }
 
@@ -135,20 +138,20 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
 		logrus.Infof("Event [%s]", chat.ChatRequestSuccess)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente")
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente", in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
 		logrus.Infof("Event [%s]", event.Type)
 		in.ActiveChat()
 	case chat.ChatMessage:
 		logrus.Infof("Message from salesforce : %s", event.Message.Text)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text)
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text, in.Provider)
 	case chat.QueueUpdate:
 		logrus.Infof("Event [%s]", chat.QueueUpdate)
 		if event.Message.QueuePosition > 0 {
 			//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime))
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
 		}
 	case chat.ChatEnded:
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState, in.BotrunnnerClient, 0)
@@ -181,6 +184,7 @@ func (in *Interconnection) ActiveChat() {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, in.Context)
+	time.Sleep(500 * time.Millisecond)
 	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
 }
 
@@ -212,8 +216,7 @@ func (in *Interconnection) updateStatusRedis(status string) {
 
 	logrus.Errorf("Interconnection in Cache %v", interconnectionCache)
 	interconnectionCache.Status = status
-	in.interconnectionCache.StoreInterconnection(*interconnectionCache)
-
+	err = in.interconnectionCache.StoreInterconnection(*interconnectionCache)
 	if err != nil {
 		logrus.Errorf("Could not update status in interconnection userID[%s]-sessionId[%s] from redis : [%s]", in.UserID, in.SessionID, err.Error())
 	}

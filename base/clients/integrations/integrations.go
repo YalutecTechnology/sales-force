@@ -12,24 +12,37 @@ import (
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
-func NewIntegrationsClient(url, token, channel, botId string) *IntegrationsClient {
+func NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID string) *IntegrationsClient {
 	logrus.WithFields(logrus.Fields{
 		"url": url,
 	}).Info("Proxy setted")
 
 	return &IntegrationsClient{
-		Channel:     channel,
-		BotId:       botId,
-		Proxy:       proxy.NewProxy(url),
-		AccessToken: token,
+		ChannelWA:     channelWA,
+		ChannelFB:     channelFB,
+		BotWAID:       botWAID,
+		BotFBID:       botFBID,
+		Proxy:         proxy.NewProxy(url),
+		AccessTokenWA: tokenWA,
+		AccessTokenFB: tokenFB,
 	}
 }
 
 type IntegrationsClient struct {
-	Channel     string
-	BotId       string
-	AccessToken string
-	Proxy       proxy.ProxyInterface
+	ChannelWA     string
+	ChannelFB     string
+	BotWAID       string
+	BotFBID       string
+	AccessTokenWA string
+	AccessTokenFB string
+
+	Proxy proxy.ProxyInterface
+}
+
+type IntegrationInterface interface {
+	WebhookRegister(HealthcheckPayload HealthcheckPayload) (*HealthcheckResponse, error)
+	WebhookRemove(removeWebhookPayload RemoveWebhookPayload) (bool, error)
+	SendMessage(messagePayload interface{}, provider string) (*SendMessageResponse, error)
 }
 
 type HealthcheckResponse struct {
@@ -39,12 +52,14 @@ type HealthcheckResponse struct {
 }
 
 type HealthcheckPayload struct {
-	Phone   string `json:"phone" validate:"required"`
-	Webhook string `json:"webhook" validate:"required"`
+	Phone    string `json:"phone" validate:"required"`
+	Webhook  string `json:"webhook" validate:"required"`
+	Provider string `json:"provider" validate:"required"`
 }
 
 type RemoveWebhookPayload struct {
-	Phone string `json:"phone" validate:"required"`
+	Phone    string `json:"phone" validate:"required"`
+	Provider string `json:"provider" validate:"required"`
 }
 
 type TextMessage struct {
@@ -53,36 +68,50 @@ type TextMessage struct {
 
 type SendTextPayload struct {
 	Id     string      `json:"id"`
-	Type   string      `json:"type" validate:"required`
-	UserId string      `json:"userId" validate:"required`
+	Type   string      `json:"type" validate:"required"`
+	UserID string      `json:"userId" validate:"required"`
 	Text   TextMessage `json:"text" validate:"required"`
 }
 
+type SendTextPayloadFB struct {
+	MessagingType string    `json:"messaging_type"`
+	Recipient     Recipient `json:"recipient" validate:"required"`
+	Message       Message   `json:"message" validate:"required"`
+	Metadata      string    `json:"metadata" validate:"required"`
+}
+
+type Recipient struct {
+	ID string `json:"id"`
+}
+type Message struct {
+	Text string `json:"text"`
+}
+
 type SendImagePayload struct {
-	Id     string `json:"id"`
-	Type   string `json:"type" validate:"required`
-	UserId string `json:"userId" validate:"required`
+	ID     string `json:"id"`
+	Type   string `json:"type" validate:"required"`
+	UserID string `json:"userId" validate:"required"`
 	Image  Media  `json:"image" validate:"required"`
 }
 
 type SendVideoPayload struct {
 	Id     string `json:"id"`
-	Type   string `json:"type" validate:"required`
-	UserId string `json:"userId" validate:"required`
+	Type   string `json:"type" validate:"required"`
+	UserID string `json:"userId" validate:"required"`
 	Video  Media  `json:"video" validate:"required"`
 }
 
 type SendDocumentPayload struct {
 	Id       string `json:"id"`
-	Type     string `json:"type" validate:"required`
-	UserId   string `json:"userId" validate:"required`
+	Type     string `json:"type" validate:"required"`
+	UserID   string `json:"userId" validate:"required"`
 	Document Media  `json:"document" validate:"required"`
 }
 
 type SendAudioPayload struct {
 	Id     string `json:"id"`
-	Type   string `json:"type" validate:"required`
-	UserId string `json:"userId" validate:"required`
+	Type   string `json:"type" validate:"required"`
+	UserID string `json:"userId" validate:"required"`
 	Audio  Media  `json:"audio" validate:"required"`
 }
 
@@ -119,12 +148,14 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	botID, channel, token := cc.getDataFromProvider(HealthcheckPayload.Provider)
+	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/healthcheck", cc.Channel, cc.BotId),
+		URI:       fmt.Sprintf("/api/%s/bots/%s/healthcheck", channel, botID),
 		HeaderMap: header,
 	}
 
@@ -155,6 +186,18 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 	return &response, nil
 }
 
+func (cc *IntegrationsClient) getDataFromProvider(provider string) (string, string, string) {
+	botID := cc.BotWAID
+	channel := cc.ChannelWA
+	token := cc.AccessTokenWA
+	if provider == constants.FacebookProvider {
+		botID = cc.BotFBID
+		channel = cc.ChannelFB
+		token = cc.AccessTokenFB
+	}
+	return botID, channel, token
+}
+
 // Remove webhook from bot
 func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPayload) (bool, error) {
 	var errorMessage string
@@ -175,12 +218,14 @@ func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPa
 
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	botID, channel, token := cc.getDataFromProvider(removeWebhookPayload.Provider)
+	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/remove", cc.Channel, cc.BotId),
+		URI:       fmt.Sprintf("/api/%s/bots/%s/remove", channel, botID),
 		HeaderMap: header,
 	}
 
@@ -203,7 +248,7 @@ func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPa
 }
 
 // Send message to bot (Text, Image, Audio, Video, Document)
-func (cc *IntegrationsClient) SendMessage(messagePayload interface{}) (*SendMessageResponse, error) {
+func (cc *IntegrationsClient) SendMessage(messagePayload interface{}, provider string) (*SendMessageResponse, error) {
 	var errorMessage string
 
 	// If not have Id set a random id
@@ -228,12 +273,14 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}) (*SendMess
 	requestBytes, _ := json.Marshal(messagePayload)
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	botID, channel, token := cc.getDataFromProvider(provider)
+	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/messages", cc.Channel, cc.BotId),
+		URI:       fmt.Sprintf("/api/%s/bots/%s/messages", channel, botID),
 		HeaderMap: header,
 	}
 
@@ -244,7 +291,7 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}) (*SendMess
 		return nil, errors.New(errorMessage)
 	}
 
-	if proxiedResponse.StatusCode != http.StatusCreated {
+	if proxiedResponse.StatusCode != http.StatusCreated && proxiedResponse.StatusCode != http.StatusOK {
 		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 

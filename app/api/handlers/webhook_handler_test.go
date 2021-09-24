@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
 	"yalochat.com/salesforce-integration/app/manage"
@@ -18,7 +20,10 @@ import (
 	"yalochat.com/salesforce-integration/base/models"
 )
 
-const testURL = "/v1/integrations/webhook"
+const (
+	testURL   = "/v1/integrations/whatsapp/webhook"
+	testURLFB = "/v1/integrations/facebook/webhook"
+)
 
 func TestApp_webhook(t *testing.T) {
 	handler := ddrouter.New(ddrouter.WithServiceName("webhook.http"))
@@ -177,5 +182,100 @@ func TestApp_webhook(t *testing.T) {
 			t.Errorf("Response should be %v, but it answer with %v ", expectedLog, response.Body.String())
 		}
 
+	})
+}
+
+func TestWebhookFB(t *testing.T) {
+	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
+	handler.POST(fmt.Sprintf("%s/integrations_fb/webhook", apiVersion), app.webhookFB)
+
+	t.Run("Should save context", func(t *testing.T) {
+		managerMock := new(ManagerI)
+
+		interconnection := &models.IntegrationsFacebook{
+			AuthorRole: "user",
+			BotID:      botId,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Text: "text",
+								},
+							},
+						},
+					},
+				},
+			},
+			MsgTracking: models.MsgTracking{},
+			Provider:    "facebook",
+			Timestamp:   123,
+		}
+		interconectionBin, err := json.Marshal(interconnection)
+		assert.NoError(t, err)
+		managerMock.On("SaveContextFB", interconnection).Return(nil).Once()
+		getApp().ManageManager = managerMock
+
+		body := interconectionBin
+		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/integrations_fb/webhook", apiVersion), bytes.NewBuffer(body))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+	})
+
+	t.Run("Should save contextError Payload", func(t *testing.T) {
+		managerMock := new(ManagerI)
+
+		interconnection := &models.IntegrationsFacebook{
+			AuthorRole: "user",
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Text: "text",
+								},
+							},
+						},
+					},
+				},
+			},
+			MsgTracking: models.MsgTracking{},
+			Provider:    "facebook",
+			Timestamp:   123,
+		}
+		interconectionBin, err := json.Marshal(interconnection)
+		assert.NoError(t, err)
+		managerMock.On("SaveContextFB", interconnection).Return(nil).Once()
+		getApp().ManageManager = managerMock
+
+		body := interconectionBin
+		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/integrations_fb/webhook", apiVersion), bytes.NewBuffer(body))
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+
+		expectedLog := helpers.FailedResponse{
+			ErrorDescription: "Error validating payload : Key: 'IntegrationsFacebook.BotID' Error:Field validation for 'BotID' failed on the 'required' tag",
+		}
+		binexpectedLog, err := json.Marshal(expectedLog)
+		assert.NoError(t, err)
+
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusBadRequest, response.Code)
+		}
+
+		if !strings.Contains(response.Body.String(), string(binexpectedLog)) {
+			t.Errorf("Response should be %v, but it answer with %v ", expectedLog, response.Body.String())
+		}
 	})
 }

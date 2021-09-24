@@ -64,7 +64,7 @@ type Manager struct {
 	clientName            string
 	interconnectionMap    interconnectionCache
 	SalesforceService     services.SalesforceServiceInterface
-	IntegrationsClient    *integrations.IntegrationsClient
+	IntegrationsClient    integrations.IntegrationInterface
 	BotrunnnerClient      botrunner.BotRunnerInterface
 	salesforceChannel     chan *Message
 	integrationsChannel   chan *Message
@@ -77,46 +77,51 @@ type Manager struct {
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName               string
-	BlockedUserState      string
-	TimeoutState          string
-	SuccessState          string
-	RedisOptions          cache.RedisOptions
-	BotrunnerUrl          string
-	BotrunnerToken        string
-	BotrunnerTimeout      int
-	SfcClientID           string
-	SfcClientSecret       string
-	SfcUsername           string
-	SfcPassword           string
-	SfcSecurityToken      string
-	SfcBaseUrl            string
-	SfcChatUrl            string
-	SfcLoginUrl           string
-	SfcApiVersion         string
-	SfcOrganizationID     string
-	SfcDeploymentID       string
-	SfcWAButtonID         string
-	SfcFBButtonID         string
-	SfcWAOwnerID          string
-	SfcFBOwnerID          string
-	SfcRecordTypeID       string
-	SfcCustomFieldsCase   []string
-	IntegrationsUrl       string
-	IntegrationsChannel   string
-	IntegrationsToken     string
-	IntegrationsBotID     string
-	IntegrationsSignature string
-	IntegrationsBotPhone  string
-	WebhookBaseUrl        string
-	Environment           string
-	KeywordsRestart       []string
+	AppName                string
+	BlockedUserState       string
+	TimeoutState           string
+	SuccessState           string
+	RedisOptions           cache.RedisOptions
+	BotrunnerUrl           string
+	BotrunnerToken         string
+	BotrunnerTimeout       int
+	SfcClientID            string
+	SfcClientSecret        string
+	SfcUsername            string
+	SfcPassword            string
+	SfcSecurityToken       string
+	SfcBaseUrl             string
+	SfcChatUrl             string
+	SfcLoginUrl            string
+	SfcApiVersion          string
+	SfcOrganizationID      string
+	SfcDeploymentID        string
+	SfcWAButtonID          string
+	SfcFBButtonID          string
+	SfcWAOwnerID           string
+	SfcFBOwnerID           string
+	SfcRecordTypeID        string
+	SfcCustomFieldsCase    []string
+	IntegrationsUrl        string
+	IntegrationsWAChannel  string
+	IntegrationsFBChannel  string
+	IntegrationsWAToken    string
+	IntegrationsFBToken    string
+	IntegrationsWABotID    string
+	IntegrationsFBBotID    string
+	IntegrationsSignature  string
+	IntegrationsWABotPhone string
+	IntegrationsFBBotPhone string
+	WebhookBaseUrl         string
+	Environment            string
+	KeywordsRestart        []string
 }
 
 type ManagerI interface {
 	SaveContext(integration *models.IntegrationsRequest) error
 	CreateChat(interconnection *Interconnection) error
 	GetContextByUserID(userID string) string
+	SaveContextFB(integration *models.IntegrationsFacebook) error
 }
 
 // CreateManager retrieves an agents manager
@@ -170,17 +175,30 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	integrationsClient := integrations.NewIntegrationsClient(
 		config.IntegrationsUrl,
-		config.IntegrationsToken,
-		config.IntegrationsChannel,
-		config.IntegrationsBotID,
+		config.IntegrationsWAToken,
+		config.IntegrationsFBToken,
+		config.IntegrationsWAChannel,
+		config.IntegrationsFBChannel,
+		config.IntegrationsWABotID,
+		config.IntegrationsFBBotID,
 	)
 
 	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
-		Phone:   config.IntegrationsBotPhone,
-		Webhook: fmt.Sprintf("%s/v1/integrations/webhook", config.WebhookBaseUrl),
+		Phone:    config.IntegrationsWABotPhone,
+		Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", config.WebhookBaseUrl),
+		Provider: string(WhatsappProvider),
 	})
 	if err != nil {
-		logrus.Errorf("could not set webhook on integrations : %s", err.Error())
+		logrus.Errorf("could not set whatsapp webhook on integrations : %s", err.Error())
+	}
+
+	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
+		Phone:    config.IntegrationsFBBotPhone,
+		Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", config.WebhookBaseUrl),
+		Provider: string(FacebookProvider),
+	})
+	if err != nil {
+		logrus.Errorf("could not set facebook webhook on integrations : %s", err.Error())
 	}
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload)
@@ -230,15 +248,33 @@ func (m *Manager) handleInterconnection() {
 }
 
 func (m *Manager) sendMessageToUser(message *Message) {
-	_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
-		Id:     helpers.RandomString(36),
-		Type:   "text",
-		UserId: message.UserID,
-		Text:   integrations.TextMessage{Body: message.Text},
-	})
-	if err != nil {
-		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+	switch message.Provider {
+	case WhatsappProvider:
+		_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
+			Id:     helpers.RandomString(36),
+			Type:   "text",
+			UserID: message.UserID,
+			Text:   integrations.TextMessage{Body: message.Text},
+		}, string(message.Provider))
+		if err != nil {
+			logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+		}
+	case FacebookProvider:
+		_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayloadFB{
+			MessagingType: "RESPONSE",
+			Recipient: integrations.Recipient{
+				ID: message.UserID,
+			},
+			Message: integrations.Message{
+				Text: message.Text,
+			},
+			Metadata: "YALOSOURCE:FIREHOSE",
+		}, string(message.Provider))
+		if err != nil {
+			logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+		}
 	}
+
 	logrus.Infof("Send message to UserID : %s", message.UserID)
 }
 
@@ -274,7 +310,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 
 	if contact.Blocked {
 		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState, m.BotrunnnerClient, BotrunnerTimeout)
-		return errors.New(fmt.Sprintf("%s: %s", "could not create chat in salesforce", "this contact is blocked"))
+		return fmt.Errorf("%s: %s", "could not create chat in salesforce", "this contact is blocked")
 	}
 
 	buttonID, ownerID := ChangeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
@@ -323,7 +359,7 @@ func (m *Manager) ValidateUserID(userID string) error {
 	sessionRedis := m.interconnectionsCache.RetrieveInterconnectionActiveByUserId(userID)
 
 	if sessionRedis != nil {
-		return errors.New("Session exists in redis with this userID")
+		return errors.New("session exists in redis with this userID")
 	}
 
 	// validate that it exists on the map
@@ -428,6 +464,10 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 	defer m.interconnectionMap.RUnlock()
 
 	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok && interconnection.Status == Active {
+		if integration.ID == interconnection.lastMessageId {
+			return true, nil
+		}
+		interconnection.lastMessageId = integration.ID
 		switch integration.Type {
 		case textType:
 			if strings.Contains(constants.DevEnvironments, m.environment) {
@@ -437,18 +477,16 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 						if err != nil {
 							return false, err
 						}
+						interconnection.updateStatusRedis(string(Closed))
 						interconnection.Status = Closed
 						interconnection.runnigLongPolling = false
 						return true, nil
 					}
 				}
 			}
-			m.sendMessageToSalesforce(&Message{
-				Text:          integration.Text.Body,
-				UserID:        integration.From,
-				SessionKey:    interconnection.SessionKey,
-				AffinityToken: interconnection.AffinityToken,
-			})
+
+			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body)
+
 		case imageType:
 			err := m.SalesforceService.InsertImageInCase(
 				integration.Image.URL,
@@ -456,20 +494,10 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 				integration.Image.MIMEType,
 				interconnection.CaseID)
 			if err != nil {
-				m.sendMessageToUser(&Message{
-					Text:          messageError,
-					UserID:        integration.From,
-					SessionKey:    interconnection.SessionKey,
-					AffinityToken: interconnection.AffinityToken,
-				})
+				interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
 				return false, err
 			}
-			m.sendMessageToSalesforce(&Message{
-				Text:          messageImageSuccess,
-				UserID:        integration.From,
-				SessionKey:    interconnection.SessionKey,
-				AffinityToken: interconnection.AffinityToken,
-			})
+			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
 		}
 
 		return true, nil
@@ -537,4 +565,101 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 		CaseID:        interconnection.CaseID,
 		ExtraData:     interconnection.ExtraData,
 	}
+}
+
+// SaveContext method will save context of integration message from facebook
+func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
+	errorsMessage := []string{}
+	var err error
+	isSend := false
+	for _, entry := range integration.Message.Entry {
+		for _, message := range entry.Messaging {
+			userID := message.Recipient.ID
+			from := fromBot
+			if integration.AuthorRole == fromUser {
+				isSend, err = m.salesforceComunicationFB(message)
+				if err != nil {
+					errorsMessage = append(errorsMessage, err.Error())
+				}
+				userID = message.Sender.ID
+				from = fromUser
+			}
+			if isSend || message.Message.Text == "" {
+				continue
+			}
+
+			ctx := cache.Context{
+				UserID:    userID,
+				Timestamp: message.Timestamp,
+				From:      from,
+				Text:      message.Message.Text,
+			}
+			err = m.contextcache.StoreContext(ctx)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"context": ctx,
+				}).WithError(err).Error("Error store context")
+				errorsMessage = append(errorsMessage, err.Error())
+			}
+		}
+
+	}
+
+	if len(errorsMessage) > 0 {
+		return errors.New(strings.Join(errorsMessage, "|"))
+	}
+
+	return nil
+}
+
+func (m *Manager) salesforceComunicationFB(message models.Messaging) (bool, error) {
+	m.interconnectionMap.RWMutex.RLock()
+	defer m.interconnectionMap.RUnlock()
+	isSend := false
+	if interconnection, ok := m.interconnectionMap.interconnections[message.Sender.ID]; ok && interconnection.Status == Active {
+		if message.Message.Mid == interconnection.lastMessageId {
+			return true, nil
+		}
+		interconnection.lastMessageId = message.Message.Mid
+		switch {
+		case message.Message.Text != "":
+			if strings.Contains(constants.DevEnvironments, m.environment) {
+				for _, keyword := range m.keywordsRestart {
+					if strings.ToLower(message.Message.Text) == keyword {
+						err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+						if err != nil {
+							return false, err
+						}
+						interconnection.updateStatusRedis(string(Closed))
+						interconnection.Status = Closed
+						interconnection.runnigLongPolling = false
+						return true, nil
+					}
+				}
+			}
+
+			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text)
+
+			isSend = true
+		case message.Message.Attachments != nil:
+			for _, attachment := range message.Message.Attachments {
+				if attachment.Type == imageType {
+					err := m.SalesforceService.InsertImageInCase(
+						attachment.Payload.URL,
+						interconnection.SessionID,
+						"",
+						interconnection.CaseID)
+					if err != nil {
+						interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
+
+						return false, err
+					}
+					interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
+					isSend = true
+				}
+			}
+		}
+	}
+
+	return isSend, nil
 }

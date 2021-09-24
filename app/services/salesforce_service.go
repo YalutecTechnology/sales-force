@@ -286,9 +286,20 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 		return fmt.Errorf("image not found")
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	var body []byte
+	if mimeType == "" {
+		contentType, content, err := helpers.GetContentAndTypeByReader(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		mimeType = contentType
+		body = helpers.StreamToByte(content)
+	} else {
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
 	}
 
 	request := salesforce.CompositeRequest{

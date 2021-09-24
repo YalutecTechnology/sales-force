@@ -521,7 +521,6 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, *help
 //Composite create a composite request
 func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (CompositeResponse, error) {
 	var errorMessage string
-	logrus.Info("************************", compositeRequest)
 
 	//validating CompositeRequest struct
 	if err := helpers.Govalidator().Struct(compositeRequest); err != nil {

@@ -46,7 +46,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		}
 		mock.On("CreateSession").Return(sessionExpected, nil).Once()
 
-		request := chat.ChatRequest{OrganizationId: "organizationID", DeploymentId: "deploymentID", ButtonId: buttonID, SessionId: "ec550263-354e-477c-b773-7747ebce3f5e", UserAgent: "Yalo Bot", Language: "es-MX", ScreenResolution: "1900x1080", VisitorName: "contactName", PrechatDetails: []chat.PreChatDetailsObject{chat.PreChatDetailsObject{Label: "CaseId", Value: "caseId", DisplayToAgent: true, TranscriptFields: []string{"CaseId"}}, chat.PreChatDetailsObject{Label: "ContactId", Value: "contactId", DisplayToAgent: true, TranscriptFields: []string{"ContactId"}}}, PrechatEntities: []chat.PrechatEntitiesObject{chat.PrechatEntitiesObject{EntityName: "Case", LinkToEntityName: "Case", LinkToEntityField: "Id", SaveToTranscript: "Case", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{chat.EntityField{FieldName: "Id", Label: "CaseId", DoFind: true, IsExactMatch: true, DoCreate: false}}}, chat.PrechatEntitiesObject{EntityName: "Contact", LinkToEntityName: "Contact", LinkToEntityField: "Id", SaveToTranscript: "Contact", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{chat.EntityField{FieldName: "Id", Label: "ContactId", DoFind: true, IsExactMatch: true, DoCreate: false}}}}, ReceiveQueueUpdates: true, IsPost: true}
+		request := chat.ChatRequest{OrganizationId: "organizationID", DeploymentId: "deploymentID", ButtonId: buttonID, SessionId: "ec550263-354e-477c-b773-7747ebce3f5e", UserAgent: "Yalo Bot", Language: "es-MX", ScreenResolution: "1900x1080", VisitorName: "contactName", PrechatDetails: []chat.PreChatDetailsObject{{Label: "CaseId", Value: "caseId", DisplayToAgent: true, TranscriptFields: []string{"CaseId"}}, {Label: "ContactId", Value: "contactId", DisplayToAgent: true, TranscriptFields: []string{"ContactId"}}}, PrechatEntities: []chat.PrechatEntitiesObject{{EntityName: "Case", LinkToEntityName: "Case", LinkToEntityField: "Id", SaveToTranscript: "Case", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{{FieldName: "Id", Label: "CaseId", DoFind: true, IsExactMatch: true, DoCreate: false}}}, {EntityName: "Contact", LinkToEntityName: "Contact", LinkToEntityField: "Id", SaveToTranscript: "Contact", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{{FieldName: "Id", Label: "ContactId", DoFind: true, IsExactMatch: true, DoCreate: false}}}}, ReceiveQueueUpdates: true, IsPost: true}
 		mock.On("CreateChat", sessionExpected.AffinityToken, sessionExpected.Key, request).Return(false, nil).Once()
 
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{})
@@ -262,6 +262,57 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 		err := salesforceService.InsertImageInCase(uri, title, mimeType, caseID)
 
 		assert.Error(t, err)
+	})
+
+	t.Run("Insert image in case success without mimetype", func(t *testing.T) {
+		salesforceMock := new(SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{})
+		salesforceService.SfcClient = salesforceMock
+
+		salesforceMock.On("GetContentVersionURL").Return("contentVersionURL").Once()
+
+		salesforceMock.On("GetSearchURL", queryContentDocumentIDByID).Return("searchURL").Once()
+
+		salesforceMock.On("GetDocumentLinkURL").Return("documentLinkURL").Once()
+
+		request := salesforce.CompositeRequest{
+			AllOrNone:          true,
+			CollateSubrequests: false,
+			CompositeRequest: []salesforce.Composite{
+				{
+					Method: http.MethodPost,
+					URL:    "contentVersionURL",
+					Body: salesforce.ContentVersionPayload{
+						Title:           title,
+						ContentLocation: "S",
+						PathOnClient:    title + ".png",
+						VersionData:     versionData,
+					},
+					ReferenceId: "newContentVersion",
+				},
+				{
+					Method:      http.MethodGet,
+					URL:         "searchURL",
+					ReferenceId: "newQuery",
+				},
+				{
+					Method: http.MethodPost,
+					URL:    "documentLinkURL",
+					Body: salesforce.LinkDocumentPayload{
+						ContentDocumentID: linkReferenceID,
+						LinkedEntityID:    caseID,
+						ShareType:         shareType,
+						Visibility:        visibility,
+					},
+					ReferenceId: "newContentDocumentLink",
+				},
+			},
+		}
+		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponse{}, nil).Once()
+
+		err := salesforceService.InsertImageInCase(uri, title, "", caseID)
+
+		assert.NoError(t, err)
 	})
 
 }
