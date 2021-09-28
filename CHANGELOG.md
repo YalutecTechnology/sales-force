@@ -1,6 +1,10 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-12)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-09-27)
+
+### Chore
+
+* **Integration-Staging Deployment:** Create integration main documentation. Update the project README files with the necessary information to understand and build an instance of salesforce-integration, in addition to explaining the functions and services available. Closes #CSF-108
 
 ### Feat
 
