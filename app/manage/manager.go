@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -49,18 +48,10 @@ const (
 	defaultFieldCustom  = "default"
 )
 
-type (
-	interconnectionMap   map[string]*Interconnection
-	interconnectionCache struct {
-		interconnections interconnectionMap
-		sync.RWMutex
-	}
-)
-
 // Manager controls the process of the app
 type Manager struct {
 	clientName            string
-	interconnectionMap    interconnectionCache
+	interconnectionMap    cache.ICache
 	SalesforceService     services.SalesforceServiceInterface
 	IntegrationsClient    integrations.IntegrationInterface
 	BotrunnnerClient      botrunner.BotRunnerInterface
@@ -204,10 +195,11 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	interconnections := interconnectionsCache.RetrieveAllInterconnections()
 
+	cacheLocal := cache.New()
 	m := &Manager{
 		clientName:            config.AppName,
 		SalesforceService:     salesforceService,
-		interconnectionMap:    interconnectionCache{interconnections: make(interconnectionMap)},
+		interconnectionMap:    cacheLocal,
 		IntegrationsClient:    integrationsClient,
 		salesforceChannel:     make(chan *Message),
 		integrationsChannel:   make(chan *Message),
@@ -219,7 +211,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		keywordsRestart:       config.KeywordsRestart,
 		SfcSourceFlowBot:      config.SfcSourceFlowBot,
 		SfcSourceFlowField:    config.SfcSourceFlowField,
-		cacheMessage:          cache.NewMessageCache(cache.New()),
+		cacheMessage:          cache.NewMessageCache(cacheLocal),
 	}
 
 	for _, interconnection := range *interconnections {
@@ -353,26 +345,28 @@ func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotR
 	_, err := botRunnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, state, ""))
 	if err != nil {
 		logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
-    }
+	}
 }
 
 func (m *Manager) FinishChat(userId string) error {
 	titleMessage := "could not finish chat in salesforce"
 
-    // Get session interconnection
-    interconnection, exist := m.interconnectionMap.interconnections[userId]
-    if !exist {
-        return errors.New(helpers.ErrorMessage(titleMessage, errors.New("This contact does not have an interconnection")))
-    }
+	// Get session interconnection
+	interconnection, exist := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userId))
+	if !exist {
+		return errors.New(helpers.ErrorMessage(titleMessage, errors.New("this contact does not have an interconnection")))
+	}
 
-    // End chat Salesforce
-	err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
-    if err != nil {
-        return errors.New(helpers.ErrorMessage(titleMessage, err))
-    }
+	in := interconnection.(*Interconnection)
 
-    m.EndChat(interconnection)
-    return nil
+	// End chat Salesforce
+	err := m.SalesforceService.EndChat(in.AffinityToken, in.SessionKey)
+	if err != nil {
+		return errors.New(helpers.ErrorMessage(titleMessage, err))
+	}
+
+	m.EndChat(in)
+	return nil
 }
 
 func (m *Manager) ValidateUserID(userID string) error {
@@ -383,7 +377,7 @@ func (m *Manager) ValidateUserID(userID string) error {
 	}
 
 	// validate that it exists on the map
-	if _, ok := m.interconnectionMap.interconnections[userID]; ok {
+	if _, ok := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userID)); ok {
 		return errors.New("session exists with this userID")
 	}
 	return nil
@@ -403,15 +397,11 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 		logrus.Errorf("Could not store interconnection with userID[%s] in redis[%s]", interconnection.UserID, interconnection.SessionID)
 	}
 
-	m.interconnectionMap.Lock()
-	defer m.interconnectionMap.Unlock()
-	m.interconnectionMap.interconnections[interconnection.UserID] = interconnection
+	m.interconnectionMap.Set(fmt.Sprintf(constants.UserKey, interconnection.UserID), interconnection, 0)
 
 	go interconnection.handleLongPolling()
 	go interconnection.handleStatus()
-	logrus.WithFields(logrus.Fields{
-		"InterconectionMapCount": len(m.interconnectionMap.interconnections),
-	}).Info("Create interconnection successfully")
+	logrus.Info("Create interconnection successfully")
 }
 
 // SaveContext method will save context of integration message
@@ -485,11 +475,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 }
 
 func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest) (bool, error) {
-	m.interconnectionMap.RWMutex.RLock()
-	defer m.interconnectionMap.RUnlock()
-
-	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok && interconnection.Status == Active {
-		interconnection.lastMessageId = integration.ID
+	if interconnection, ok := m.validInterconnection(integration.From); ok && interconnection.Status == Active {
 		switch integration.Type {
 		case textType:
 			if strings.Contains(constants.DevEnvironments, m.environment) {
@@ -527,10 +513,17 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 	return false, nil
 }
 
+func (m *Manager) validInterconnection(from string) (*Interconnection, bool) {
+	if interconnection, ok := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, from)); ok {
+		if in, ok := interconnection.(*Interconnection); ok {
+			return in, true
+		}
+	}
+	return nil, false
+}
+
 func (m *Manager) EndChat(interconnection *Interconnection) {
-	m.interconnectionMap.Lock()
-	defer m.interconnectionMap.Unlock()
-	delete(m.interconnectionMap.interconnections, interconnection.UserID)
+	m.interconnectionMap.Delete(fmt.Sprintf(constants.UserKey, interconnection.UserID))
 	logrus.Infof("Ending Interconnection : %s", interconnection.UserID)
 }
 
@@ -644,11 +637,8 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 }
 
 func (m *Manager) salesforceComunicationFB(message models.Messaging) (bool, error) {
-	m.interconnectionMap.RWMutex.RLock()
-	defer m.interconnectionMap.RUnlock()
 	isSend := false
-	if interconnection, ok := m.interconnectionMap.interconnections[message.Sender.ID]; ok && interconnection.Status == Active {
-		interconnection.lastMessageId = message.Message.Mid
+	if interconnection, ok := m.validInterconnection(message.Sender.ID); ok && interconnection.Status == Active {
 		switch {
 		case message.Message.Text != "":
 			if strings.Contains(constants.DevEnvironments, m.environment) {

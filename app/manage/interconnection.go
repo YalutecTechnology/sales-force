@@ -52,8 +52,7 @@ type Interconnection struct {
 	interconnectionCache cache.InterconnectionCache          `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
-	offset        int    `json:"-"`
-	lastMessageId string `json:"-"`
+	offset int `json:"-"`
 }
 
 // Message represents the messages that will be sent through the chat

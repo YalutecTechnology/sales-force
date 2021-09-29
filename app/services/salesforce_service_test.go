@@ -168,8 +168,8 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			PersonContactId:   contactExpected.ID,
 		}
 		contactExpected.AccountID = "accountID"
-		var errs *helpers.ErrorResponse
-		errs = nil
+		var errs *helpers.ErrorResponse = nil
+
 		mock.On("CreateAccount").Return("accountID", errs).Once()
 
 		mock.On("SearchAccount", fmt.Sprintf(queryForAccountByField, "id", "accountID")).Return(accountFound, nil).Once()

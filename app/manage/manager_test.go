@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/models"
 )
 
@@ -41,11 +43,11 @@ func TestCreateManager(t *testing.T) {
 	t.Run("Should retrieve a manager instance", func(t *testing.T) {
 		expected := &Manager{
 			clientName:         "salesforce-integration",
-			interconnectionMap: interconnectionCache{interconnections: make(interconnectionMap)},
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
 			BotrunnnerClient:   nil,
 			cacheMessage:       nil,
+			interconnectionMap: nil,
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -62,6 +64,7 @@ func TestCreateManager(t *testing.T) {
 		actual.IntegrationsClient = nil
 		actual.BotrunnnerClient = nil
 		actual.cacheMessage = nil
+		actual.interconnectionMap = nil
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
@@ -73,7 +76,9 @@ func TestCreateManager(t *testing.T) {
 }
 
 func TestSalesforceService_CreateChat(t *testing.T) {
+	interconectionLocal := cache.New()
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
+		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -144,21 +149,12 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 					Text:      "text",
 				},
 			}).Once()
+
 		manager := &Manager{
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
 			contextcache:          cacheContextMock,
-			interconnectionMap: interconnectionCache{
-				interconnections: interconnectionMap{
-					"55555555555": &Interconnection{
-						Status:        Active,
-						AffinityToken: affinityToken,
-						SessionKey:    sessionKey,
-						SessionID:     sessionID,
-						UserID:        userID,
-					},
-				},
-			},
+			interconnectionMap:    interconectionLocal,
 			SfcSourceFlowBot: envs.SfcSourceFlowBot{
 				defaultFieldCustom: {
 					Subject: "subject",
@@ -178,6 +174,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	})
 
 	t.Run("Create Chat Succesfull with FB provider", func(t *testing.T) {
+		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -260,10 +257,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 					},
 				},
 			},
-			contextcache: contextMock,
-			interconnectionMap: interconnectionCache{
-				interconnections: make(interconnectionMap),
-			},
+			contextcache:       contextMock,
+			interconnectionMap: interconectionLocal,
 		}
 
 		err := manager.CreateChat(interconnection)
@@ -272,6 +267,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	})
 
 	t.Run("Create Chat Succesfull with an account", func(t *testing.T) {
+		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
 			BotSlug:     botSlug,
@@ -348,17 +344,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
 			contextcache:          cacheContextMock,
-			interconnectionMap: interconnectionCache{
-				interconnections: interconnectionMap{
-					"55555555555": &Interconnection{
-						Status:        Active,
-						AffinityToken: affinityToken,
-						SessionKey:    sessionKey,
-						SessionID:     sessionID,
-						UserID:        userID,
-					},
-				},
-			},
+			interconnectionMap:    interconectionLocal,
 		}
 
 		err := manager.CreateChat(interconnection)
@@ -367,6 +353,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 	})
 
 	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
+		defer interconectionLocal.Clear()
 		expectedLog := "could not create chat in salesforce: this contact is blocked"
 		interconnection := &Interconnection{
 			UserID:      userID,
@@ -407,6 +394,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			SalesforceService:     salesforceServiceMock,
 			BotrunnnerClient:      botRunnerMock,
 			interconnectionsCache: interconnectionMock,
+			interconnectionMap:    interconectionLocal,
 		}
 		err := manager.CreateChat(interconnection)
 		assert.Error(t, err)
@@ -419,24 +407,23 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 }
 
 func TestSalesforceService_FinishChat(t *testing.T) {
+	interconectionLocal := cache.New()
 	m, s := cache.CreateRedisServer()
 	defer m.Close()
 	defer s.Close()
 	t.Run("Finish Chat Succesfull", func(t *testing.T) {
+		interconectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+		}, ttlMessage)
+		interconectionLocal.Wait()
 
 		salesforceMock := new(SalesforceServiceInterface)
-        manager := &Manager{
-            interconnectionMap: interconnectionCache{
-                interconnections: interconnectionMap{
-                    "55125421545": &Interconnection{
-                        Status:        Active,
-                        AffinityToken: affinityToken,
-                        SessionKey:    sessionKey,
-                    },
-                },
-            },
-            SalesforceService: salesforceMock,
-        }
+		manager := &Manager{
+			interconnectionMap: interconectionLocal,
+			SalesforceService:  salesforceMock,
+		}
 
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
@@ -451,10 +438,11 @@ func TestSalesforceService_FinishChat(t *testing.T) {
 }
 
 func TestManager_SaveContext(t *testing.T) {
+	interconnectionLocal := cache.New()
 	t.Run("Should save context voice", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 1631202334957,
 			URL:       "uri",
 			MIMEType:  "voice",
@@ -467,15 +455,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "1631202334957",
 			Type:      voiceType,
-			From:      "55555555555",
+			From:      userID,
 			Voice: models.Media{
 				URL:      "uri",
 				MIMEType: "voice",
@@ -490,7 +479,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context document", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			URL:       "uri",
 			MIMEType:  "document",
@@ -503,15 +492,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      documentType,
-			To:        "55555555555",
+			To:        userID,
 			Document: models.Media{
 				URL:      "uri",
 				MIMEType: "document",
@@ -526,7 +516,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context document", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			URL:       "uri",
 			MIMEType:  "image",
@@ -539,15 +529,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      imageType,
-			From:      "55555555555",
+			From:      userID,
 			Image: models.Media{
 				URL:      "uri",
 				MIMEType: "image",
@@ -562,7 +553,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context text", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			Text:      "text",
 			From:      fromUser,
@@ -573,15 +564,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "text",
 			},
@@ -594,7 +586,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context error", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			Text:      "text",
 			From:      fromUser,
@@ -605,15 +597,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "text",
 			},
@@ -626,7 +619,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context default", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			Text:      "text",
 			From:      fromUser,
@@ -637,15 +630,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      "error",
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "text",
 			},
@@ -658,7 +652,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context error timestamp", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			Text:      "text",
 			From:      fromUser,
@@ -669,15 +663,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "error",
 			Type:      "error",
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "text",
 			},
@@ -690,7 +685,7 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context repeated message", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
-			UserID:    "55555555555",
+			UserID:    userID,
 			Timestamp: 123456789,
 			Text:      "text",
 			From:      fromUser,
@@ -701,15 +696,16 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "error",
 			Type:      "error",
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "text",
 			},
@@ -720,6 +716,7 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should send message to salesforce", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("SendMessage",
@@ -743,26 +740,25 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				"55555555555": &Interconnection{
-					Status:              Active,
-					AffinityToken:       affinityToken,
-					SessionKey:          sessionKey,
-					SessionID:           sessionID,
-					UserID:              userID,
-					salesforceChannel:   manager.salesforceChannel,
-					integrationsChannel: manager.integrationsChannel,
-					finishChannel:       manager.finishInterconnection,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			SessionID:           sessionID,
+			UserID:              userID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "message",
 			},
@@ -772,6 +768,7 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should send message end chat", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		interconnectionCacheMock := new(InterconnectionCache)
 		salesforceMock := new(SalesforceServiceInterface)
@@ -810,27 +807,26 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				"55555555555": &Interconnection{
-					Status:               Active,
-					AffinityToken:        affinityToken,
-					SessionKey:           sessionKey,
-					SessionID:            sessionID,
-					UserID:               userID,
-					salesforceChannel:    manager.salesforceChannel,
-					integrationsChannel:  manager.integrationsChannel,
-					finishChannel:        manager.finishInterconnection,
-					interconnectionCache: interconnectionCacheMock,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:               Active,
+			AffinityToken:        affinityToken,
+			SessionKey:           sessionKey,
+			SessionID:            sessionID,
+			UserID:               userID,
+			salesforceChannel:    manager.salesforceChannel,
+			integrationsChannel:  manager.integrationsChannel,
+			finishChannel:        manager.finishInterconnection,
+			interconnectionCache: interconnectionCacheMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      textType,
-			From:      "55555555555",
+			From:      userID,
 			Text: models.Text{
 				Body: "ReStArt",
 			},
@@ -841,6 +837,7 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should send image to salesforce", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertImageInCase",
@@ -865,27 +862,26 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				"55555555555": &Interconnection{
-					Status:              Active,
-					AffinityToken:       affinityToken,
-					SessionKey:          sessionKey,
-					SessionID:           sessionID,
-					UserID:              userID,
-					CaseID:              caseID,
-					salesforceChannel:   manager.salesforceChannel,
-					integrationsChannel: manager.integrationsChannel,
-					finishChannel:       manager.finishInterconnection,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			SessionID:           sessionID,
+			UserID:              userID,
+			CaseID:              caseID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
 			Type:      imageType,
-			From:      "55555555555",
+			From:      userID,
 			Image: models.Media{
 				URL:      "http://test.com",
 				MIMEType: "image/png",
@@ -903,7 +899,7 @@ func TestManager_getContextByUserID(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
 			{
-				UserID:    "55555555555",
+				UserID:    userID,
 				Timestamp: 1631202337350,
 				Text: `this a test
 second line
@@ -911,25 +907,25 @@ second line
 				From: fromUser,
 			},
 			{
-				UserID:    "55555555555",
+				UserID:    userID,
 				Timestamp: 1630404000000,
 				Text:      "Hello",
 				From:      fromUser,
 			},
 			{
-				UserID:    "55555555555",
+				UserID:    userID,
 				Timestamp: 1630404060000,
 				Text:      "Hello I'm a bot",
 				From:      fromBot,
 			},
 			{
-				UserID:    "55555555555",
+				UserID:    userID,
 				Timestamp: 1630404240000,
 				Text:      "ok.",
 				From:      fromBot,
 			},
 			{
-				UserID:    "55555555555",
+				UserID:    userID,
 				Timestamp: 1630404120000,
 				Text:      "I need help",
 				From:      fromUser,
@@ -961,6 +957,7 @@ second line
 }
 
 func TestManager_SaveContextFB(t *testing.T) {
+	interconnectionLocal := cache.New()
 	t.Run("Should save context text from user", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
@@ -975,8 +972,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsFacebook{
@@ -1020,7 +1018,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
 
 		manager := &Manager{
-			cacheMessage: cacheMessage,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsFacebook{
@@ -1073,8 +1072,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache: contextCache,
-			cacheMessage: cacheMessage,
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
 		}
 
 		integrations := &models.IntegrationsFacebook{
@@ -1114,6 +1114,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should interaction text from user", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		ctx := cache.Context{
@@ -1142,18 +1143,17 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				userID: &Interconnection{
-					Status:              Active,
-					AffinityToken:       affinityToken,
-					SessionKey:          sessionKey,
-					salesforceChannel:   manager.salesforceChannel,
-					integrationsChannel: manager.integrationsChannel,
-					finishChannel:       manager.finishInterconnection,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsFacebook{
 			AuthorRole: fromUser,
@@ -1192,6 +1192,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should interaction  image from user", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertImageInCase",
@@ -1217,21 +1218,20 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				userID: &Interconnection{
-					Status:              Active,
-					AffinityToken:       affinityToken,
-					SessionKey:          sessionKey,
-					CaseID:              caseID,
-					SessionID:           sessionID,
-					salesforceChannel:   manager.salesforceChannel,
-					integrationsChannel: manager.integrationsChannel,
-					finishChannel:       manager.finishInterconnection,
-					SalesforceService:   salesforceMock,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			CaseID:              caseID,
+			SessionID:           sessionID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+			SalesforceService:   salesforceMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsFacebook{
 			AuthorRole: fromUser,
@@ -1277,6 +1277,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should save context endchat", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("EndChat",
@@ -1315,23 +1316,22 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		go manager.handleInterconnection()
 
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				userID: &Interconnection{
-					Status:               Active,
-					AffinityToken:        affinityToken,
-					SessionKey:           sessionKey,
-					CaseID:               caseID,
-					UserID:               userID,
-					SessionID:            sessionID,
-					salesforceChannel:    manager.salesforceChannel,
-					integrationsChannel:  manager.integrationsChannel,
-					finishChannel:        manager.finishInterconnection,
-					SalesforceService:    salesforceMock,
-					interconnectionCache: interconnectionCacheMock,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:               Active,
+			AffinityToken:        affinityToken,
+			SessionKey:           sessionKey,
+			CaseID:               caseID,
+			UserID:               userID,
+			SessionID:            sessionID,
+			salesforceChannel:    manager.salesforceChannel,
+			integrationsChannel:  manager.integrationsChannel,
+			finishChannel:        manager.finishInterconnection,
+			SalesforceService:    salesforceMock,
+			interconnectionCache: interconnectionCacheMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsFacebook{
 			AuthorRole: fromUser,
@@ -1370,6 +1370,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should interaction  image from user error", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertImageInCase",
@@ -1407,24 +1408,22 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 		go manager.handleInterconnection()
 
-		time.Sleep(time.Second)
-		manager.interconnectionMap = interconnectionCache{
-			interconnections: interconnectionMap{
-				userID: &Interconnection{
-					Status:              Active,
-					AffinityToken:       affinityToken,
-					SessionKey:          sessionKey,
-					CaseID:              caseID,
-					SessionID:           sessionID,
-					UserID:              userID,
-					salesforceChannel:   manager.salesforceChannel,
-					integrationsChannel: manager.integrationsChannel,
-					finishChannel:       manager.finishInterconnection,
-					SalesforceService:   salesforceMock,
-					IntegrationsClient:  integrationsIMock,
-				},
-			},
-		}
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			CaseID:              caseID,
+			SessionID:           sessionID,
+			UserID:              userID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+			SalesforceService:   salesforceMock,
+			IntegrationsClient:  integrationsIMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
 
 		integrations := &models.IntegrationsFacebook{
 			AuthorRole: fromUser,
