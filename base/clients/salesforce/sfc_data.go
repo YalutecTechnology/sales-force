@@ -322,7 +322,7 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 	}
 
 	if len(response.Records) < 1 || response.Records[0].Id == "" {
-		errorMessage := fmt.Sprintf("%s : %s", constants.RequestError, helpers.EmptyResponse)
+		errorMessage := fmt.Sprintf("%s : %s", "contact not found", helpers.EmptyResponse)
 		logrus.Error(errorMessage)
 		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
 	}

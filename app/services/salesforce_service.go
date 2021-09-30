@@ -165,15 +165,16 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 		return contact, nil
 	}
 	// Search contact by phone
-	contact, err = s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27"))
-
-	if err != nil {
-		logrus.Infof("Not found contact by mobile phone : [%s]-[%s]", phoneNumber, err.Error.Error())
-		if err.StatusCode == http.StatusUnauthorized {
-			s.RefreshToken()
+	if phoneNumber != "" {
+		contact, err = s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27"))
+		if err != nil {
+			logrus.Infof("Not found contact by mobile phone : [%s]-[%s]", phoneNumber, err.Error.Error())
+			if err.StatusCode == http.StatusUnauthorized {
+				s.RefreshToken()
+			}
+		} else {
+			return contact, nil
 		}
-	} else {
-		return contact, nil
 	}
 
 	contactRequest := salesforce.ContactRequest{

@@ -214,7 +214,6 @@ func (in *Interconnection) updateStatusRedis(status string) {
 		logrus.Errorf("Could not update status in interconnection userID[%s]-sessionId[%s] from redis : [%s]", in.UserID, in.SessionID, err.Error())
 	}
 
-	logrus.Errorf("Interconnection in Cache %v", interconnectionCache)
 	interconnectionCache.Status = status
 	err = in.interconnectionCache.StoreInterconnection(*interconnectionCache)
 	if err != nil {

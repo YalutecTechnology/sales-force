@@ -69,6 +69,14 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		MobilePhone: "5512345678",
 		Blocked:     false,
 	}
+	contactExpectedWhitoutPhone := &models.SfcContact{
+		Id:          "dasfasfasd",
+		FirstName:   firstnameDefualt,
+		LastName:    "contactName",
+		Email:       "user@example.com",
+		MobilePhone: "",
+		Blocked:     false,
+	}
 
 	t.Run("Get Contact by email Succesfull", func(t *testing.T) {
 		mock := new(SaleforceInterface)
@@ -121,6 +129,28 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("Create Contact Succesfull skip phoneNumber", func(t *testing.T) {
+		mock := new(SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{})
+		salesforceService.SfcClient = mock
+
+		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
+		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
+
+		contactRequest := salesforce.ContactRequest{
+			FirstName:   contactExpected.FirstName,
+			LastName:    contactExpected.LastName,
+			MobilePhone: "",
+			Email:       email,
+		}
+		mock.On("CreateContact", contactRequest).Return(contactExpected.Id, nil).Once()
+
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, "")
+
+		assert.NoError(t, err)
+		assert.Equal(t, contactExpectedWhitoutPhone, contact)
 	})
 
 }

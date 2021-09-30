@@ -73,6 +73,7 @@ type Manager struct {
 	interconnectionsCache cache.InterconnectionCache
 	environment           string
 	keywordsRestart       []string
+	cacheMessage          cache.IMessageCache
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -219,6 +220,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		BotrunnnerClient:      botRunnerClient,
 		environment:           config.Environment,
 		keywordsRestart:       config.KeywordsRestart,
+		cacheMessage:          cache.NewMessageCache(cache.New()),
 	}
 
 	for _, interconnection := range *interconnections {
@@ -396,6 +398,11 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 
 // SaveContext method will save context of integration message
 func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
+	logrus.Info("WEBHOOK WHATSAPP: ", integration)
+	if m.cacheMessage.IsRepeatedMessage(integration.ID) {
+		return nil
+	}
+
 	isSend, err := m.salesforceComunication(integration)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -464,9 +471,6 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 	defer m.interconnectionMap.RUnlock()
 
 	if interconnection, ok := m.interconnectionMap.interconnections[integration.From]; ok && interconnection.Status == Active {
-		if integration.ID == interconnection.lastMessageId {
-			return true, nil
-		}
 		interconnection.lastMessageId = integration.ID
 		switch integration.Type {
 		case textType:
@@ -569,6 +573,7 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 
 // SaveContext method will save context of integration message from facebook
 func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
+	logrus.Info("WEBHOOK FACEBOOK: ", integration)
 	errorsMessage := []string{}
 	var err error
 	isSend := false
@@ -576,6 +581,9 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 		for _, message := range entry.Messaging {
 			userID := message.Recipient.ID
 			from := fromBot
+			if m.cacheMessage.IsRepeatedMessage(message.Message.Mid) {
+				continue
+			}
 			if integration.AuthorRole == fromUser {
 				isSend, err = m.salesforceComunicationFB(message)
 				if err != nil {
@@ -617,9 +625,6 @@ func (m *Manager) salesforceComunicationFB(message models.Messaging) (bool, erro
 	defer m.interconnectionMap.RUnlock()
 	isSend := false
 	if interconnection, ok := m.interconnectionMap.interconnections[message.Sender.ID]; ok && interconnection.Status == Active {
-		if message.Message.Mid == interconnection.lastMessageId {
-			return true, nil
-		}
 		interconnection.lastMessageId = message.Message.Mid
 		switch {
 		case message.Message.Text != "":
