@@ -62,16 +62,16 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 
 func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 	contactExpected := &models.SfcContact{
-		Id:          "dasfasfasd",
-		FirstName:   firstnameDefualt,
+		ID:          "dasfasfasd",
+		FirstName:   firstNameDefault,
 		LastName:    "contactName",
 		Email:       "user@example.com",
 		MobilePhone: "5512345678",
 		Blocked:     false,
 	}
 	contactExpectedWhitoutPhone := &models.SfcContact{
-		Id:          "dasfasfasd",
-		FirstName:   firstnameDefualt,
+		ID:          "dasfasfasd",
+		FirstName:   firstNameDefault,
 		LastName:    "contactName",
 		Email:       "user@example.com",
 		MobilePhone: "",
@@ -85,7 +85,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -101,7 +101,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -123,9 +123,40 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			MobilePhone: phoneNumber,
 			Email:       email,
 		}
-		mock.On("CreateContact", contactRequest).Return(contactExpected.Id, nil).Once()
+		mock.On("CreateContact", contactRequest).Return(contactExpected.ID, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
+
+		assert.NoError(t, err)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
+		mock := new(SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{})
+		salesforceService.SfcClient = mock
+
+		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
+		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
+
+		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(nil, errorResponse).Once()
+
+		accountFound := &models.SfcAccount{
+			FirstName:         contactExpected.FirstName,
+			LastName:          contactExpected.LastName,
+			PersonMobilePhone: phoneNumber,
+			PersonEmail:       email,
+			ID:                "accountID",
+			PersonContactId:   contactExpected.ID,
+		}
+		contactExpected.AccountID = "accountID"
+		var errs *helpers.ErrorResponse
+		errs = nil
+		mock.On("CreateAccount").Return("accountID", errs).Once()
+
+		mock.On("SearchAccount", fmt.Sprintf(queryForAccountByField, "id", "accountID")).Return(accountFound, nil).Once()
+
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "recordTypeID")
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -140,14 +171,14 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
 
 		contactRequest := salesforce.ContactRequest{
-			FirstName:   contactExpected.FirstName,
-			LastName:    contactExpected.LastName,
+			FirstName:   contactExpectedWhitoutPhone.FirstName,
+			LastName:    contactExpectedWhitoutPhone.LastName,
 			MobilePhone: "",
 			Email:       email,
 		}
-		mock.On("CreateContact", contactRequest).Return(contactExpected.Id, nil).Once()
+		mock.On("CreateContact", contactRequest).Return(contactExpectedWhitoutPhone.ID, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, "")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, "", "")
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpectedWhitoutPhone, contact)

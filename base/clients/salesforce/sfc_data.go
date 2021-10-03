@@ -1,7 +1,6 @@
 package salesforce
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,6 +85,9 @@ type recordResponse struct {
 	Email             string                 `json:"Email"`
 	MobilePhone       string                 `json:"MobilePhone"`
 	BlockedChatYalo   bool                   `json:"CP_BlockedChatYalo__c"`
+	PersonContactID   string                 `json:"PersonContactId"`
+	PersonEmail       string                 `json:"PersonEmail"`
+	PersonMobilePhone string                 `json:"PersonMobilePhone"`
 }
 
 //SearchResponse handles search document response
@@ -101,6 +103,19 @@ type ContactRequest struct {
 	LastName    string `json:"LastName" validate:"required"`
 	MobilePhone string `json:"MobilePhone"`
 	Email       string `json:"Email" validate:"required"`
+	AccountID   string `json:"AccountId"`
+}
+
+//AccountRequest for create account in salesforce
+type AccountRequest struct {
+	Name              *string `json:"Name,omitempty"`
+	Phone             *string `json:"Phone,omitempty"`
+	PersonEmail       *string `json:"PersonEmail,omitempty" validate:"required"`
+	PersonMobilePhone *string `json:"PersonMobilePhone,omitempty"`
+	FirstName         *string `json:"FirstName,omitempty" validate:"required"`
+	LastName          *string `json:"LastName,omitempty" validate:"required"`
+	RecordTypeID      *string `json:"RecordTypeId,omitempty" validate:"required"`
+	PersonBirthDate   *string `json:"PersonBirthDate,omitempty" validate:"required"`
 }
 
 //CompositeRequest struct to request compose
@@ -135,11 +150,13 @@ type SaleforceInterface interface {
 	Search(string) (*SearchResponse, *helpers.ErrorResponse)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, *helpers.ErrorResponse)
+	SearchAccount(string) (*models.SfcAccount, *helpers.ErrorResponse)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
 	CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse)
+	CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse)
 	Composite(compositeRequest CompositeRequest) (CompositeResponse, error)
 	GetContentVersionURL() string
 	GetSearchURL(query string) string
@@ -329,7 +346,7 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 	}
 
 	contact := models.SfcContact{
-		Id:          response.Records[0].Id,
+		ID:          response.Records[0].Id,
 		FirstName:   response.Records[0].FirstName,
 		LastName:    response.Records[0].LastName,
 		Email:       response.Records[0].Email,
@@ -342,6 +359,35 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 	}).Info("Contact found successfully“")
 
 	return &contact, nil
+}
+
+func (cc *SalesforceClient) SearchAccount(query string) (*models.SfcAccount, *helpers.ErrorResponse) {
+	response, err := cc.Search(query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(response.Records) < 1 || response.Records[0].Id == "" {
+		errorMessage := fmt.Sprintf("%s : %s", "account not found", helpers.EmptyResponse)
+		logrus.Error(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+	}
+
+	personAccount := models.SfcAccount{
+		ID:                response.Records[0].Id,
+		FirstName:         response.Records[0].FirstName,
+		LastName:          response.Records[0].LastName,
+		PersonEmail:       response.Records[0].PersonEmail,
+		PersonMobilePhone: response.Records[0].PersonMobilePhone,
+		PersonContactId:   response.Records[0].PersonContactID,
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"account": personAccount,
+	}).Info("Account found successfully“")
+
+	return &personAccount, nil
 }
 
 //LinkDocumentToCase associates the file added with an valid case
@@ -444,15 +490,7 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(proxiedResponse.Body)
-		bodyResponse := buf.String()
-		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
-		if proxiedResponse.StatusCode != http.StatusNoContent {
-			logrus.Error(errorMessage)
-		}
-
-		return "", &helpers.ErrorResponse{StatusCode: proxiedResponse.StatusCode, Error: errors.New(errorMessage)}
+		return "", helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
 	var response SalesforceResponse
@@ -523,6 +561,61 @@ func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, *help
 	logrus.WithFields(logrus.Fields{
 		"response": response,
 	}).Info("create contact success")
+
+	return response.ID, nil
+}
+
+//CreateAccount Create account for Salesforce Requests
+func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse) {
+	var errorMessage string
+
+	logrus.WithFields(logrus.Fields{
+		"payload": payload,
+	}).Info("Payload received")
+
+	//validating AccountRequest Payload struct
+	if err := helpers.Govalidator().Struct(payload); err != nil {
+		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
+		logrus.Error(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
+	}
+
+	//building request to send through proxy
+	requestBytes, _ := helpers.MarshalJSON(payload)
+
+	header := make(map[string]string)
+	header["Content-Type"] = "application/json"
+	header["Authorization"] = fmt.Sprintf("Bearer %s", cc.AccessToken)
+
+	newRequest := proxy.Request{
+		Body:      requestBytes,
+		Method:    http.MethodPost,
+		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Account", cc.APIVersion),
+		HeaderMap: header,
+	}
+
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	if proxyError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
+		logrus.Error(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
+	}
+
+	if proxiedResponse.StatusCode != http.StatusCreated {
+		return "", helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+	}
+
+	var response SalesforceResponse
+	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
+	if readAndUnmarshalError != nil {
+		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"response": response,
+	}).Info("create account success")
 
 	return response.ID, nil
 }

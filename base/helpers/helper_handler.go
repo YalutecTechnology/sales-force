@@ -232,6 +232,22 @@ func GetErrorResponse(body io.ReadCloser, unmarshalError string, statusCode int)
 	return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
 }
 
+func GetErrorResponseArrayMap(body io.ReadCloser, unmarshalError string, statusCode int) *ErrorResponse {
+	responseMap := []interface{}{}
+	readAndUnmarshalError := ReadAndUnmarshal(body, &responseMap)
+
+	if readAndUnmarshalError != nil {
+		errorMessage := fmt.Sprintf("%s : %s", unmarshalError, readAndUnmarshalError.Error())
+		logrus.Error(errorMessage)
+		return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
+	}
+	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	logrus.WithFields(logrus.Fields{
+		"response": responseMap,
+	}).Error(errorMessage)
+	return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
+}
+
 func RandomString(size int) string {
 	ll := len(alphabet)
 	b := make([]byte, size)

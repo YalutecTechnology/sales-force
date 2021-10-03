@@ -59,6 +59,7 @@ func main() {
 		SfcOrganizationID:      envs.SfcOrganizationId,
 		SfcDeploymentID:        envs.SfcDeploymentId,
 		SfcRecordTypeID:        envs.SfcRecordTypeId,
+		SfcAccountRecordTypeID: envs.SfcAccountRecordTypeId,
 		SfcCustomFieldsCase:    envs.SfcCustomFieldsCase,
 		SfcSourceFlowField:     envs.SfcSourceFlowField,
 		SfcSourceFlowBot:       envs.SfcSourceFlowBot,
