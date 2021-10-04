@@ -424,6 +424,38 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 }
 
+func TestSalesforceService_FinishChat(t *testing.T) {
+	m, s := cache.CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	t.Run("Finish Chat Succesfull", func(t *testing.T) {
+
+		salesforceMock := new(SalesforceServiceInterface)
+        manager := &Manager{
+            interconnectionMap: interconnectionCache{
+                interconnections: interconnectionMap{
+                    "55125421545": &Interconnection{
+                        Status:        Active,
+                        AffinityToken: affinityToken,
+                        SessionKey:    sessionKey,
+                    },
+                },
+            },
+            SalesforceService: salesforceMock,
+        }
+
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(nil).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.FinishChat(userID)
+		assert.NoError(t, err)
+	})
+
+}
+
 func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should save context voice", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)

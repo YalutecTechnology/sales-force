@@ -123,6 +123,7 @@ type ManagerI interface {
 	CreateChat(interconnection *Interconnection) error
 	GetContextByUserID(userID string) string
 	SaveContextFB(integration *models.IntegrationsFacebook) error
+	FinishChat(userId string) error
 }
 
 // CreateManager retrieves an agents manager
@@ -352,7 +353,26 @@ func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotR
 	_, err := botRunnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, state, ""))
 	if err != nil {
 		logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
-	}
+    }
+}
+
+func (m *Manager) FinishChat(userId string) error {
+	titleMessage := "could not finish chat in salesforce"
+
+    // Get session interconnection
+    interconnection, exist := m.interconnectionMap.interconnections[userId]
+    if !exist {
+        return errors.New(helpers.ErrorMessage(titleMessage, errors.New("This contact does not have an interconnection")))
+    }
+
+    // End chat Salesforce
+	err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+    if err != nil {
+        return errors.New(helpers.ErrorMessage(titleMessage, err))
+    }
+
+    m.EndChat(interconnection)
+    return nil
 }
 
 func (m *Manager) ValidateUserID(userID string) error {

@@ -54,6 +54,7 @@ func (_m *ManagerI) GetContextByUserID(userID string) string {
 	return r0
 }
 
+
 // SaveContext provides a mock function with given fields: integration
 func (_m *ManagerI) SaveContextFB(integration *models.IntegrationsFacebook) error {
 	ret := _m.Called(integration)
@@ -61,6 +62,20 @@ func (_m *ManagerI) SaveContextFB(integration *models.IntegrationsFacebook) erro
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*models.IntegrationsFacebook) error); ok {
 		r0 = rf(integration)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// FinishChat provides a mock function with given fields: integration
+func (_m *ManagerI) FinishChat(userID string) error {
+	ret := _m.Called(userID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(userID)
 	} else {
 		r0 = ret.Error(0)
 	}

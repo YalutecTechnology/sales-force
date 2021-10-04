@@ -1,9 +1,10 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-03)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-04)
 
 ### Feat
 
+* **Integration - Endpoints:** Add end chat endpoint. (New)
 * **Integration-Library Salesforce:** Create Salesforce Account. Add the CreateAccount and SearchAccount services. Closes #CSF-178
 * **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
 * **Integration-interconnection:** Ignore duplicated messages. Add condition to ignore duplicate messages in webhook. Closes #CSF-176

@@ -57,7 +57,24 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, sessionExpected, session)
 	})
+}
 
+func TestSalesforceService_EndChat(t *testing.T) {
+	const (
+		affinityToken = "affinityToken"
+		sessionKey    = "sessionKey"
+	)
+
+	t.Run("End Chat Succesfull", func(t *testing.T) {
+        mock := new(SfcChatInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
+		salesforceService.SfcChatClient = mock
+
+		mock.On("ChatEnd",affinityToken, sessionKey).Return(nil)
+
+		err := salesforceService.EndChat(affinityToken, sessionKey)
+		assert.NoError(t, err)
+	})
 }
 
 func TestSalesforceService_GetOrCreateContact(t *testing.T) {
@@ -133,7 +150,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
 		mock := new(SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{})
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
 		salesforceService.SfcClient = mock
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
