@@ -17,6 +17,14 @@ const (
 	token   = "token"
 )
 
+var (
+	name         string = "name"
+	phoneNumber  string = "111111"
+	email        string = "email@example"
+	recordTypeID string = "reccordTypeId"
+	dateBirth    string = "2021-10-05T08:12:00"
+)
+
 func TestCaseClient_CreateContentVersion(t *testing.T) {
 
 	t.Run("Create ContentVersion Succesfull", func(t *testing.T) {
@@ -35,11 +43,7 @@ func TestCaseClient_CreateContentVersion(t *testing.T) {
 			VersionData:     "dfhgadfhadf23rubb23",
 		}
 		id, err := salesforceClient.CreateContentVersion(payload)
-
-		if err != nil {
-			t.Fatalf("Expected nil error, but retrieved this %#v", err)
-		}
-
+		assert.NoError(t, err)
 		assert.Equal(t, "dasfasfasd", id)
 	})
 
@@ -305,7 +309,7 @@ func TestCaseClient_SearchContact(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":1,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qzu1iAAB"},"Id":"0032300000Qzu1iAAB","FirstName":"name","LastName":"lastname","MobilePhone":"55555","Email":"user@example.com"}]}`))),
 		}, nil)
 		contactExpected := &models.SfcContact{
-			Id:          "0032300000Qzu1iAAB",
+			ID:          "0032300000Qzu1iAAB",
 			FirstName:   "name",
 			LastName:    "lastname",
 			Email:       "user@example.com",
@@ -358,6 +362,87 @@ func TestCaseClient_SearchContact(t *testing.T) {
 		id, err := salesforceClient.SearchContact("query")
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
+	})
+}
+
+func TestCaseClient_SearchAccount(t *testing.T) {
+
+	t.Run("SearchAccount Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{
+				"totalSize": 1,
+				"done": true,
+				"records": [
+					{
+						"attributes": {
+							"type": "Account",
+							"url": "/services/data/v52.0/sobjects/Account/0017b00000zG5WpAAK"
+						},
+						"Id": "0017b00000zG5WpAAK",
+						"FirstName": "Contacto creado por el Bot-",
+						"LastName": "Edauardo",
+						"PersonMobilePhone": "5217331175598",
+						"PersonEmail": "ochoa@example.com",
+						"PersonContactId": "0037b00000rsgDjAAI"
+					}
+				]
+			}`))),
+		}, nil)
+		accountExpected := &models.SfcAccount{
+			ID:                "0017b00000zG5WpAAK",
+			FirstName:         "Contacto creado por el Bot-",
+			LastName:          "Edauardo",
+			PersonEmail:       "ochoa@example.com",
+			PersonMobilePhone: "5217331175598",
+			PersonContactId:   "0037b00000rsgDjAAI",
+		}
+		query := "SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+id+=+'accountID'"
+		account, err := salesforceClient.SearchAccount(query)
+		assert.Nil(t, err)
+		assert.Equal(t, accountExpected, account)
+	})
+
+	t.Run("Search Error validation query", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		account, err := salesforceClient.SearchAccount("")
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, account)
+	})
+
+	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		account, err := salesforceClient.SearchAccount("query")
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, account)
+	})
+
+	t.Run("SearchContact error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		account, err := salesforceClient.SearchAccount("query")
+		assert.Error(t, err.Error)
+		assert.Empty(t, account)
 	})
 }
 
@@ -634,6 +719,80 @@ func TestCaseClient_CreateContact(t *testing.T) {
 			Email:       "test@mail.com",
 		}
 		id, err := salesforceClient.CreateContact(payload)
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
+}
+
+func TestCaseClient_CreateAccount(t *testing.T) {
+
+	t.Run("Create account Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil).Once()
+		payload := AccountRequest{
+			FirstName:         &name,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			RecordTypeID:      &recordTypeID,
+			PersonBirthDate:   &dateBirth,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
+		assert.Nil(t, err)
+		assert.Equal(t, "dasfasfasd", id)
+	})
+
+	t.Run("Create account  error validation payload", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := AccountRequest{
+			Name: &name,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
+
+	t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		payload := AccountRequest{
+			Name:  &name,
+			Phone: &phoneNumber,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
+
+	t.Run("Create account error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := AccountRequest{
+			Name:  &name,
+			Phone: &phoneNumber,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)

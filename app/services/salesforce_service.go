@@ -5,31 +5,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/salesforce"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
 )
 
 const (
 	queryForContactByField     = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+` + "%s"
-	SFB1                       = "SFB001"
-	SFB2                       = "SFB002"
-	SFB3                       = "SFB003"
-	SFB4                       = "SFB004"
-	SFB5                       = "SFB005"
-	SFB6                       = "SFB006"
-	SFB1Subject                = "Estado de pedido"
-	SFB2Subject                = "Devoluciones y cancelaciones"
-	SFB3Subject                = "Estatus de solicitud de crédito"
-	SFB4Subject                = "Consulta de estado de cuenta y abonos"
-	SFB5Subject                = "Solicitud de préstamo"
-	SFB6Subject                = "Otro"
-	firstnameDefualt           = "Contacto Bot - "
+	queryForAccountByField     = `SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+%s+=+'%s'`
+	firstNameDefault           = "Contacto Bot - "
 	contentLocation            = "S"
 	shareType                  = "V"
 	visibility                 = "allUsers"
@@ -48,7 +39,7 @@ type SalesforceService struct {
 
 type SalesforceServiceInterface interface {
 	CreatChat(contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
-	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
+	GetOrCreateContact(name, email, phoneNumber, accountRecordTypeID string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
@@ -154,7 +145,7 @@ func (s *SalesforceService) CreatChat(contactName, organizationID, deploymentID,
 	return session, nil
 }
 
-func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error) {
+func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber, accountRecordTypeID string) (*models.SfcContact, error) {
 	// Search contact by email
 	contact, err := s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27"))
 
@@ -179,11 +170,50 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 		}
 	}
 
-	contactRequest := salesforce.ContactRequest{
-		FirstName:   firstnameDefualt,
+	contact = &models.SfcContact{
+		FirstName:   firstNameDefault,
 		LastName:    name,
-		MobilePhone: phoneNumber,
 		Email:       email,
+		MobilePhone: phoneNumber,
+	}
+
+	if accountRecordTypeID != "" {
+		firstName := firstNameDefault
+		date := time.Now().Format(constants.DateFormatDateTime)
+		accountID, err := s.SfcClient.CreateAccount(salesforce.AccountRequest{
+			FirstName:         &firstName,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			PersonBirthDate:   &date,
+			RecordTypeID:      &accountRecordTypeID,
+		})
+
+		if err != nil {
+			if err.StatusCode == http.StatusUnauthorized {
+				s.RefreshToken()
+			}
+			return nil, errors.New(helpers.ErrorMessage("not create account", err.Error))
+		}
+
+		account, err := s.SfcClient.SearchAccount(fmt.Sprintf(queryForAccountByField, "id", accountID))
+
+		if err != nil {
+			logrus.Infof("Not found account by id : [%s]-[%s]", account.ID, err.Error.Error())
+			if err.StatusCode == http.StatusUnauthorized {
+				s.RefreshToken()
+			}
+		}
+		contact.ID = account.PersonContactId
+		contact.AccountID = accountID
+		return contact, nil
+	}
+
+	contactRequest := salesforce.ContactRequest{
+		FirstName:   contact.FirstName,
+		LastName:    contact.LastName,
+		MobilePhone: contact.MobilePhone,
+		Email:       contact.Email,
 	}
 	contactID, err := s.SfcClient.CreateContact(contactRequest)
 	if err != nil {
@@ -192,13 +222,7 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 		}
 		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err.Error))
 	}
-	contact = &models.SfcContact{
-		Id:          contactID,
-		FirstName:   contactRequest.FirstName,
-		LastName:    contactRequest.LastName,
-		Email:       contactRequest.Email,
-		MobilePhone: contactRequest.MobilePhone,
-	}
+	contact.ID = contactID
 	return contact, nil
 }
 

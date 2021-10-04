@@ -26,14 +26,15 @@ import (
 )
 
 var (
-	SfcOrganizationID   string
-	SfcDeploymentID     string
-	SfcRecordTypeID     string
-	BlockedUserState    string
-	TimeoutState        string
-	SuccessState        string
-	SfcCustomFieldsCase map[string]string
-	BotrunnerTimeout    int
+	SfcOrganizationID      string
+	SfcDeploymentID        string
+	SfcRecordTypeID        string
+	SfcAccountRecordTypeID string
+	BlockedUserState       string
+	TimeoutState           string
+	SuccessState           string
+	SfcCustomFieldsCase    map[string]string
+	BotrunnerTimeout       int
 )
 
 const (
@@ -98,6 +99,7 @@ type ManagerOptions struct {
 	SfcOrganizationID      string
 	SfcDeploymentID        string
 	SfcRecordTypeID        string
+	SfcAccountRecordTypeID string
 	SfcCustomFieldsCase    map[string]string
 	IntegrationsUrl        string
 	IntegrationsWAChannel  string
@@ -128,6 +130,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationID = config.SfcOrganizationID
 	SfcDeploymentID = config.SfcDeploymentID
 	SfcRecordTypeID = config.SfcRecordTypeID
+	SfcAccountRecordTypeID = config.SfcAccountRecordTypeID
 	BlockedUserState = config.BlockedUserState
 	TimeoutState = config.TimeoutState
 	SuccessState = config.SuccessState
@@ -297,7 +300,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	// We get the contact if it exists by your email or phone.
-	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
+	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber, SfcAccountRecordTypeID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"interconnection": interconnection,
@@ -312,7 +315,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 
 	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
-	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.Id, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
+	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -323,7 +326,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	interconnection.CaseID = caseId
 
 	//Creating chat in Salesforce
-	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.Id)
+	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.ID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"interconnection": interconnection,

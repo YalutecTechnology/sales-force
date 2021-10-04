@@ -17,24 +17,21 @@ import (
 )
 
 const (
-	name             = "username"
-	email            = "user@exmple.com"
-	botSlug          = "coppel-bot"
-	botID            = "5514254524"
-	provider         = "whatsapp"
-	phoneNumber      = "5512454545"
-	organizationID   = "organizationID"
-	deploymentID     = "deploymentID"
-	buttonWAID       = "buttonWAID"
-	buttonFBID       = "buttonFBID"
-	ownerWAID        = "ownerWAID"
-	ownerFBID        = "ownerFBID"
-	blockedUserState = "from-sf-blocked"
-	contactID        = "contactID"
-	recordTypeID     = "recordTypeID"
-	caseID           = "caseID"
-	messageID        = "messageID"
-	ttlMessage       = time.Second * 3
+	name                = "username"
+	email               = "user@exmple.com"
+	botSlug             = "coppel-bot"
+	botID               = "5514254524"
+	provider            = "whatsapp"
+	phoneNumber         = "5512454545"
+	organizationID      = "organizationID"
+	deploymentID        = "deploymentID"
+	blockedUserState    = "from-sf-blocked"
+	contactID           = "contactID"
+	recordTypeID        = "recordTypeID"
+	recordAccountTypeID = "recordAccountTypeID"
+	caseID              = "caseID"
+	messageID           = "messageID"
+	ttlMessage          = time.Second * 3
 )
 
 func TestCreateManager(t *testing.T) {
@@ -48,6 +45,7 @@ func TestCreateManager(t *testing.T) {
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
 			BotrunnnerClient:   nil,
+			cacheMessage:       nil,
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -63,6 +61,7 @@ func TestCreateManager(t *testing.T) {
 		actual.SalesforceService = nil
 		actual.IntegrationsClient = nil
 		actual.BotrunnnerClient = nil
+		actual.cacheMessage = nil
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
@@ -95,7 +94,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		interconnectionMock := new(InterconnectionCache)
 
 		contact := &models.SfcContact{
-			Id:          contactID,
+			ID:          contactID,
 			FirstName:   interconnection.Name,
 			Email:       interconnection.Email,
 			MobilePhone: interconnection.PhoneNumber,
@@ -103,16 +102,17 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			"").
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
 			SfcRecordTypeID,
-			contact.Id,
+			contact.ID,
 			"Caso levantado por el Bot : ",
 			"subject",
 			string(interconnection.Provider),
-			ownerWAID,
+			"ownerWAID",
 			interconnection.ExtraData).
 			Return(caseID, nil).Once()
 
@@ -120,7 +120,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
-			buttonWAID,
+			"buttonWAID",
 			caseID,
 			contactID).Return(&chat.SessionResponse{
 			AffinityToken: affinityToken,
@@ -165,8 +165,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 					Subject: "subject",
 					Providers: map[string]envs.Provider{
 						"whatsapp": {
-							ButtonID: buttonWAID,
-							OwnerID:  ownerWAID,
+							ButtonID: "buttonWAID",
+							OwnerID:  "ownerWAID",
 						},
 					},
 				},
@@ -193,7 +193,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock := new(SalesforceServiceInterface)
 
 		contact := &models.SfcContact{
-			Id:          contactID,
+			ID:          contactID,
 			FirstName:   interconnection.Name,
 			Email:       interconnection.Email,
 			MobilePhone: interconnection.PhoneNumber,
@@ -201,16 +201,17 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			"").
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
 			SfcRecordTypeID,
-			contact.Id,
+			contact.ID,
 			"Caso levantado por el Bot : ",
 			"subject",
 			string(interconnection.Provider),
-			ownerFBID,
+			"ownerFBID",
 			interconnection.ExtraData).
 			Return(caseID, nil).Once()
 
@@ -218,7 +219,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
-			buttonFBID,
+			"buttonFBID",
 			caseID,
 			contactID).
 			Return(&chat.SessionResponse{
@@ -239,7 +240,13 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		contextMock := new(ContextCacheMock)
 		contextMock.On("RetrieveContext",
 			userID).
-			Return([]cache.Context{}).Once()
+			Return([]cache.Context{
+				{
+					UserID:    userID,
+					Timestamp: 1111111111,
+					Text:      "text",
+				},
+			}).Once()
 
 		manager := &Manager{
 			SalesforceService:     salesforceMock,
@@ -249,8 +256,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 					Subject: "subject",
 					Providers: map[string]envs.Provider{
 						"facebook": {
-							ButtonID: buttonFBID,
-							OwnerID:  ownerFBID,
+							ButtonID: "buttonFBID",
+							OwnerID:  "ownerFBID",
 						},
 					},
 				},
@@ -258,6 +265,103 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			contextcache: contextMock,
 			interconnectionMap: interconnectionCache{
 				interconnections: make(interconnectionMap),
+			},
+		}
+
+		err := manager.CreateChat(interconnection)
+		assert.NoError(t, err)
+		manager.EndChat(interconnection)
+	})
+
+	t.Run("Create Chat Succesfull with an account", func(t *testing.T) {
+		interconnection := &Interconnection{
+			UserID:      userID,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+			ExtraData:   map[string]interface{}{"data": "datavalue"},
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcRecordTypeID = recordTypeID
+		SfcAccountRecordTypeID = recordAccountTypeID
+		//SfcCustomFieldsCase = map[string]string{"data": "data"}
+
+		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionMock := new(InterconnectionCache)
+
+		contact := &models.SfcContact{
+			AccountID:   recordAccountTypeID,
+			FirstName:   interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+			LastName:    interconnection.Name,
+			ID:          contactID,
+		}
+		salesforceMock.On("GetOrCreateContact",
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber,
+			recordAccountTypeID).
+			Return(contact, nil).Once()
+
+		salesforceMock.On("CreatCase",
+			SfcRecordTypeID,
+			contact.ID,
+			"Caso levantado por el Bot : ",
+			"",
+			string(interconnection.Provider),
+			"",
+			interconnection.ExtraData).
+			Return(caseID, nil).Once()
+
+		salesforceMock.On("CreatChat",
+			interconnection.Name,
+			SfcOrganizationID,
+			SfcDeploymentID,
+			"",
+			caseID,
+			contactID).Return(&chat.SessionResponse{
+			AffinityToken: affinityToken,
+			Key:           sessionKey,
+		}, nil).Once()
+
+		salesforceMock.On("GetMessages",
+			affinityToken, sessionKey).
+			Return(&chat.MessagesResponse{}, nil).Once()
+
+		interconnectionMock.On("RetrieveInterconnectionActiveByUserId", userID).
+			Return(nil, nil).Once()
+		interconnectionMock.On("StoreInterconnection", mock.Anything).
+			Return(nil).Once()
+
+		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock.On("RetrieveContext", userID).
+			Return([]cache.Context{
+				{
+					UserID:    userID,
+					Timestamp: 1111111111,
+					Text:      "text",
+				},
+			}).Once()
+		manager := &Manager{
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+			contextcache:          cacheContextMock,
+			interconnectionMap: interconnectionCache{
+				interconnections: interconnectionMap{
+					"55555555555": &Interconnection{
+						Status:        Active,
+						AffinityToken: affinityToken,
+						SessionKey:    sessionKey,
+						SessionID:     sessionID,
+						UserID:        userID,
+					},
+				},
 			},
 		}
 
@@ -280,6 +384,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
+		SfcAccountRecordTypeID = ""
 		BlockedUserState = "from-sf-blocked"
 		contact := &models.SfcContact{
 			FirstName:   interconnection.Name,
@@ -295,7 +400,8 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceServiceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			"").
 			Return(contact, nil).Once()
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": BlockedUserState, "userId": userID}).
 			Return(true, nil).Once()
