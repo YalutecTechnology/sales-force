@@ -1,54 +1,94 @@
 package envs
 
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
 // Envs represents the list of well known env vars used by the app
 type Envs struct {
-	AppName                string   `default:"salesforce-integration" split_words:"true"`
-	Host                   string   `required:"true" split_words:"true" default:"localhost"`
-	Port                   string   `required:"true" split_words:"true" default:"8080"`
-	SentryDSN              string   `default:"" split_words:"true"`
-	Environment            string   `default:"dev" split_words:"true"`
-	MainContextTimeOut     int16    `default:"10" split_words:"true"`
-	RedisAddress           string   `split_words:"true"`
-	RedisMaster            string   `split_words:"true"`
-	RedisSentinelAddress   string   `split_words:"true"`
-	BlockedUserState       string   `required:"true" split_words:"true" default:"from-sf-blocked"`
-	TimeoutState           string   `required:"true" split_words:"true" default:"from-sf-timeout"`
-	SuccessState           string   `required:"true" split_words:"true" default:"from-sf-success"`
-	YaloUsername           string   `required:"true" split_words:"true" default:"yaloUser"`
-	YaloPassword           string   `required:"true" split_words:"true"`
-	SalesforceUsername     string   `required:"true" split_words:"true" default:"salesforceUser"`
-	SalesforcePassword     string   `required:"true" split_words:"true"`
-	SecretKey              string   `required:"true" split_words:"true"`
-	BotrunnerUrl           string   `split_words:"true"`
-	BotrunnerToken         string   `split_words:"true" default:""`
-	BotrunnerTimeout       int      `split_words:"true" default:"4"`
-	SfcClientId            string   `split_words:"true"`
-	SfcClientSecret        string   `split_words:"true"`
-	SfcUsername            string   `split_words:"true"`
-	SfcPassword            string   `split_words:"true"`
-	SfcSecurityToken       string   `split_words:"true"`
-	SfcBaseUrl             string   `split_words:"true"`
-	SfcChatUrl             string   `split_words:"true"`
-	SfcLoginUrl            string   `split_words:"true"`
-	SfcApiVersion          string   `split_words:"true" default:"52"`
-	SfcOrganizationId      string   `split_words:"true"`
-	SfcDeploymentId        string   `split_words:"true"`
-	SfcWAButtonId          string   `split_words:"true"`
-	SfcFBButtonId          string   `split_words:"true"`
-	SfcWAOwnerId           string   `split_words:"true"`
-	SfcFBOwnerId           string   `split_words:"true"`
-	SfcRecordTypeId        string   `split_words:"true"`
-	SfcCustomFieldsCase    []string `split_words:"true"`
-	IntegrationsWAChannel  string   `split_words:"true" default:"outgoing_webhook"`
-	IntegrationsFBChannel  string   `split_words:"true" default:"passthrough"`
-	IntegrationsWABotID    string   `split_words:"true"`
-	IntegrationsFBBotID    string   `split_words:"true"`
-	IntegrationsWABotJWT   string   `split_words:"true"`
-	IntegrationsFBBotJWT   string   `split_words:"true"`
-	IntegrationsBaseUrl    string   `split_words:"true"`
-	IntegrationsSignature  string   `split_words:"true"`
-	WebhookBaseUrl         string   `split_words:"true"`
-	IntegrationsWABotPhone string   ` split_words:"true"`
-	IntegrationsFBBotPhone string   `split_words:"true"`
-	KeywordsRestart        []string `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
+	AppName                string            `default:"salesforce-integration" split_words:"true"`
+	Host                   string            `required:"true" split_words:"true" default:"localhost"`
+	Port                   string            `required:"true" split_words:"true" default:"8080"`
+	SentryDSN              string            `default:"" split_words:"true"`
+	Environment            string            `default:"dev" split_words:"true"`
+	MainContextTimeOut     int16             `default:"10" split_words:"true"`
+	RedisAddress           string            `split_words:"true"`
+	RedisMaster            string            `split_words:"true"`
+	RedisSentinelAddress   string            `split_words:"true"`
+	BlockedUserState       string            `required:"true" split_words:"true" default:"from-sf-blocked"`
+	TimeoutState           string            `required:"true" split_words:"true" default:"from-sf-timeout"`
+	SuccessState           string            `required:"true" split_words:"true" default:"from-sf-success"`
+	YaloUsername           string            `required:"true" split_words:"true" default:"yaloUser"`
+	YaloPassword           string            `required:"true" split_words:"true"`
+	SalesforceUsername     string            `required:"true" split_words:"true" default:"salesforceUser"`
+	SalesforcePassword     string            `required:"true" split_words:"true"`
+	SecretKey              string            `required:"true" split_words:"true"`
+	BotrunnerUrl           string            `split_words:"true"`
+	BotrunnerToken         string            `split_words:"true" default:""`
+	BotrunnerTimeout       int               `split_words:"true" default:"4"`
+	SfcClientId            string            `split_words:"true"`
+	SfcClientSecret        string            `split_words:"true"`
+	SfcUsername            string            `split_words:"true"`
+	SfcPassword            string            `split_words:"true"`
+	SfcSecurityToken       string            `split_words:"true"`
+	SfcBaseUrl             string            `split_words:"true"`
+	SfcChatUrl             string            `split_words:"true"`
+	SfcLoginUrl            string            `split_words:"true"`
+	SfcApiVersion          string            `split_words:"true" default:"52"`
+	SfcOrganizationId      string            `split_words:"true"`
+	SfcDeploymentId        string            `split_words:"true"`
+	SfcRecordTypeId        string            `split_words:"true"`
+	SfcCustomFieldsCase    map[string]string `split_words:"true"`
+	SfcSourceFlowBot       SfcSourceFlowBot  `required:"true" split_words:"true"`
+	SfcSourceFlowField     string            `split_words:"true" default:"source_flow_bot"`
+	IntegrationsWAChannel  string            `split_words:"true" default:"outgoing_webhook"`
+	IntegrationsFBChannel  string            `split_words:"true" default:"passthrough"`
+	IntegrationsWABotID    string            `split_words:"true"`
+	IntegrationsFBBotID    string            `split_words:"true"`
+	IntegrationsWABotJWT   string            `split_words:"true"`
+	IntegrationsFBBotJWT   string            `split_words:"true"`
+	IntegrationsBaseUrl    string            `split_words:"true"`
+	IntegrationsSignature  string            `split_words:"true"`
+	WebhookBaseUrl         string            `split_words:"true"`
+	IntegrationsWABotPhone string            `split_words:"true"`
+	IntegrationsFBBotPhone string            `split_words:"true"`
+	KeywordsRestart        []string          `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
+}
+type Provider struct {
+	ButtonID string `json:"button_id"`
+	OwnerID  string `json:"owner_id"`
+}
+
+type SourceFlowBot struct {
+	Subject   string              `json:"subject"`
+	Providers map[string]Provider `json:"providers"`
+}
+
+type SfcSourceFlowBot map[string]SourceFlowBot
+
+//Decoder this function deserializes the struct by the envconfig Decoder interface implementation
+func (sd *SfcSourceFlowBot) Decode(value string) error {
+	providerMap := map[string]SourceFlowBot{}
+
+	pairs := strings.Split(value, ";")
+	for _, pair := range pairs {
+		sourceFlowBotData := SourceFlowBot{}
+		kvpair := strings.Split(pair, "=")
+		if len(kvpair) != 2 {
+			return fmt.Errorf("invalid map item: %q", pair)
+		}
+
+		err := json.Unmarshal([]byte(kvpair[1]), &sourceFlowBotData)
+		if err != nil {
+			return fmt.Errorf("invalid map json: %w", err)
+		}
+
+		providerMap[kvpair[0]] = sourceFlowBotData
+
+	}
+	*sd = SfcSourceFlowBot(providerMap)
+
+	return nil
 }

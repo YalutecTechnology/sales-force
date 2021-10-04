@@ -471,28 +471,6 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		assert.Equal(t, "dasfasfasd", id)
 	})
 
-	t.Run("Create case  error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
-		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
-		}, nil)
-		payload := CaseRequest{
-			ContactID:   "contact id",
-			Origin:      "Web",
-			Subject:     "test",
-			Priority:    "Medium",
-			IsEscalated: false,
-			Description: "context",
-		}
-		id, err := salesforceClient.CreateCase(payload)
-
-		assert.Error(t, err.Error)
-		assert.Empty(t, id)
-	})
-
 	t.Run("Create case  error SendHTTPRequest", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)

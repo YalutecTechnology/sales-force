@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/sirupsen/logrus"
+	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/salesforce"
@@ -17,7 +17,6 @@ import (
 
 const (
 	queryForContactByField     = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+` + "%s"
-	SFBFieldCustom             = "source_flow_bot"
 	SFB1                       = "SFB001"
 	SFB2                       = "SFB002"
 	SFB3                       = "SFB003"
@@ -43,6 +42,8 @@ type SalesforceService struct {
 	SfcLoginClient login.SfcLoginInterface
 	SfcChatClient  chat.SfcChatInterface
 	SfcClient      salesforce.SaleforceInterface
+	SourceFlowBot  envs.SfcSourceFlowBot
+	CustomFields   map[string]string
 }
 
 type SalesforceServiceInterface interface {
@@ -50,17 +51,18 @@ type SalesforceServiceInterface interface {
 	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
-	CreatCase(recordType, contactID, description, origin, ownerID string, extraData map[string]interface{}, customFields []string) (string, error)
+	CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload) *SalesforceService {
+func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient: &loginClient,
 		SfcChatClient:  &chatClient,
 		SfcClient:      &salesforceClient,
 		TokenPayload:   tokenPayload,
+		CustomFields:   customFields,
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
@@ -208,31 +210,13 @@ func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat
 	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
 }
 
-func (s *SalesforceService) CreatCase(recordType, contactID, description, origin, ownerID string, extraData map[string]interface{}, customFields []string) (string, error) {
-	payload := make(map[string]interface{})
-	for _, field := range customFields {
-		fields := strings.Split(field, ":")
-		yaloField := fields[0]
-		sfField := fields[1]
-		value, ok := extraData[yaloField]
-		if ok {
-			payload[sfField] = value
-		}
-	}
+func (s *SalesforceService) CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
 
-	subject := SFB6Subject
-	if value, ok := extraData[SFBFieldCustom]; ok {
-		switch value {
-		case SFB1:
-			subject = SFB1Subject
-		case SFB2:
-			subject = SFB2Subject
-		case SFB3:
-			subject = SFB3Subject
-		case SFB4:
-			subject = SFB4Subject
-		case SFB5:
-			subject = SFB5Subject
+	payload := make(map[string]interface{})
+	for key, value := range extraData {
+		field, ok := s.CustomFields[key]
+		if ok {
+			payload[field] = value
 		}
 	}
 
