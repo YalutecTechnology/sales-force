@@ -26,6 +26,7 @@ const (
 	deploymentId   = "deploymentId"
 	buttonId       = "buttonID"
 	requestURL     = "/v1/chats/connect"
+    reqFinishURL   = "/v1/chat/finish/5217331175599"
 )
 
 func TestCreateChat(t *testing.T) {
@@ -61,4 +62,27 @@ func TestCreateChat(t *testing.T) {
 		}
 	})
 
+}
+
+func TestFinishChat(t *testing.T) {
+	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
+    handler.DELETE(fmt.Sprintf("%s/chat/finish/:user_id", apiVersion), app.finishChat)
+
+	t.Run("You must close the user side chat successfully", func(t *testing.T) {
+		managerMock := new(ManagerI)
+
+		const UserID = "5217331175599"
+
+		managerMock.On("FinishChat", UserID).Return(nil).Once()
+		getApp().ManageManager = managerMock
+
+		req, _ := http.NewRequest("DELETE", reqFinishURL, nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+	})
 }
