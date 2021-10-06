@@ -1,8 +1,12 @@
 package helpers
 
 import (
+	"io"
+	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEncode(t *testing.T) {
@@ -64,6 +68,42 @@ func TestGetExportFilename(t *testing.T) {
 			if got := GetExportFilename(tt.args.name, tt.args.mimeType); got != tt.want {
 				t.Errorf("GetExportFilename() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestGetContentAndTypeByReader(t *testing.T) {
+	resp, err := http.Get("https://cdn-icons-png.flaticon.com/512/545/545682.png")
+	assert.NoError(t, err)
+	type args struct {
+		reader io.Reader
+	}
+	tests := []struct {
+		name            string
+		args            args
+		wantContentType string
+		wantErr         bool
+	}{
+		{
+			name: "success",
+			args: args{
+				reader: resp.Body,
+			},
+			wantContentType: "image/png",
+			wantErr:         false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotContentType, _, err := GetContentAndTypeByReader(tt.args.reader)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetContentAndTypeByReader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotContentType != tt.wantContentType {
+				t.Errorf("GetContentAndTypeByReader() gotContentType = %v, want %v", gotContentType, tt.wantContentType)
+			}
+
 		})
 	}
 }
