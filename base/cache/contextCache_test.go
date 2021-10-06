@@ -91,6 +91,6 @@ func TestRetrieveContext(t *testing.T) {
 
 		arrays := rcs.RetrieveContext(context.UserID)
 
-		assert.Equal(t, &[]Context{context2, context3, context}, arrays)
+		assert.Equal(t, &[]Context{context2, context3, context}, &arrays)
 	})
 }

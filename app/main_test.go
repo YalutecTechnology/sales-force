@@ -12,6 +12,7 @@ import (
 func TestMain(t *testing.T) {
 	os.Setenv("SALESFORCE-INTEGRATION_YALO_PASSWORD", "yaloPassword")
 	os.Setenv("SALESFORCE-INTEGRATION_SALESFORCE_PASSWORD", "salesforcePassword")
+	os.Setenv("SALESFORCE-INTEGRATION_SFC_SOURCE_FLOW_BOT", "default={\"subject\":\"Asunto por defecto\",\"providers\":{\"whatsapp\":{\"button_id\":\"buttonId\",\"owner_id\":\"oownerId\"},\"facebook\":{\"button_id\":\"buttonId\",\"owner_id\":\"ownerID\"}}}")
 	os.Setenv("SALESFORCE-INTEGRATION_SECRET_KEY", "secret")
 
 	m, s := cache.CreateRedisServer()

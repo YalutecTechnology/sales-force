@@ -102,8 +102,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber,
-			"").
+			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -201,8 +200,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber,
-			"").
+			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -288,7 +286,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcRecordTypeID = recordTypeID
-		SfcAccountRecordTypeID = recordAccountTypeID
 		//SfcCustomFieldsCase = map[string]string{"data": "data"}
 
 		salesforceMock := new(SalesforceServiceInterface)
@@ -305,8 +302,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber,
-			recordAccountTypeID).
+			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -384,7 +380,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
-		SfcAccountRecordTypeID = ""
 		BlockedUserState = "from-sf-blocked"
 		contact := &models.SfcContact{
 			FirstName:   interconnection.Name,
@@ -400,8 +395,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 		salesforceServiceMock.On("GetOrCreateContact",
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber,
-			"").
+			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": BlockedUserState, "userId": userID}).
 			Return(true, nil).Once()

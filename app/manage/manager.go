@@ -26,15 +26,14 @@ import (
 )
 
 var (
-	SfcOrganizationID      string
-	SfcDeploymentID        string
-	SfcRecordTypeID        string
-	SfcAccountRecordTypeID string
-	BlockedUserState       string
-	TimeoutState           string
-	SuccessState           string
-	SfcCustomFieldsCase    map[string]string
-	BotrunnerTimeout       int
+	SfcOrganizationID   string
+	SfcDeploymentID     string
+	SfcRecordTypeID     string
+	BlockedUserState    string
+	TimeoutState        string
+	SuccessState        string
+	SfcCustomFieldsCase map[string]string
+	BotrunnerTimeout    int
 )
 
 const (
@@ -131,7 +130,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 	SfcOrganizationID = config.SfcOrganizationID
 	SfcDeploymentID = config.SfcDeploymentID
 	SfcRecordTypeID = config.SfcRecordTypeID
-	SfcAccountRecordTypeID = config.SfcAccountRecordTypeID
 	BlockedUserState = config.BlockedUserState
 	TimeoutState = config.TimeoutState
 	SuccessState = config.SuccessState
@@ -151,7 +149,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcLoginClient := &login.SfcLoginClient{
-		Proxy: proxy.NewProxy(config.SfcLoginUrl),
+		Proxy: proxy.NewProxy(config.SfcLoginUrl, 30),
 	}
 
 	// Get token for salesforce
@@ -163,12 +161,12 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcChatClient := &chat.SfcChatClient{
-		Proxy:      proxy.NewProxy(config.SfcChatUrl),
+		Proxy:      proxy.NewProxy(config.SfcChatUrl, 60),
 		ApiVersion: config.SfcApiVersion,
 	}
 
 	salesforceClient := &salesforce.SalesforceClient{
-		Proxy:      proxy.NewProxy(config.SfcBaseUrl),
+		Proxy:      proxy.NewProxy(config.SfcBaseUrl, 30),
 		APIVersion: config.SfcApiVersion,
 	}
 
@@ -201,6 +199,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload, config.SfcCustomFieldsCase)
+	salesforceService.AccountRecordTypeId = config.SfcAccountRecordTypeID
 	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
 	interconnections := interconnectionsCache.RetrieveAllInterconnections()
@@ -220,6 +219,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		keywordsRestart:       config.KeywordsRestart,
 		SfcSourceFlowBot:      config.SfcSourceFlowBot,
 		SfcSourceFlowField:    config.SfcSourceFlowField,
+		cacheMessage:          cache.NewMessageCache(cache.New()),
 	}
 
 	for _, interconnection := range *interconnections {
@@ -301,7 +301,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	// We get the contact if it exists by your email or phone.
-	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber, SfcAccountRecordTypeID)
+	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"interconnection": interconnection,

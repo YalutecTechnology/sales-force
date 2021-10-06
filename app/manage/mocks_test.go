@@ -147,13 +147,13 @@ func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionK
 	return r0, r1
 }
 
-// GetOrCreateContact provides a mock function with given fields: name, email, phoneNumber, accountRecordTypeID
-func (_m *SalesforceServiceInterface) GetOrCreateContact(name string, email string, phoneNumber string, accountRecordTypeID string) (*models.SfcContact, error) {
-	ret := _m.Called(name, email, phoneNumber, accountRecordTypeID)
+// GetOrCreateContact provides a mock function with given fields: name, email, phoneNumber
+func (_m *SalesforceServiceInterface) GetOrCreateContact(name string, email string, phoneNumber string) (*models.SfcContact, error) {
+	ret := _m.Called(name, email, phoneNumber)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(string, string, string, string) *models.SfcContact); ok {
-		r0 = rf(name, email, phoneNumber, accountRecordTypeID)
+	if rf, ok := ret.Get(0).(func(string, string, string) *models.SfcContact); ok {
+		r0 = rf(name, email, phoneNumber)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -161,8 +161,8 @@ func (_m *SalesforceServiceInterface) GetOrCreateContact(name string, email stri
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string) error); ok {
-		r1 = rf(name, email, phoneNumber, accountRecordTypeID)
+	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
+		r1 = rf(name, email, phoneNumber)
 	} else {
 		r1 = ret.Error(1)
 	}

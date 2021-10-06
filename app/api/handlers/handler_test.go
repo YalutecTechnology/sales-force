@@ -6,17 +6,16 @@ import (
 	"testing"
 
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
-	"yalochat.com/salesforce-integration/app/manage"
 )
 
+const welcomeURL = "/v1/welcome"
+
 func TestWelcomeAPI(t *testing.T) {
-	handler := ddrouter.New(ddrouter.WithServiceName("app.http"))
-	API(handler, &manage.ManagerOptions{
-		AppName: "AppName",
-	}, ApiConfig{})
+	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
+	handler.GET(welcomeURL, app.welcomeAPI)
 
 	t.Run("Should return a http response OK", func(t *testing.T) {
-		requestURL := "/v1/welcome"
+		requestURL := welcomeURL
 		req, _ := http.NewRequest("GET", requestURL, nil)
 		response := httptest.NewRecorder()
 

@@ -10,10 +10,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/go-redis/redis"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
 	"yalochat.com/salesforce-integration/app/manage"
+	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -30,9 +33,20 @@ var apiConfig = ApiConfig{
 	SecretKey:    secretTest,
 }
 
+// TODO: Upgrade unit tests as in chat_handler_test.go
 func TestAuthenticate(t *testing.T) {
+	m, s := cache.CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	redisOptions := cache.RedisOptions{
+		FailOverOptions: &redis.FailoverOptions{
+			MasterName:    s.MasterInfo().Name,
+			SentinelAddrs: []string{s.Addr()},
+		},
+		SessionsTTL: time.Second,
+	}
 	handler := ddrouter.New(ddrouter.WithServiceName("appName.http"))
-	managerOptions := &manage.ManagerOptions{AppName: "appName"}
+	managerOptions := &manage.ManagerOptions{AppName: "appName", RedisOptions: redisOptions}
 	API(handler, managerOptions, apiConfig)
 
 	t.Run("Should return an yalo token", func(t *testing.T) {
@@ -120,7 +134,7 @@ func TestAuthenticate(t *testing.T) {
 	t.Run("Should fail to sign a token", func(t *testing.T) {
 		singMethod = &jwt.SigningMethodECDSA{}
 		handler = ddrouter.New(ddrouter.WithServiceName("appName.http"))
-		managerOptions := &manage.ManagerOptions{AppName: "appName"}
+		managerOptions := &manage.ManagerOptions{AppName: "appName", RedisOptions: redisOptions}
 		API(handler, managerOptions, apiConfig)
 		requestURL := "/v1/authenticate"
 		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer([]byte("{\"username\":\"yaloUser\",\"password\":\"yaloPassword\"}")))
@@ -145,8 +159,18 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestProtected(t *testing.T) {
+	m, s := cache.CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	redisOptions := cache.RedisOptions{
+		FailOverOptions: &redis.FailoverOptions{
+			MasterName:    s.MasterInfo().Name,
+			SentinelAddrs: []string{s.Addr()},
+		},
+		SessionsTTL: time.Second,
+	}
 	handler := ddrouter.New(ddrouter.WithServiceName("appName.http"))
-	managerOptions := &manage.ManagerOptions{AppName: "appName"}
+	managerOptions := &manage.ManagerOptions{AppName: "appName", RedisOptions: redisOptions}
 	API(handler, managerOptions, apiConfig)
 
 	t.Run("Should return a user ", func(t *testing.T) {
@@ -174,8 +198,18 @@ func TestProtected(t *testing.T) {
 }
 
 func TestAuthorizeMiddlewareByHeader(t *testing.T) {
+	m, s := cache.CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	redisOptions := cache.RedisOptions{
+		FailOverOptions: &redis.FailoverOptions{
+			MasterName:    s.MasterInfo().Name,
+			SentinelAddrs: []string{s.Addr()},
+		},
+		SessionsTTL: time.Second,
+	}
 	handler := ddrouter.New(ddrouter.WithServiceName("appName.http"))
-	managerOptions := &manage.ManagerOptions{AppName: "appName"}
+	managerOptions := &manage.ManagerOptions{AppName: "appName", RedisOptions: redisOptions}
 	API(handler, managerOptions, apiConfig)
 
 	t.Run("Should respond successfully with Yalo token test", func(t *testing.T) {
@@ -287,9 +321,20 @@ func TestAuthorizeMiddlewareByHeader(t *testing.T) {
 }
 
 func TestAuthorizeMiddlewareByQueryParam(t *testing.T) {
+	m, s := cache.CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	redisOptions := cache.RedisOptions{
+		FailOverOptions: &redis.FailoverOptions{
+			MasterName:    s.MasterInfo().Name,
+			SentinelAddrs: []string{s.Addr()},
+		},
+		SessionsTTL: time.Second,
+	}
 	handler := ddrouter.New(ddrouter.WithServiceName("appName.http"))
 	managerOptions := &manage.ManagerOptions{
-		AppName: "salesforce-integration",
+		AppName:      "salesforce-integration",
+		RedisOptions: redisOptions,
 	}
 	API(handler, managerOptions, apiConfig)
 
