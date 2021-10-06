@@ -10,7 +10,7 @@ definitions:
         script:
           - .yalo/utils/test-go.sh
         services: 
-          - mongo 
+          - redis 
     - step: &push
         name: Push to Docker Hub
         script:
@@ -20,8 +20,8 @@ definitions:
         script:
           - REPO=salesforce-integration BRANCH=release .yalo/utils/build.sh
   services: 
-    mongo: 
-      image: mongo
+    redis: 
+      image: redis
 
 pipelines:
   default:
