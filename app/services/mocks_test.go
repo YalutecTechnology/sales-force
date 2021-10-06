@@ -156,21 +156,23 @@ type SaleforceInterface struct {
 }
 
 // Composite provides a mock function with given fields: compositeRequest
-func (_m *SaleforceInterface) Composite(compositeRequest salesforce.CompositeRequest) (salesforce.CompositeResponse, error) {
+func (_m *SaleforceInterface) Composite(compositeRequest salesforce.CompositeRequest) (salesforce.CompositeResponses, *helpers.ErrorResponse) {
 	ret := _m.Called(compositeRequest)
 
-	var r0 salesforce.CompositeResponse
-	if rf, ok := ret.Get(0).(func(salesforce.CompositeRequest) salesforce.CompositeResponse); ok {
+	var r0 salesforce.CompositeResponses
+	if rf, ok := ret.Get(0).(func(salesforce.CompositeRequest) salesforce.CompositeResponses); ok {
 		r0 = rf(compositeRequest)
 	} else {
-		r0 = ret.Get(0).(salesforce.CompositeResponse)
+		r0 = ret.Get(0).(salesforce.CompositeResponses)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(salesforce.CompositeRequest) error); ok {
+	var r1 *helpers.ErrorResponse
+	if rf, ok := ret.Get(1).(func(salesforce.CompositeRequest) *helpers.ErrorResponse); ok {
 		r1 = rf(compositeRequest)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*helpers.ErrorResponse)
+		}
 	}
 
 	return r0, r1
@@ -178,8 +180,50 @@ func (_m *SaleforceInterface) Composite(compositeRequest salesforce.CompositeReq
 
 // CreateAccount provides a mock function with given fields: payload
 func (_m *SaleforceInterface) CreateAccount(payload salesforce.AccountRequest) (string, *helpers.ErrorResponse) {
-	args := _m.Called()
-	return args.Get(0).(string), args.Get(1).(*helpers.ErrorResponse)
+	ret := _m.Called(payload)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(salesforce.AccountRequest) string); ok {
+		r0 = rf(payload)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 *helpers.ErrorResponse
+	if rf, ok := ret.Get(1).(func(salesforce.AccountRequest) *helpers.ErrorResponse); ok {
+		r1 = rf(payload)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*helpers.ErrorResponse)
+		}
+	}
+
+	return r0, r1
+}
+
+// CreateAccountComposite provides a mock function with given fields: payload
+func (_m *SaleforceInterface) CreateAccountComposite(payload salesforce.AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+	ret := _m.Called(payload)
+
+	var r0 *models.SfcAccount
+	if rf, ok := ret.Get(0).(func(salesforce.AccountRequest) *models.SfcAccount); ok {
+		r0 = rf(payload)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.SfcAccount)
+		}
+	}
+
+	var r1 *helpers.ErrorResponse
+	if rf, ok := ret.Get(1).(func(salesforce.AccountRequest) *helpers.ErrorResponse); ok {
+		r1 = rf(payload)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*helpers.ErrorResponse)
+		}
+	}
+
+	return r0, r1
 }
 
 // CreateCase provides a mock function with given fields: payload
@@ -378,6 +422,31 @@ func (_m *SaleforceInterface) SearchContact(_a0 string) (*models.SfcContact, *he
 	var r1 *helpers.ErrorResponse
 	if rf, ok := ret.Get(1).(func(string) *helpers.ErrorResponse); ok {
 		r1 = rf(_a0)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*helpers.ErrorResponse)
+		}
+	}
+
+	return r0, r1
+}
+
+// SearchContactComposite provides a mock function with given fields: email, phoneNumber
+func (_m *SaleforceInterface) SearchContactComposite(email string, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	ret := _m.Called(email, phoneNumber)
+
+	var r0 *models.SfcContact
+	if rf, ok := ret.Get(0).(func(string, string) *models.SfcContact); ok {
+		r0 = rf(email, phoneNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.SfcContact)
+		}
+	}
+
+	var r1 *helpers.ErrorResponse
+	if rf, ok := ret.Get(1).(func(string, string) *helpers.ErrorResponse); ok {
+		r1 = rf(email, phoneNumber)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)

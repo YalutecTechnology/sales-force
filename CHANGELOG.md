@@ -6,6 +6,7 @@
 
 * **Integration - Endpoints:** Add end chat endpoint. (New)
 * **Integration-Library Salesforce:** Create Salesforce Account. Add the CreateAccount and SearchAccount services. Closes #CSF-178
+* **Integration-interconnection:** Do composite when creating account. Change request to create account to composite request. Closes #CSF-185
 * **Integration-interconnection:** Fix local cache from map to risttreto. Change local cache to ristretto library. Closes #CSF-183
 * **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
 * **Integration-interconnection:** Ignore duplicated messages. Add condition to ignore duplicate messages in webhook. Closes #CSF-176

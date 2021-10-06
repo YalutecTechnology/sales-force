@@ -2,13 +2,13 @@ package services
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -18,12 +18,9 @@ import (
 )
 
 const (
-	contactName       = "contactName"
 	organizationID    = "organizationID"
 	deploymentID      = "deploymentID"
 	buttonID          = "buttonID"
-	email             = "user@example.com"
-	phoneNumber       = "5512345678"
 	uri               = "https://icon-icons.com/downloadimage.php?id=142968&root=2348/PNG/32/&file=size_maximize_icon_142968.png"
 	mimeType          = "image/png"
 	caseID            = "caseID"
@@ -31,6 +28,12 @@ const (
 	contentDocumentID = "contentDocumentID"
 	title             = "title"
 	versionData       = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAHJQTFRFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////mlzVjAAAACR0Uk5TACtqaUMF7v7twmjrYAHI72QCbfNvBOo9RPFGBk5MS0jyPmPJVqU8vQAAAAFiS0dEJcMByQ8AAAAJcEhZcwABOvYAATr2ATqxVzoAAAC2SURBVDjLvdPJEoIwDAbg0BUKyI4ouPf9n1Fo0XG0yYnxP/T0zSRpG4ANEjHuw4QMAm5fUQIHejliAiTMcE6VSLMcbZJbvSusKisc2Jo1hJiBgZYQM+DQEcIBSgjlLmgR/T4E5DC4+WdxOJKPMk4nCf/IOJ3pQpdr03afzX/n1lsv1vF/Ut1jL/wFhkTpBQpWAQYFXrAaB04UD40DyLN0+YhhIAXjhiU4EOq9BxSwdIl1FyPYIE+RZBNEN1CCzQAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMC0wNS0wN1QwOTowNzo0MCswMTowMJZQazMAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjAtMDUtMDdUMDk6MDc6NDArMDE6MDDnDdOPAAAARnRFWHRzb2Z0d2FyZQBJbWFnZU1hZ2ljayA2LjcuOC05IDIwMTktMDItMDEgUTE2IGh0dHA6Ly93d3cuaW1hZ2VtYWdpY2sub3JnQXviyAAAABh0RVh0VGh1bWI6OkRvY3VtZW50OjpQYWdlcwAxp/+7LwAAABh0RVh0VGh1bWI6OkltYWdlOjpoZWlnaHQANTEywNBQUQAAABd0RVh0VGh1bWI6OkltYWdlOjpXaWR0aAA1MTIcfAPcAAAAGXRFWHRUaHVtYjo6TWltZXR5cGUAaW1hZ2UvcG5nP7JWTgAAABd0RVh0VGh1bWI6Ok1UaW1lADE1ODg4Mzg4NjDthjAYAAAAEnRFWHRUaHVtYjo6U2l6ZQA1LjNLQkLfeornAAAASXRFWHRUaHVtYjo6VVJJAGZpbGU6Ly8uL3VwbG9hZHMvNTYvNDJhTzRoSC8yMzQ4L3NpemVfbWF4aW1pemVfaWNvbl8xNDI5NjgucG5nCRVuAQAAAABJRU5ErkJggg=="
+)
+
+var (
+	contactName = "contactName"
+	email       = "user@example.com"
+	phoneNumber = "5512345678"
 )
 
 func TestSalesforceService_CreatChat(t *testing.T) {
@@ -86,21 +89,21 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		MobilePhone: "5512345678",
 		Blocked:     false,
 	}
-	contactExpectedWhitoutPhone := &models.SfcContact{
-		ID:          "dasfasfasd",
-		FirstName:   firstNameDefault,
-		LastName:    "contactName",
-		Email:       "user@example.com",
-		MobilePhone: "",
-		Blocked:     false,
-	}
+	// contactExpectedWhitoutPhone := &models.SfcContact{
+	// 	ID:          "dasfasfasd",
+	// 	FirstName:   firstNameDefault,
+	// 	LastName:    "contactName",
+	// 	Email:       "user@example.com",
+	// 	MobilePhone: "",
+	// 	Blocked:     false,
+	// }
 
 	t.Run("Get Contact by email Succesfull", func(t *testing.T) {
 		mock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
 		salesforceService.SfcClient = mock
 
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(contactExpected, nil).Once()
+		mock.On("SearchContactComposite", email, phoneNumber).Return(contactExpected, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
@@ -113,10 +116,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
 		salesforceService.SfcClient = mock
 
-		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
-
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(contactExpected, nil).Once()
+		mock.On("SearchContactComposite", email, phoneNumber).Return(contactExpected, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
@@ -130,9 +130,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		salesforceService.SfcClient = mock
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
-
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(nil, errorResponse).Once()
+		mock.On("SearchContactComposite", email, phoneNumber).Return(nil, errorResponse).Once()
 
 		contactRequest := salesforce.ContactRequest{
 			FirstName:   contactExpected.FirstName,
@@ -149,15 +147,13 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 	})
 
 	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
-		mock := new(SaleforceInterface)
+		mockSalesforce := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
 		salesforceService.AccountRecordTypeId = "recordTypeID"
-		salesforceService.SfcClient = mock
+		salesforceService.SfcClient = mockSalesforce
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
-
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(nil, errorResponse).Once()
+		mockSalesforce.On("SearchContactComposite", email, phoneNumber).Return(nil, errorResponse).Once()
 
 		accountFound := &models.SfcAccount{
 			FirstName:         contactExpected.FirstName,
@@ -168,38 +164,12 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			PersonContactId:   contactExpected.ID,
 		}
 		contactExpected.AccountID = "accountID"
-		var errs *helpers.ErrorResponse = nil
-
-		mock.On("CreateAccount").Return("accountID", errs).Once()
-
-		mock.On("SearchAccount", fmt.Sprintf(queryForAccountByField, "id", "accountID")).Return(accountFound, nil).Once()
+		mockSalesforce.On("CreateAccountComposite", mock.Anything).Return(accountFound, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
-	})
-
-	t.Run("Create Contact Succesfull skip phoneNumber", func(t *testing.T) {
-		mock := new(SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
-		salesforceService.SfcClient = mock
-
-		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(nil, errorResponse).Once()
-
-		contactRequest := salesforce.ContactRequest{
-			FirstName:   contactExpectedWhitoutPhone.FirstName,
-			LastName:    contactExpectedWhitoutPhone.LastName,
-			MobilePhone: "",
-			Email:       email,
-		}
-		mock.On("CreateContact", contactRequest).Return(contactExpectedWhitoutPhone.ID, nil).Once()
-
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, "")
-
-		assert.NoError(t, err)
-		assert.Equal(t, contactExpectedWhitoutPhone, contact)
 	})
 
 }
@@ -267,7 +237,7 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 				},
 			},
 		}
-		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponse{}, nil).Once()
+		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponses{}, nil).Once()
 
 		err := salesforceService.InsertImageInCase(uri, title, mimeType, caseID)
 
@@ -336,7 +306,8 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 				},
 			},
 		}
-		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponse{}, assert.AnError).Once()
+		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
+		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponses{}, errorResponse).Once()
 
 		err := salesforceService.InsertImageInCase(uri, title, mimeType, caseID)
 
@@ -387,7 +358,7 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 				},
 			},
 		}
-		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponse{}, nil).Once()
+		salesforceMock.On("Composite", request).Return(salesforce.CompositeResponses{}, nil).Once()
 
 		err := salesforceService.InsertImageInCase(uri, title, "", caseID)
 

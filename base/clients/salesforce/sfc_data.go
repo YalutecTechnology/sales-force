@@ -13,7 +13,12 @@ import (
 	"yalochat.com/salesforce-integration/base/models"
 )
 
-const AutoAsssingHeader = "Sforce-Auto-Assign"
+const (
+	AutoAsssingHeader = "Sforce-Auto-Assign"
+	//TODO: the CP_BlockedChatYalo__c field is customized for Coppel and that in other integrations we must remove from the query
+	queryForContactByField = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+'%s'`
+	queryForAccountByField = `SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+%s+=+'%s'`
+)
 
 func NewSalesforceRequester(url, token string) *SalesforceClient {
 	return &SalesforceClient{
@@ -139,6 +144,9 @@ type CompositeResponse struct {
 	HTTPStatusCode int64       `json:"httpStatusCode"`
 	ReferenceID    string      `json:"referenceId"`
 }
+type CompositeResponses struct {
+	CompositeResponse []CompositeResponse `json:"compositeResponse"`
+}
 
 type HTTPHeaders struct {
 	Location string `json:"Location"`
@@ -150,6 +158,7 @@ type SaleforceInterface interface {
 	Search(string) (*SearchResponse, *helpers.ErrorResponse)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, *helpers.ErrorResponse)
+	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
 	SearchAccount(string) (*models.SfcAccount, *helpers.ErrorResponse)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
@@ -157,7 +166,8 @@ type SaleforceInterface interface {
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
 	CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse)
 	CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse)
-	Composite(compositeRequest CompositeRequest) (CompositeResponse, error)
+	CreateAccountComposite(payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse)
+	Composite(compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse)
 	GetContentVersionURL() string
 	GetSearchURL(query string) string
 	GetDocumentLinkURL() string
@@ -352,6 +362,65 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 		Email:       response.Records[0].Email,
 		MobilePhone: response.Records[0].MobilePhone,
 		Blocked:     response.Records[0].BlockedChatYalo,
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"contact": contact,
+	}).Info("Contact found successfully“")
+
+	return &contact, nil
+}
+
+func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	request := CompositeRequest{
+		CompositeRequest: []Composite{
+			{
+				Method:      http.MethodGet,
+				URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, "email", email)),
+				ReferenceId: "newQueryEmail",
+			},
+		},
+	}
+
+	if phoneNumber != "" {
+		request.CompositeRequest = append(request.CompositeRequest, Composite{
+			Method:      http.MethodGet,
+			URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, "mobilePhone", phoneNumber)),
+			ReferenceId: "newQueryPhone",
+		})
+	}
+
+	compositeResponses, err := cc.Composite(request)
+	if err != nil {
+		return nil, err
+	}
+
+	contact := models.SfcContact{}
+	for _, compositeResponse := range compositeResponses.CompositeResponse {
+		response := SearchResponse{}
+		responseMap := compositeResponse.Body.(map[string]interface{})
+		responseBin, _ := json.Marshal(responseMap)
+		json.Unmarshal(responseBin, &response)
+
+		if response.TotalSize == 0 {
+			continue
+		}
+
+		contact = models.SfcContact{
+			ID:          response.Records[0].Id,
+			FirstName:   response.Records[0].FirstName,
+			LastName:    response.Records[0].LastName,
+			Email:       response.Records[0].Email,
+			MobilePhone: response.Records[0].MobilePhone,
+			Blocked:     response.Records[0].BlockedChatYalo,
+		}
+		break
+	}
+
+	if contact.ID == "" {
+		errorMessage := fmt.Sprintf("%s : %s", "contact not found", helpers.EmptyResponse)
+		logrus.Error(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -620,15 +689,64 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	return response.ID, nil
 }
 
+func (cc *SalesforceClient) CreateAccountComposite(payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+	request := CompositeRequest{
+		CompositeRequest: []Composite{
+			{
+				Method:      http.MethodPost,
+				URL:         fmt.Sprintf("/services/data/v%s.0/sobjects/Account", cc.APIVersion),
+				Body:        payload,
+				ReferenceId: "newAccount",
+			},
+			{
+				Method:      http.MethodGet,
+				URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForAccountByField, "id", "@{newAccount.id}")),
+				ReferenceId: "newQuery",
+			},
+		},
+	}
+
+	compositeResponses, err := cc.Composite(request)
+	if err != nil {
+		return nil, err
+	}
+
+	response := SearchResponse{}
+	responseMap := compositeResponses.CompositeResponse[1].Body.(map[string]interface{})
+	responseBin, _ := json.Marshal(responseMap)
+	json.Unmarshal(responseBin, &response)
+
+	if response.TotalSize == 0 {
+		errorMessage := fmt.Sprintf("%s : %s", "account not found", helpers.EmptyResponse)
+		logrus.Error(errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+	}
+
+	personAccount := models.SfcAccount{
+		ID:                response.Records[0].Id,
+		FirstName:         response.Records[0].FirstName,
+		LastName:          response.Records[0].LastName,
+		PersonEmail:       response.Records[0].PersonEmail,
+		PersonMobilePhone: response.Records[0].PersonMobilePhone,
+		PersonContactId:   response.Records[0].PersonContactID,
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"account": personAccount,
+	}).Info("Account found successfully“")
+
+	return &personAccount, nil
+}
+
 //Composite create a composite request
-func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (CompositeResponse, error) {
+func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse) {
 	var errorMessage string
 
 	//validating CompositeRequest struct
 	if err := helpers.Govalidator().Struct(compositeRequest); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
-		return CompositeResponse{}, errors.New(errorMessage)
+		return CompositeResponses{}, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
 	}
 
 	//building request to send through proxy
@@ -649,33 +767,20 @@ func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (Compos
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
-		return CompositeResponse{}, errors.New(errorMessage)
+		return CompositeResponses{}, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		responseMap := []map[string]interface{}{}
-		readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &responseMap)
-
-		if readAndUnmarshalError != nil {
-			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
-			logrus.Error(errorMessage)
-			return CompositeResponse{}, errors.New(errorMessage)
-		}
-
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
-		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
-		}).Error(errorMessage)
-		return CompositeResponse{}, errors.New(errorMessage)
+		return CompositeResponses{}, helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
 	}
 
-	var response CompositeResponse
+	response := CompositeResponses{}
 	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
 
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
-		return CompositeResponse{}, errors.New(errorMessage)
+		return CompositeResponses{}, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusInternalServerError}
 	}
 
 	logrus.WithFields(logrus.Fields{
