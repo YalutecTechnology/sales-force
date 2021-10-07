@@ -18,8 +18,6 @@ import (
 )
 
 const (
-	queryForContactByField     = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+` + "%s"
-	queryForAccountByField     = `SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+%s+=+'%s'`
 	firstNameDefault           = "Contacto Bot - "
 	contentLocation            = "S"
 	shareType                  = "V"
@@ -147,28 +145,14 @@ func (s *SalesforceService) CreatChat(contactName, organizationID, deploymentID,
 }
 
 func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error) {
-	// Search contact by email
-	contact, err := s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27"))
-
+	contact, err := s.SfcClient.SearchContactComposite(email, phoneNumber)
 	if err != nil {
-		logrus.Infof("Not found contact by email : [%s]-[%s]", email, err.Error.Error())
+		logrus.Errorf("Not found contact search by email or phoneNumber: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}
 	} else {
 		return contact, nil
-	}
-	// Search contact by phone
-	if phoneNumber != "" {
-		contact, err = s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27"))
-		if err != nil {
-			logrus.Infof("Not found contact by mobile phone : [%s]-[%s]", phoneNumber, err.Error.Error())
-			if err.StatusCode == http.StatusUnauthorized {
-				s.RefreshToken()
-			}
-		} else {
-			return contact, nil
-		}
 	}
 
 	contact = &models.SfcContact{
@@ -181,7 +165,7 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	if s.AccountRecordTypeId != "" {
 		firstName := firstNameDefault
 		date := time.Now().Format(constants.DateFormatDateTime)
-		accountID, err := s.SfcClient.CreateAccount(salesforce.AccountRequest{
+		account, err := s.SfcClient.CreateAccountComposite(salesforce.AccountRequest{
 			FirstName:         &firstName,
 			LastName:          &name,
 			PersonEmail:       &email,
@@ -197,16 +181,8 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 			return nil, errors.New(helpers.ErrorMessage("not create account", err.Error))
 		}
 
-		account, err := s.SfcClient.SearchAccount(fmt.Sprintf(queryForAccountByField, "id", accountID))
-
-		if err != nil {
-			logrus.Infof("Not found account by id : [%s]-[%s]", account.ID, err.Error.Error())
-			if err.StatusCode == http.StatusUnauthorized {
-				s.RefreshToken()
-			}
-		}
 		contact.ID = account.PersonContactId
-		contact.AccountID = accountID
+		contact.AccountID = account.ID
 		return contact, nil
 	}
 
@@ -346,9 +322,9 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 		},
 	}
 
-	_, err = s.SfcClient.Composite(request)
-	if err != nil {
-		return err
+	_, errResponse := s.SfcClient.Composite(request)
+	if errResponse != nil {
+		return errors.New(helpers.ErrorMessage("not insert image", errResponse.Error))
 	}
 
 	return nil

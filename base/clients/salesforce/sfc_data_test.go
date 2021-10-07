@@ -806,13 +806,17 @@ func TestCaseClient_Composite(t *testing.T) {
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
 
-		expected := CompositeResponse{
-			Body: "test",
-			HTTPHeaders: HTTPHeaders{
-				Location: "location",
+		expected := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: "test",
+					HTTPHeaders: HTTPHeaders{
+						Location: "location",
+					},
+					HTTPStatusCode: http.StatusOK,
+					ReferenceID:    "referenceID",
+				},
 			},
-			HTTPStatusCode: http.StatusOK,
-			ReferenceID:    "referenceID",
 		}
 		expectedBin, err := json.Marshal(expected)
 		assert.NoError(t, err)
@@ -838,12 +842,9 @@ func TestCaseClient_Composite(t *testing.T) {
 				},
 			},
 		}
-		response, err := salesforceClient.Composite(payload)
+		response, errResponse := salesforceClient.Composite(payload)
 
-		if err != nil {
-			t.Fatalf("Expected nil error, but retrieved this %#v", err)
-		}
-
+		assert.Nil(t, errResponse)
 		assert.Equal(t, expected, response)
 	})
 
@@ -858,7 +859,7 @@ func TestCaseClient_Composite(t *testing.T) {
 		}
 		response, err := salesforceClient.Composite(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, err.Error)
 		assert.Empty(t, response)
 	})
 
@@ -899,9 +900,9 @@ func TestCaseClient_Composite(t *testing.T) {
 				},
 			},
 		}
-		response, err := salesforceClient.Composite(payload)
+		response, errResponse := salesforceClient.Composite(payload)
 
-		assert.Error(t, err)
+		assert.Error(t, errResponse.Error)
 		assert.Empty(t, response)
 	})
 }
@@ -915,4 +916,309 @@ func TestCaseClient_UpdateToken(t *testing.T) {
 		salesforceClient.UpdateToken(tokenExpected)
 		assert.Equal(t, tokenExpected, salesforceClient.AccessToken)
 	})
+}
+
+func TestCaseClient_SearchContactComposite(t *testing.T) {
+
+	t.Run("SearchContactComposite Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      false,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 1,
+						Done:      true,
+						Records: []recordResponse{
+							{
+								Id:              "0032300000Qzu1iAAB",
+								FirstName:       "name",
+								LastName:        "lastname",
+								Email:           "user@example.com",
+								MobilePhone:     "55555",
+								BlockedChatYalo: true,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil)
+		contactExpected := &models.SfcContact{
+			ID:          "0032300000Qzu1iAAB",
+			FirstName:   "name",
+			LastName:    "lastname",
+			Email:       "user@example.com",
+			MobilePhone: "55555",
+			Blocked:     true,
+		}
+
+		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+
+		assert.Nil(t, errResponse)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("SearchContactComposite notFount", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil)
+
+		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+
+		assert.NotNil(t, errResponse)
+		assert.Empty(t, contact)
+	})
+
+	t.Run("SearchContactComposite request error", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil)
+
+		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+
+		assert.NotNil(t, errResponse)
+		assert.Empty(t, contact)
+	})
+}
+
+func TestCaseClient_CreateAccountComposite(t *testing.T) {
+	t.Run("Create account Succesfull", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      false,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 1,
+						Done:      true,
+						Records: []recordResponse{
+							{
+								Id:                "0032300000Qzu1iAAB",
+								FirstName:         name,
+								LastName:          name,
+								PersonEmail:       email,
+								PersonMobilePhone: phoneNumber,
+								PersonContactID:   "contactID",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil).Once()
+		payload := AccountRequest{
+			FirstName:         &name,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			RecordTypeID:      &recordTypeID,
+			PersonBirthDate:   &dateBirth,
+		}
+
+		contactExpected := &models.SfcAccount{
+			ID:                "0032300000Qzu1iAAB",
+			FirstName:         name,
+			LastName:          name,
+			PersonEmail:       email,
+			PersonMobilePhone: phoneNumber,
+			PersonContactId:   "contactID",
+		}
+		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		assert.Nil(t, errResponse)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("Create account error account not found ", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      false,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil).Once()
+		payload := AccountRequest{
+			FirstName:         &name,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			RecordTypeID:      &recordTypeID,
+			PersonBirthDate:   &dateBirth,
+		}
+
+		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		assert.Error(t, errResponse.Error)
+		assert.Empty(t, contact)
+	})
+
+	t.Run("Create account error account not found ", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      false,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil).Once()
+		payload := AccountRequest{
+			FirstName:         &name,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			RecordTypeID:      &recordTypeID,
+			PersonBirthDate:   &dateBirth,
+		}
+
+		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		assert.Error(t, errResponse.Error)
+		assert.Empty(t, contact)
+	})
+
+	// t.Run("Create account  error validation payload", func(t *testing.T) {
+	// 	mock := &proxy.Mock{}
+	// 	salesforceClient := NewSalesforceRequester(caseURL, token)
+	// 	salesforceClient.Proxy = mock
+	// 	mock.On("SendHTTPRequest").Return(&http.Response{
+	// 		StatusCode: http.StatusOK,
+	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+	// 	}, nil)
+	// 	payload := AccountRequest{
+	// 		Name: &name,
+	// 	}
+	// 	id, err := salesforceClient.CreateAccount(payload)
+
+	// 	assert.Error(t, err.Error)
+	// 	assert.Empty(t, id)
+	// })
+
+	// t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
+	// 	mock := &proxy.Mock{}
+	// 	salesforceClient := NewSalesforceRequester(caseURL, token)
+	// 	salesforceClient.Proxy = mock
+	// 	mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+	// 	payload := AccountRequest{
+	// 		Name:  &name,
+	// 		Phone: &phoneNumber,
+	// 	}
+	// 	id, err := salesforceClient.CreateAccount(payload)
+
+	// 	assert.Error(t, err.Error)
+	// 	assert.Empty(t, id)
+	// })
+
+	// t.Run("Create account error status", func(t *testing.T) {
+	// 	mock := &proxy.Mock{}
+	// 	salesforceClient := NewSalesforceRequester("test", token)
+	// 	salesforceClient.Proxy = mock
+	// 	mock.On("SendHTTPRequest").Return(&http.Response{
+	// 		StatusCode: http.StatusInternalServerError,
+	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+	// 	}, nil)
+	// 	payload := AccountRequest{
+	// 		Name:  &name,
+	// 		Phone: &phoneNumber,
+	// 	}
+	// 	id, err := salesforceClient.CreateAccount(payload)
+
+	// 	assert.Error(t, err.Error)
+	// 	assert.Empty(t, id)
+	// })
 }
