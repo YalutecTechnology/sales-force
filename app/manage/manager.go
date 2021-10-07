@@ -111,7 +111,7 @@ type ManagerOptions struct {
 type ManagerI interface {
 	SaveContext(integration *models.IntegrationsRequest) error
 	CreateChat(interconnection *Interconnection) error
-	GetContextByUserID(userID string) string
+	GetContextByUserID(userID string) []cache.Context
 	SaveContextFB(integration *models.IntegrationsFacebook) error
 	FinishChat(userId string) error
 }
@@ -329,7 +329,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	interconnection.AffinityToken = session.AffinityToken
 	interconnection.SessionID = session.Id
 	interconnection.SessionKey = session.Key
-	interconnection.Context = "Contexto:\n" + m.GetContextByUserID(interconnection.UserID)
+	interconnection.Context = "Contexto:\n" + m.getContextByUserID(interconnection.UserID)
 	interconnection.Status = OnHold
 	interconnection.Timestamp = time.Now()
 	time.Sleep(time.Second * 1)
@@ -527,7 +527,7 @@ func (m *Manager) EndChat(interconnection *Interconnection) {
 	logrus.Infof("Ending Interconnection : %s", interconnection.UserID)
 }
 
-func (m *Manager) GetContextByUserID(userID string) string {
+func (m *Manager) getContextByUserID(userID string) string {
 	allContext := m.contextcache.RetrieveContext(userID)
 
 	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
@@ -548,6 +548,14 @@ func (m *Manager) GetContextByUserID(userID string) string {
 	}
 
 	return builder.String()
+}
+
+func (m *Manager) GetContextByUserID(userID string) []cache.Context {
+	allContext := m.contextcache.RetrieveContext(userID)
+
+	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
+
+	return allContext
 }
 
 // Change button or owner according to the provider or by custom fields

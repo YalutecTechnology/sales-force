@@ -1,8 +1,10 @@
 package handlers
 
 import (
-	mock "github.com/stretchr/testify/mock"
 	manage "yalochat.com/salesforce-integration/app/manage"
+	cache "yalochat.com/salesforce-integration/base/cache"
+
+	mock "github.com/stretchr/testify/mock"
 
 	models "yalochat.com/salesforce-integration/base/models"
 )
@@ -26,6 +28,36 @@ func (_m *ManagerI) CreateChat(interconnection *manage.Interconnection) error {
 	return r0
 }
 
+// FinishChat provides a mock function with given fields: userId
+func (_m *ManagerI) FinishChat(userId string) error {
+	ret := _m.Called(userId)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(userId)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetContextByUserID provides a mock function with given fields: userID
+func (_m *ManagerI) GetContextByUserID(userID string) []cache.Context {
+	ret := _m.Called(userID)
+
+	var r0 []cache.Context
+	if rf, ok := ret.Get(0).(func(string) []cache.Context); ok {
+		r0 = rf(userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]cache.Context)
+		}
+	}
+
+	return r0
+}
+
 // SaveContext provides a mock function with given fields: integration
 func (_m *ManagerI) SaveContext(integration *models.IntegrationsRequest) error {
 	ret := _m.Called(integration)
@@ -40,42 +72,13 @@ func (_m *ManagerI) SaveContext(integration *models.IntegrationsRequest) error {
 	return r0
 }
 
-// GetContextByUserID provides a mock function with given fields: userID
-func (_m *ManagerI) GetContextByUserID(userID string) string {
-	ret := _m.Called(userID)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(userID)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-
-// SaveContext provides a mock function with given fields: integration
+// SaveContextFB provides a mock function with given fields: integration
 func (_m *ManagerI) SaveContextFB(integration *models.IntegrationsFacebook) error {
 	ret := _m.Called(integration)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*models.IntegrationsFacebook) error); ok {
 		r0 = rf(integration)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// FinishChat provides a mock function with given fields: integration
-func (_m *ManagerI) FinishChat(userID string) error {
-	ret := _m.Called(userID)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(userID)
 	} else {
 		r0 = ret.Error(0)
 	}
