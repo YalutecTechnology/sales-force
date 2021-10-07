@@ -7,4 +7,5 @@ const (
 
 	//keys
 	MessageKey = "message:%s"
+	UserKey    = "user:%s"
 )
