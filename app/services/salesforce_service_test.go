@@ -66,11 +66,11 @@ func TestSalesforceService_EndChat(t *testing.T) {
 	)
 
 	t.Run("End Chat Succesfull", func(t *testing.T) {
-        mock := new(SfcChatInterface)
+		mock := new(SfcChatInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
 		salesforceService.SfcChatClient = mock
 
-		mock.On("ChatEnd",affinityToken, sessionKey).Return(nil)
+		mock.On("ChatEnd", affinityToken, sessionKey).Return(nil)
 
 		err := salesforceService.EndChat(affinityToken, sessionKey)
 		assert.NoError(t, err)
@@ -102,7 +102,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27")).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -118,7 +118,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContact", fmt.Sprintf(queryForContactByField, "mobilePhone", "%27"+phoneNumber+"%27")).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -142,7 +142,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		}
 		mock.On("CreateContact", contactRequest).Return(contactExpected.ID, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -151,6 +151,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
 		mock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string))
+		salesforceService.AccountRecordTypeId = "recordTypeID"
 		salesforceService.SfcClient = mock
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
@@ -173,7 +174,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchAccount", fmt.Sprintf(queryForAccountByField, "id", "accountID")).Return(accountFound, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber, "recordTypeID")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -195,7 +196,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		}
 		mock.On("CreateContact", contactRequest).Return(contactExpectedWhitoutPhone.ID, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, "", "")
+		contact, err := salesforceService.GetOrCreateContact(contactName, email, "")
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpectedWhitoutPhone, contact)

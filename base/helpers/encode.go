@@ -24,7 +24,6 @@ func GetExportFilename(name, mimeType string) string {
 	if err != nil || len(extensions) == 0 {
 		return name
 	}
-
 	return name + extensions[0]
 }
 

@@ -31,7 +31,7 @@ const (
 
 func TestCreateChat(t *testing.T) {
 	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
-	handler.POST(fmt.Sprintf("%s/chats/connect", apiVersion), app.createChat)
+	handler.POST(requestURL, app.createChat)
 
 	t.Run("Should get a valid response with valid line and agent name", func(t *testing.T) {
 		managerMock := new(ManagerI)

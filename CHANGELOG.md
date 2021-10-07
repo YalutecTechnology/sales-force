@@ -1,6 +1,6 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-04)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-06)
 
 ### Feat
 
@@ -8,6 +8,10 @@
 * **Integration-Library Salesforce:** Create Salesforce Account. Add the CreateAccount and SearchAccount services. Closes #CSF-178
 * **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
 * **Integration-interconnection:** Ignore duplicated messages. Add condition to ignore duplicate messages in webhook. Closes #CSF-176
+
+### Fix
+
+* **Integration-Backbone:** Fixing envar configurations, messages and cache. Add MessageCache again, "Tiempo de espera" messages were removed, cache time for duplicate incoming messages was increased, multiple file tests were fixed. Closes #CSF-180
 
 
 <a name="v0.1.1"></a>

@@ -17,7 +17,7 @@ const AutoAsssingHeader = "Sforce-Auto-Assign"
 
 func NewSalesforceRequester(url, token string) *SalesforceClient {
 	return &SalesforceClient{
-		Proxy:       proxy.NewProxy(url),
+		Proxy:       proxy.NewProxy(url, 30),
 		AccessToken: token,
 	}
 }

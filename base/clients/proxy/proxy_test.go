@@ -10,7 +10,7 @@ import (
 
 func TestForward(t *testing.T) {
 	baseURL := "https://google.com/"
-	proxyInstance := NewProxy(baseURL)
+	proxyInstance := NewProxy(baseURL, 5)
 
 	t.Run("Valid forward with valid request", func(t *testing.T) {
 		request := &Request{
@@ -28,7 +28,7 @@ func TestForward(t *testing.T) {
 
 	t.Run("Fail forward with valid request", func(t *testing.T) {
 		baseURL := "https://go.com/"
-		proxyInstance := NewProxy(baseURL)
+		proxyInstance := NewProxy(baseURL, 5)
 		expectedError := "Error proxying a request"
 		request := &Request{
 			Body:   []byte("Hola"),

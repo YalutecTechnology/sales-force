@@ -29,17 +29,18 @@ const (
 )
 
 type SalesforceService struct {
-	TokenPayload   login.TokenPayload
-	SfcLoginClient login.SfcLoginInterface
-	SfcChatClient  chat.SfcChatInterface
-	SfcClient      salesforce.SaleforceInterface
-	SourceFlowBot  envs.SfcSourceFlowBot
-	CustomFields   map[string]string
+	TokenPayload        login.TokenPayload
+	SfcLoginClient      login.SfcLoginInterface
+	SfcChatClient       chat.SfcChatInterface
+	SfcClient           salesforce.SaleforceInterface
+	SourceFlowBot       envs.SfcSourceFlowBot
+	CustomFields        map[string]string
+	AccountRecordTypeId string
 }
 
 type SalesforceServiceInterface interface {
 	CreatChat(contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
-	GetOrCreateContact(name, email, phoneNumber, accountRecordTypeID string) (*models.SfcContact, error)
+	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
@@ -145,7 +146,7 @@ func (s *SalesforceService) CreatChat(contactName, organizationID, deploymentID,
 	return session, nil
 }
 
-func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber, accountRecordTypeID string) (*models.SfcContact, error) {
+func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error) {
 	// Search contact by email
 	contact, err := s.SfcClient.SearchContact(fmt.Sprintf(queryForContactByField, "email", "%27"+email+"%27"))
 
@@ -177,7 +178,7 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber, account
 		MobilePhone: phoneNumber,
 	}
 
-	if accountRecordTypeID != "" {
+	if s.AccountRecordTypeId != "" {
 		firstName := firstNameDefault
 		date := time.Now().Format(constants.DateFormatDateTime)
 		accountID, err := s.SfcClient.CreateAccount(salesforce.AccountRequest{
@@ -186,7 +187,7 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber, account
 			PersonEmail:       &email,
 			PersonMobilePhone: &phoneNumber,
 			PersonBirthDate:   &date,
-			RecordTypeID:      &accountRecordTypeID,
+			RecordTypeID:      &s.AccountRecordTypeId,
 		})
 
 		if err != nil {

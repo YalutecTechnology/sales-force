@@ -140,7 +140,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		logrus.Infof("Event [%s]", chat.ChatRequestSuccess)
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente", in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
+		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
 		logrus.Infof("Event [%s]", event.Type)
 		in.ActiveChat()
@@ -149,10 +149,10 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text, in.Provider)
 	case chat.QueueUpdate:
 		logrus.Infof("Event [%s]", chat.QueueUpdate)
-		if event.Message.QueuePosition > 0 {
-			//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
+		/*if event.Message.QueuePosition > 0 {
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
-		}
+		}*/
 	case chat.ChatEnded:
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState, in.BotrunnnerClient, 0)
 		in.updateStatusRedis(string(Closed))
