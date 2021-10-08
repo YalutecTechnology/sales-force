@@ -93,4 +93,17 @@ func TestRetrieveContext(t *testing.T) {
 
 		assert.Equal(t, &[]Context{context2, context3, context}, &arrays)
 	})
+
+	t.Run("Should retrieve line windows with error", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+
+		arrays := rcs.RetrieveContext("55555555555")
+
+		assert.Empty(t, &arrays)
+	})
 }

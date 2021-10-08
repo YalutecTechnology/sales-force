@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // InterconnectionStatus contains interconnection status to match with InterconnectionStatus
@@ -68,8 +70,12 @@ func (rc *RedisCache) RetrieveInterconnection(interconnection Interconnection) (
 // RetrieveAllInterconnections returns interconnections array from the Cache
 func (rc *RedisCache) RetrieveAllInterconnections() *[]Interconnection {
 	var redisInterconnectionsArray []Interconnection
-	data := rc.client.Keys("*:interconnection")
-	for _, key := range data.Val() {
+	keys, err := rc.GetAllKeysWithScanByMatch("*:interconnection", countScan)
+	if err != nil {
+		logrus.WithError(err).Error("Redis 'RetrieveAllInterconnections'")
+		return nil
+	}
+	for _, key := range keys {
 		var redisInterconnections Interconnection
 		data, _ := rc.RetrieveData(key)
 		json.Unmarshal([]byte(data), &redisInterconnections)
@@ -79,16 +85,40 @@ func (rc *RedisCache) RetrieveAllInterconnections() *[]Interconnection {
 }
 
 // RetrieveInterconnectionActiveByUserId returns interconnection from the Cache with status OnHold or Active
-func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userId string) *Interconnection {
+func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userID string) *Interconnection {
 	var redisInterconnection Interconnection
-	data := rc.client.Keys(fmt.Sprintf("%s:*:interconnection", userId))
-	for _, key := range data.Val() {
-		data, _ := rc.RetrieveData(key)
-		json.Unmarshal([]byte(data), &redisInterconnection)
-		if redisInterconnection.Status == "ON_HOLD" || redisInterconnection.Status == "ACTIVE" {
-			return &redisInterconnection
+	var err error
+	var keys []string
+	cursor := uint64(0)
+
+	for {
+		keys, cursor, err = rc.ScanKeys(cursor, fmt.Sprintf("%s:*:interconnection", userID), countScan)
+		if err != nil {
+			logrus.WithError(err).Error("Redis 'RetrieveInterconnectionActiveByUserId'")
+			return nil
+		}
+
+		var value string
+		for i := range keys {
+			value, err = rc.RetrieveData(keys[i])
+			if err != nil {
+				logrus.WithError(err).Error("error RetrieveData")
+				return nil
+			}
+			err = json.Unmarshal([]byte(value), &redisInterconnection)
+			if redisInterconnection.UserID == userID {
+				if redisInterconnection.Status == "ON_HOLD" || redisInterconnection.Status == "ACTIVE" {
+					return &redisInterconnection
+				}
+				return nil
+			}
+		}
+		if cursor == 0 {
+			break
 		}
 	}
+	logrus.Errorf("Interconnection not found in redis with userID : [%s], Description: %s",
+		userID, err)
 	return nil
 }
 

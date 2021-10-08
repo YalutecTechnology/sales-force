@@ -11,6 +11,7 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
+	"yalochat.com/salesforce-integration/base/helpers"
 )
 
 // Status that an interconnection can have
@@ -182,9 +183,8 @@ func (in *Interconnection) handleStatus() {
 func (in *Interconnection) ActiveChat() {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
-	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, in.Context)
-	time.Sleep(500 * time.Millisecond)
-	in.salesforceChannel <- NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name))
+	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context))
+	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name)))
 }
 
 func convertInterconnectionCacheToInterconnection(interconnection cache.Interconnection) *Interconnection {
@@ -218,4 +218,12 @@ func (in *Interconnection) updateStatusRedis(status string) {
 	if err != nil {
 		logrus.Errorf("Could not update status in interconnection userID[%s]-sessionId[%s] from redis : [%s]", in.UserID, in.SessionID, err.Error())
 	}
+}
+
+func (in *Interconnection) sendMessageToSalesforce(message *Message) {
+	_, err := in.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+	if err != nil {
+		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+	}
+	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }

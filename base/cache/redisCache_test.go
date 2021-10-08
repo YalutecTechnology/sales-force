@@ -133,3 +133,71 @@ func TestRetrieveData(t *testing.T) {
 		}
 	})
 }
+
+func TestScanKeys(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	rcs := RedisCache{}
+
+	t.Run("Should scan keys with any error", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: m.Addr(),
+		})
+		rcs.client = c
+
+		_, _, err := rcs.ScanKeys(0, "", 10)
+		if err != nil {
+			t.Fatalf("Expected nil error, but this error was retrieved: %v", err.Error())
+		}
+	})
+
+	t.Run("Should scan keys with connection error", func(t *testing.T) {
+		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+
+		_, _, err := rcs.ScanKeys(0, "", 10)
+		if err.Error() != expectedErr {
+			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
+		}
+	})
+}
+
+func TestGetAllKeysWithScanByMatch(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+	rcs := RedisCache{}
+
+	t.Run("Should get all keys with any error", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: m.Addr(),
+		})
+		rcs.client = c
+
+		_, err := rcs.GetAllKeysWithScanByMatch("", 10)
+		if err != nil {
+			t.Fatalf("Expected nil error, but this error was retrieved: %v", err.Error())
+		}
+	})
+
+	t.Run("Should scan keys with connection error", func(t *testing.T) {
+		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+
+		_, err := rcs.GetAllKeysWithScanByMatch("", 10)
+		if err.Error() != expectedErr {
+			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
+		}
+	})
+}
