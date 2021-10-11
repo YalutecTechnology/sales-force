@@ -939,7 +939,7 @@ second line
 			contextcache: contextCache,
 		}
 
-		ctxStr := manager.GetContextByUserID(userID)
+		ctxStr := manager.getContextByUserID(userID)
 		expected := `Cliente [31-08-2021 05:00:00]:Hello
 
 Bot [31-08-2021 05:01:00]:Hello I'm a bot
@@ -952,6 +952,91 @@ Cliente [09-09-2021 10:45:37]:this a test
 second line
 
 `
+		assert.Equal(t, expected, ctxStr)
+	})
+}
+
+func TestManager_GetContextByUserID(t *testing.T) {
+	t.Run("Should save context voice", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := []cache.Context{
+			{
+				UserID:    userID,
+				Timestamp: 1631202337350,
+				Text: `this a test
+second line
+`,
+				From: fromUser,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404000000,
+				Text:      "Hello",
+				From:      fromUser,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404060000,
+				Text:      "Hello I'm a bot",
+				From:      fromBot,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404240000,
+				Text:      "ok.",
+				From:      fromBot,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404120000,
+				Text:      "I need help",
+				From:      fromUser,
+			},
+		}
+
+		contextCache.On("RetrieveContext", userID).Return(ctx)
+
+		manager := &Manager{
+			contextcache: contextCache,
+		}
+
+		expected := []cache.Context{
+			{
+				UserID:    userID,
+				Timestamp: 1630404000000,
+				Text:      "Hello",
+				From:      fromUser,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404060000,
+				Text:      "Hello I'm a bot",
+				From:      fromBot,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404120000,
+				Text:      "I need help",
+				From:      fromUser,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1630404240000,
+				Text:      "ok.",
+				From:      fromBot,
+			},
+			{
+				UserID:    userID,
+				Timestamp: 1631202337350,
+				Text: `this a test
+second line
+`,
+				From: fromUser,
+			},
+		}
+
+		ctxStr := manager.GetContextByUserID(userID)
+
 		assert.Equal(t, expected, ctxStr)
 	})
 }

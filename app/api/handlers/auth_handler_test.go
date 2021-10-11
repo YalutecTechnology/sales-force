@@ -21,16 +21,21 @@ import (
 )
 
 const (
-	yaloUserTest     = "yaloUser"
-	yaloPasswordTest = "yaloPassword"
-	yaloTokenTest    = "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjEyYjgxNmM2YjhhM2M0NWVkYmUwZjg1ZDhiYTQ0YjNkNWYxNDhhYjkiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.2HsCTU6IPwlFQV_Vu8w_IjxtLJIQs-_W-8jobwWtGmkzc9SYaibc7QN-5caZgVrC"
-	secretTest       = "secret"
+	yaloUserTest           = "yaloUser"
+	salesforceUserTest     = "salesforceUser"
+	yaloPasswordTest       = "yaloPassword"
+	salesforcePasswordTest = "salesforcePassword"
+	yaloTokenTest          = "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjEyYjgxNmM2YjhhM2M0NWVkYmUwZjg1ZDhiYTQ0YjNkNWYxNDhhYjkiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.2HsCTU6IPwlFQV_Vu8w_IjxtLJIQs-_W-8jobwWtGmkzc9SYaibc7QN-5caZgVrC"
+	saleforceTokenTest     = "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6ImE3MWM0MmIxNGI2ZjFjMjQ3YjZiZjdkNDE2MTI0OTE0YzI3ZjViODEiLCJyb2xlIjoiU0FMRVNGT1JDRV9ST0xFIiwidXNlcm5hbWUiOiJzYWxlc2ZvcmNlVXNlciJ9.nECI_rVMOqZmdzNrgAZy8p5cwMdh--4Ld1xu2POngoJQxRgHP_H04SgqhSlee7KK"
+	secretTest             = "secret"
 )
 
 var apiConfig = ApiConfig{
-	YaloUsername: yaloUserTest,
-	YaloPassword: yaloPasswordTest,
-	SecretKey:    secretTest,
+	YaloUsername:       yaloUserTest,
+	YaloPassword:       yaloPasswordTest,
+	SalesforceUsername: salesforceUserTest,
+	SalesforcePassword: salesforcePasswordTest,
+	SecretKey:          secretTest,
 }
 
 // TODO: Upgrade unit tests as in chat_handler_test.go
@@ -54,6 +59,28 @@ func TestAuthenticate(t *testing.T) {
 		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer([]byte("{\"username\":\"yaloUser\",\"password\":\"yaloPassword\"}")))
 		response := httptest.NewRecorder()
 		expected := yaloTokenTest
+
+		handler.ServeHTTP(response, req)
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+		var token tokenResult
+		err := json.NewDecoder(response.Body).Decode(&token)
+		if err != nil {
+			t.Fatalf("Response should produce an token result, but found this: %s", response.Body)
+		}
+
+		if token.Token != expected {
+			t.Fatalf("Response should produce an token %s, but found this: %s", expected, token.Token)
+		}
+
+	})
+
+	t.Run("Should return an saleforce token", func(t *testing.T) {
+		requestURL := "/v1/authenticate"
+		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer([]byte("{\"username\":\"salesforceUser\",\"password\":\"salesforcePassword\"}")))
+		response := httptest.NewRecorder()
+		expected := saleforceTokenTest
 
 		handler.ServeHTTP(response, req)
 		if response.Code != http.StatusOK {
