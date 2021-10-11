@@ -165,6 +165,21 @@ func TestCaseClient_SearchDocumentID(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, id)
 	})
+
+	t.Run("SearchDocumentID Not found", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{ "totalSize": 1,"done": true, "records": []}`))),
+		}, nil)
+		query := "SELECT+ContentDocumentID+FROM+ContentVersion+WHERE+id+=+'01"
+		id, err := salesforceClient.SearchDocumentID(query)
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
 }
 
 func TestCaseClient_Search(t *testing.T) {
@@ -296,6 +311,21 @@ func TestCaseClient_SearchId(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, id)
 	})
+
+	t.Run("SearchId Not found", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
+		}, nil)
+		query := "SELECT+name+,+lastName+,+id+FROM+Contact+WHERE+email+=+%27mauricio.ruiz@intellectsystem.net%27"
+		id, err := salesforceClient.SearchID(query)
+
+		assert.Error(t, err)
+		assert.Empty(t, id)
+	})
 }
 
 func TestCaseClient_SearchContact(t *testing.T) {
@@ -362,6 +392,22 @@ func TestCaseClient_SearchContact(t *testing.T) {
 		id, err := salesforceClient.SearchContact("query")
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
+	})
+
+	t.Run("SearchContact not found", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
+		}, nil)
+
+		query := "SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+FROM+Contact+WHERE+mobilePhone+=+%277331175599%27"
+		contact, err := salesforceClient.SearchContact(query)
+
+		assert.Error(t, err.Error)
+		assert.Empty(t, contact)
 	})
 }
 
@@ -441,6 +487,25 @@ func TestCaseClient_SearchAccount(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		account, err := salesforceClient.SearchAccount("query")
+		assert.Error(t, err.Error)
+		assert.Empty(t, account)
+	})
+
+	t.Run("SearchAccount Not Found", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{
+				"totalSize": 0,
+				"done": true,
+				"records": []
+			}`))),
+		}, nil)
+
+		query := "SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+id+=+'accountID'"
+		account, err := salesforceClient.SearchAccount(query)
 		assert.Error(t, err.Error)
 		assert.Empty(t, account)
 	})
@@ -1221,4 +1286,111 @@ func TestCaseClient_CreateAccountComposite(t *testing.T) {
 	// 	assert.Error(t, err.Error)
 	// 	assert.Empty(t, id)
 	// })
+}
+
+func TestSalesforceClient_GetContentVersionURL(t *testing.T) {
+	type fields struct {
+		AccessToken string
+		APIVersion  string
+		Proxy       proxy.ProxyInterface
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "success",
+			fields: fields{
+				APIVersion: "52",
+			},
+
+			want: "/services/data/v52.0/sobjects/ContentVersion",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &SalesforceClient{
+				AccessToken: tt.fields.AccessToken,
+				APIVersion:  tt.fields.APIVersion,
+				Proxy:       tt.fields.Proxy,
+			}
+			if got := cc.GetContentVersionURL(); got != tt.want {
+				t.Errorf("SalesforceClient.GetContentVersionURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSalesforceClient_GetSearchURL(t *testing.T) {
+	type fields struct {
+		AccessToken string
+		APIVersion  string
+		Proxy       proxy.ProxyInterface
+	}
+	type args struct {
+		query string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			name: "success",
+			fields: fields{
+				APIVersion: "52",
+			},
+			args: args{
+				query: "test",
+			},
+			want: "/services/data/v52.0/query/?q=test",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &SalesforceClient{
+				AccessToken: tt.fields.AccessToken,
+				APIVersion:  tt.fields.APIVersion,
+				Proxy:       tt.fields.Proxy,
+			}
+			if got := cc.GetSearchURL(tt.args.query); got != tt.want {
+				t.Errorf("SalesforceClient.GetSearchURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSalesforceClient_GetDocumentLinkURL(t *testing.T) {
+	type fields struct {
+		AccessToken string
+		APIVersion  string
+		Proxy       proxy.ProxyInterface
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "success",
+			fields: fields{
+				APIVersion: "52",
+			},
+			want: "/services/data/v52.0/sobjects/ContentDocumentLink",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := &SalesforceClient{
+				AccessToken: tt.fields.AccessToken,
+				APIVersion:  tt.fields.APIVersion,
+				Proxy:       tt.fields.Proxy,
+			}
+			if got := cc.GetDocumentLinkURL(); got != tt.want {
+				t.Errorf("SalesforceClient.GetDocumentLinkURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

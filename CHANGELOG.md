@@ -1,11 +1,12 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-06)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-08)
 
 ### Feat
 
 * **Integration - Endpoints:** Add end chat endpoint. (New)
 * **Integration-Library Salesforce:** Create Salesforce Account. Add the CreateAccount and SearchAccount services. Closes #CSF-178
+* **Integration-interconnection:** Improve coverage package salesforce.go file. Add more unit test in package clients in salesforce.go file . Closes #CSF-188
 * **Integration-interconnection:** Do composite when creating account. Change request to create account to composite request. Closes #CSF-185
 * **Integration-interconnection:** Fix local cache from map to risttreto. Change local cache to ristretto library. Closes #CSF-183
 * **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
