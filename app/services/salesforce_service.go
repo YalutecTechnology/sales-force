@@ -34,6 +34,7 @@ type SalesforceService struct {
 	SourceFlowBot       envs.SfcSourceFlowBot
 	CustomFields        map[string]string
 	AccountRecordTypeId string
+	RecordTypeID        string
 }
 
 type SalesforceServiceInterface interface {
@@ -41,18 +42,19 @@ type SalesforceServiceInterface interface {
 	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
-	CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
+	CreatCase(contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string) *SalesforceService {
+func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID string) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient: &loginClient,
 		SfcChatClient:  &chatClient,
 		SfcClient:      &salesforceClient,
 		TokenPayload:   tokenPayload,
 		CustomFields:   customFields,
+		RecordTypeID:   recordTypeID,
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
@@ -211,7 +213,7 @@ func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat
 	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
 }
 
-func (s *SalesforceService) CreatCase(recordType, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
+func (s *SalesforceService) CreatCase(contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
 
 	payload := make(map[string]interface{})
 	for key, value := range extraData {
@@ -226,20 +228,27 @@ func (s *SalesforceService) CreatCase(recordType, contactID, description, subjec
 		description = value.(string)
 	}
 
-	caseRequest := NewCaseRequest(recordType, contactID, subject, description, origin, ownerID)
+	caseRequest := NewCaseRequest(s.RecordTypeID, contactID, subject, description, origin, ownerID)
 	//validating CaseRequest Payload struct
 	if err := helpers.Govalidator().Struct(caseRequest); err != nil {
 		return "", errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
 	}
 
-	payload["RecordTypeId"] = caseRequest.RecordTypeID
+	if caseRequest.RecordTypeID != "" {
+		payload["RecordTypeId"] = caseRequest.RecordTypeID
+	}
+
+	if ownerID != "" {
+		payload["OwnerId"] = caseRequest.OwnerID
+	}
+
 	payload["ContactId"] = caseRequest.ContactID
 	payload["Description"] = caseRequest.Description
 	payload["Origin"] = caseRequest.Origin
 	payload["Priority"] = caseRequest.Priority
 	payload["Status"] = caseRequest.Status
 	payload["Subject"] = caseRequest.Subject
-	payload["OwnerId"] = caseRequest.OwnerID
+
 	caseID, errorResponse := s.SfcClient.CreateCase(payload)
 
 	if errorResponse != nil {

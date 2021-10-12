@@ -78,20 +78,20 @@ type SalesforceServiceInterface struct {
 	mock.Mock
 }
 
-// CreatCase provides a mock function with given fields: recordType, contactID, description, subject, origin, ownerID, extraData, customFields
-func (_m *SalesforceServiceInterface) CreatCase(recordType string, contactID string, description string, subject string, origin string, ownerID string, extraData map[string]interface{}) (string, error) {
-	ret := _m.Called(recordType, contactID, description, subject, origin, ownerID, extraData)
+// CreatCase provides a mock function with given fields: contactID, description, subject, origin, ownerID, extraData
+func (_m *SalesforceServiceInterface) CreatCase(contactID string, description string, subject string, origin string, ownerID string, extraData map[string]interface{}) (string, error) {
+	ret := _m.Called(contactID, description, subject, origin, ownerID, extraData)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(string, string, string, string, string, string, map[string]interface{}) string); ok {
-		r0 = rf(recordType, contactID, description, subject, origin, ownerID, extraData)
+	if rf, ok := ret.Get(0).(func(string, string, string, string, string, map[string]interface{}) string); ok {
+		r0 = rf(contactID, description, subject, origin, ownerID, extraData)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string, string, string, map[string]interface{}) error); ok {
-		r1 = rf(recordType, contactID, description, subject, origin, ownerID, extraData)
+	if rf, ok := ret.Get(1).(func(string, string, string, string, string, map[string]interface{}) error); ok {
+		r1 = rf(contactID, description, subject, origin, ownerID, extraData)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -45,6 +45,7 @@ type Envs struct {
 	SfcCustomFieldsCase    map[string]string `split_words:"true"`
 	SfcSourceFlowBot       SfcSourceFlowBot  `required:"true" split_words:"true"`
 	SfcSourceFlowField     string            `split_words:"true" default:"source_flow_bot"`
+	SfcBlockedChatField    bool              `split_words:"true"`
 	IntegrationsWAChannel  string            `split_words:"true" default:"outgoing_webhook"`
 	IntegrationsFBChannel  string            `split_words:"true" default:"passthrough"`
 	IntegrationsWABotID    string            `split_words:"true"`

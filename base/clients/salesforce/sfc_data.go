@@ -16,8 +16,9 @@ import (
 const (
 	AutoAsssingHeader = "Sforce-Auto-Assign"
 	//TODO: the CP_BlockedChatYalo__c field is customized for Coppel and that in other integrations we must remove from the query
-	queryForContactByField = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+%s+=+'%s'`
+	queryForContactByField = `SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+%sFROM+Contact+WHERE+%s+=+'%s'`
 	queryForAccountByField = `SELECT+id+,+firstName+,+lastName+,+PersonMobilePhone+,+PersonEmail+,+PersonContactId+FROM+Account+WHERE+%s+=+'%s'`
+	blockedChatYaloField   = ",+CP_BlockedChatYalo__c+"
 )
 
 func NewSalesforceRequester(url, token string) *SalesforceClient {
@@ -29,9 +30,10 @@ func NewSalesforceRequester(url, token string) *SalesforceClient {
 
 //SalesforceClient settings for use a case client
 type SalesforceClient struct {
-	AccessToken string
-	APIVersion  string
-	Proxy       proxy.ProxyInterface
+	AccessToken         string
+	APIVersion          string
+	Proxy               proxy.ProxyInterface
+	SfcBlockedChatField bool
 }
 
 //ContentVersionPayload handles a content version response
@@ -52,7 +54,7 @@ type LinkDocumentPayload struct {
 }
 
 type CaseRequest struct {
-	RecordTypeID    string      `json:"RecordTypeId" validate:"required"`
+	RecordTypeID    string      `json:"RecordTypeId"`
 	ContactID       string      `json:"ContactId" validate:"required"`
 	OwnerID         string      `json:"OwnerId"`
 	Description     string      `json:"Description" validate:"required"`
@@ -372,11 +374,15 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 }
 
 func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	blockedChat := ""
+	if cc.SfcBlockedChatField {
+		blockedChat = blockedChatYaloField
+	}
 	request := CompositeRequest{
 		CompositeRequest: []Composite{
 			{
 				Method:      http.MethodGet,
-				URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, "email", email)),
+				URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, blockedChat, "email", email)),
 				ReferenceId: "newQueryEmail",
 			},
 		},
@@ -385,7 +391,7 @@ func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*
 	if phoneNumber != "" {
 		request.CompositeRequest = append(request.CompositeRequest, Composite{
 			Method:      http.MethodGet,
-			URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, "mobilePhone", phoneNumber)),
+			URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, blockedChat, "mobilePhone", phoneNumber)),
 			ReferenceId: "newQueryPhone",
 		})
 	}

@@ -1,6 +1,6 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-08)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-12)
 
 ### Feat
 
@@ -10,6 +10,7 @@
 * **Integration-interconnection:** Improve coverage package helpers. Add more unit test in package helpers . Closes #CSF-186
 * **Integration-interconnection:** Do composite when creating account. Change request to create account to composite request. Closes #CSF-185
 * **Integration-interconnection:** Fix local cache from map to risttreto. Change local cache to ristretto library. Closes #CSF-183
+* **Integration-interconnection:** Omit optional fields if not setted. Omit optional fields to others intregrations. Closes #CSF-193
 * **Integration-interconnection:** Improve coverage package salesforce.go file. Add more unit test in package clients in salesforce.go file . Closes #CSF-188
 * **Integration-interconnection:** Envar for workflow configuration. Add envar  to config create case workflow. Closes #CSF-177
 * **Integration-interconnection:** Ignore duplicated messages. Add condition to ignore duplicate messages in webhook. Closes #CSF-176

@@ -989,6 +989,7 @@ func TestCaseClient_SearchContactComposite(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
+		salesforceClient.SfcBlockedChatField = true
 
 		response := CompositeResponses{
 			CompositeResponse: []CompositeResponse{
