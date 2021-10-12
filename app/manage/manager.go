@@ -111,6 +111,8 @@ type ManagerOptions struct {
 	IntegrationsWABotPhone     string
 	IntegrationsFBBotPhone     string
 	WebhookBaseUrl             string
+	WebhookWhatsapp            string
+	WebhookFacebook            string
 	Environment                string
 	KeywordsRestart            []string
 	SfcSourceFlowBot           envs.SfcSourceFlowBot
