@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -42,8 +44,12 @@ func (rc *RedisCache) StoreContext(context Context) error {
 // RetrieveContext returns a context from the Cache
 func (rc *RedisCache) RetrieveContext(userID string) []Context {
 	var redisContextArray []Context
-	data := rc.client.Keys(fmt.Sprintf("context:user_id:%s:timestamp:*", userID))
-	for _, key := range data.Val() {
+	keys, err := rc.GetAllKeysWithScanByMatch(fmt.Sprintf("context:user_id:%s:timestamp:*", userID), countScan)
+	if err != nil {
+		logrus.WithError(err).Error("Redis 'RetrieveAllInterconnections'")
+		return nil
+	}
+	for _, key := range keys {
 		var redisContext Context
 		data, _ := rc.RetrieveData(key)
 		json.Unmarshal([]byte(data), &redisContext)

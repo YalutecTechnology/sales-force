@@ -2,6 +2,7 @@ package manage
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -212,7 +213,7 @@ func TestCheckEvent_test(t *testing.T) {
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 
 	t.Run("Chat request success event received", func(t *testing.T) {
-		expectedLog := "ChatRequestSuccess"
+		expectedLog := chat.ChatRequestSuccess
 		event := chat.MessageObject{
 			Type:    chat.ChatRequestSuccess,
 			Message: chat.Message{},
@@ -229,6 +230,13 @@ func TestCheckEvent_test(t *testing.T) {
 
 	t.Run("Chat Established event received", func(t *testing.T) {
 		expectedLog := chat.ChatEstablished
+		mock := new(SalesforceServiceInterface)
+		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
+			Return(true, nil).Once()
+		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf("Hola soy %s y necesito ayuda", interconnection.Name)}).
+			Return(false, assert.AnError).Once()
+
+		interconnection.SalesforceService = mock
 		event := chat.MessageObject{
 			Type: chat.ChatEstablished,
 			Message: chat.Message{

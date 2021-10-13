@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	ttlMessage = time.Second * 6
+	ttlMessage = time.Minute * 5
 )
 
 type MessageCache struct {

@@ -15,6 +15,10 @@ var (
 	ErrGettingRedis = errors.New("error trying to get redis PONG")
 )
 
+const (
+	countScan int64 = 10
+)
+
 // CommonRedisCache interface that holds method to retrieve cached sessions
 type CommonRedisCache interface {
 	StoreData(string, []byte, time.Duration) error
@@ -92,4 +96,33 @@ func (rc *RedisCache) DeleteAll() error {
 		return err
 	}
 	return nil
+}
+
+func (rc *RedisCache) ScanKeys(cursor uint64, match string, count int64) ([]string, uint64, error) {
+	keys, curs, err := rc.client.Scan(cursor, match, count).Result()
+	if err != nil {
+		log.Errorf("Redis Scan error: %s", err.Error())
+		return nil, 0, err
+	}
+
+	return keys, curs, nil
+}
+
+func (rc *RedisCache) GetAllKeysWithScanByMatch(match string, count int64) ([]string, error) {
+	var cursor uint64
+	var allKeys []string
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = rc.client.Scan(cursor, match, count).Result()
+		if err != nil {
+			log.Errorf("Redis Scan error: %s", err.Error())
+			return nil, err
+		}
+		allKeys = append(allKeys, keys...)
+		if cursor == 0 {
+			break
+		}
+	}
+	return allKeys, nil
 }

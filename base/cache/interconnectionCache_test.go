@@ -174,6 +174,19 @@ func TestRetrieveInterconnections(t *testing.T) {
 		}
 		rcs.DeleteAll()
 	})
+
+	t.Run("Should retrieve interconnection without errors", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+
+		arrays := rcs.RetrieveAllInterconnections()
+
+		assert.Nil(t, arrays)
+	})
 }
 
 func TestDeleteAllInterconnections(t *testing.T) {
@@ -300,6 +313,7 @@ func TestRetrieveInterconnectionActiveByUserId(t *testing.T) {
 	rcs, _ := NewRedisCache(opts)
 
 	t.Run("Should retrieve a interconnection without errors", func(t *testing.T) {
+		defer rcs.client.FlushAll()
 		interconnectionExpected := Interconnection{
 			BotID:         "botID",
 			BotSlug:       "coppel-bot",
@@ -327,6 +341,7 @@ func TestRetrieveInterconnectionActiveByUserId(t *testing.T) {
 	})
 
 	t.Run("Should fail to retrieve a interconnection", func(t *testing.T) {
+		defer rcs.client.FlushAll()
 		interconnection := Interconnection{
 			BotID:         "botID",
 			BotSlug:       "coppel-bot",
@@ -348,6 +363,64 @@ func TestRetrieveInterconnectionActiveByUserId(t *testing.T) {
 		rcs.StoreInterconnection(interconnection)
 
 		actual := rcs.RetrieveInterconnectionActiveByUserId(interconnection.UserID)
+
+		assert.Nil(t, actual)
+	})
+
+	t.Run("Should retrieve a interconnection not found", func(t *testing.T) {
+		defer rcs.client.FlushAll()
+		interconnectionExpected := Interconnection{
+			BotID:         "botID",
+			BotSlug:       "coppel-bot",
+			UserID:        "userID",
+			Status:        "ON_HOLD",
+			SessionID:     "session",
+			SessionKey:    "sessionID",
+			AffinityToken: "affinityToken",
+			Timestamp:     time.Time{},
+			Provider:      "provider",
+			Name:          "name",
+			Email:         "email",
+			PhoneNumber:   "55555555555",
+			CaseID:        "caseID",
+			ExtraData: map[string]interface{}{
+				"data": "data",
+			},
+		}
+
+		actual := rcs.RetrieveInterconnectionActiveByUserId(interconnectionExpected.UserID)
+
+		assert.Nil(t, actual)
+	})
+
+	t.Run("Should retrieve a interconnection error connection", func(t *testing.T) {
+
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+		interconnectionExpected := Interconnection{
+			BotID:         "botID",
+			BotSlug:       "coppel-bot",
+			UserID:        "userID",
+			Status:        "ON_HOLD",
+			SessionID:     "session",
+			SessionKey:    "sessionID",
+			AffinityToken: "affinityToken",
+			Timestamp:     time.Time{},
+			Provider:      "provider",
+			Name:          "name",
+			Email:         "email",
+			PhoneNumber:   "55555555555",
+			CaseID:        "caseID",
+			ExtraData: map[string]interface{}{
+				"data": "data",
+			},
+		}
+
+		actual := rcs.RetrieveInterconnectionActiveByUserId(interconnectionExpected.UserID)
 
 		assert.Nil(t, actual)
 	})
