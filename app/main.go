@@ -77,6 +77,9 @@ func main() {
 		Environment:            envs.Environment,
 		KeywordsRestart:        envs.KeywordsRestart,
 		SfcBlockedChatField:    envs.SfcBlockedChatField,
+		StudioNGUrl:            envs.StudioNGUrl,
+		StudioNGToken:          envs.StudioNGToken,
+		StudioNGTimeout:        envs.StudioNGTimeout,
 	}
 
 	if len(envs.RedisMaster) > 0 {

@@ -35,7 +35,7 @@ The flow implemented for creating chat between an end user and a human agent in 
 
 5. We search through the email or phone received that there is a **contact** or **personal account** in the customer's Salesforce account, if it does not exist, the contact or personal account is created.
 
-6. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the botrunner client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
+6. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the botrunner or studiong client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
 
 7. Once the contact has been validated in Salesforce, we create a query case with the data provided to add it and request a chat. [ChatRequest in LiveAgent API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChasitorInit.htm)
 
@@ -47,12 +47,12 @@ The flow implemented for creating chat between an end user and a human agent in 
 
 * ***204 HTTP Status :*** It means that there are no changes in the chat.
 * ***503 HTTP Status :*** An attempt will be made to reconnect the session because the connection to Salesforce was lost. More details [ReconnectSession](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ReconnectSession.htm)
-* ***Other HTTP Status:*** The **Interconnection** is ended and through the **Botrunner client** the user is changed to a time-ended state, specified in the **TIMEOUT_STATE** environment variable
+* ***Other HTTP Status:*** The **Interconnection** is ended and through the **Botrunner or Studing client** the user is changed to a time-ended state, specified in the **TIMEOUT_STATE** environment variable
 * ***ChatRequestFail:*** The chat was not created correctly in the Salesforce console, due to no agents available in the queue the chat was sent to or some unknown error.
 * ***ChatRequestSuccess :*** The chat was created successfully and the **Interconnection** goes to `OnHold` status waiting for a human agent to accept the chat. The service sends the user a `Esperando agente` message via [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1).
 * ***ChatEstablished :*** An agent accepts the chat and the **Interconnection** goes to `Active` status, at this time both can send messages to each other, but before that, the service sends the context of the query as the first message, that is, the previous conversation between the bot's AI and the user before requesting a live chat.
 * ***ChatMessage :*** The agent sent a message to the user, then through [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1) we forward the message to the user to their *WhatsApp* or *Messenger*. 
-* ***ChatEnded :*** The agent ended the chat and the **Interconnection** goes to `Closed` status, closing the session in the integration and through the **Botrunner client** the user is changed to a successfully *finished chat state*, specified in the environment variable **SUCCESS_STATE**. 
+* ***ChatEnded :*** The agent ended the chat and the **Interconnection** goes to `Closed` status, closing the session in the integration and through the **Botrunner or Studiong client** the user is changed to a successfully *finished chat state*, specified in the environment variable **SUCCESS_STATE**. 
 
 ***How do I send a user's response to an agent in the Salesforce console?***
 
@@ -130,7 +130,7 @@ Here is the list of packages in the base folder with its explanation:
 Package  | Description  | Implementations or sub-packages  
 -------- | ------------ | -------------------------------- 
 cache | Contains logic to retrieve and store mensages of context and interconnections on cache. | Implementations: Redis (ContextCache, InterconnectionCache) and [Ristretto Cache](https://github.com/dgraph-io/ristretto)
-clients | Contains the clients to send requests to Botrunner sent-to, Integrations API, AgentLiveChat API and Saleforce API |
+clients | Contains the clients to send requests to Botrunner sent-to, Studiong sent-to, Integrations API, AgentLiveChat API and Saleforce API |
 constants | It will contain the common constants and errors that we use in the service| 
 helpers | It contains utilities that help us in the creation of endpoints or file encoding, and other functionalities.| 
 models | Contains base structures that we will use for this service.  |
@@ -138,7 +138,9 @@ models | Contains base structures that we will use for this service.  |
 ## How do I get set up? ##
 
 * For this service you don't need to have a REDIS DB up and running. It's not necessary to have a an specific version or replication strategy.
-*  It is necessary to create a Json Web Token through the `/authenticate`  endpoint, sending a username and password in the body of the request.
+* It is necessary to create a Json Web Token through the `/authenticate`  endpoint, sending a username and password in the body of the request.
+* This integration can change the state of a user in the bot through botrunner or studiong, you just have to add the ENV API vars you want to use.
+* This integration can send messages to the bot through integrations API.
 * Here are the required ENV vars needed to run this service:
 
 
@@ -156,9 +158,9 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_BOTRUNNER_URL`| **Sent-to** API URL, used to change the status of a user in the bot flow. | false | **http://botrunner** |
 | `SALESFORCE-INTEGRATION_BOTRUNNER_TOKEN`| Access token if necessary to make requests to **Sent-to**.| false | |
 | `SALESFORCE-INTEGRATION_BOTRUNNER_TIMEOUT`| Number of seconds to wait to send a request to **Sent-to**.| false | **4** |
-| `SALESFORCE-INTEGRATION_BLOCKED_USER_STATE`| Status of the bot to send with **Botrunner Client** when a user is blocked by salesforce.| true | **from-sf-blocked** |
-| `SALESFORCE-INTEGRATION_TIMEOUT_STATE`| Status of the bot to send with **Botrunner Client** when the chat is rejected because there are no agents, because the waiting time for an agent in salesforce to accept the chat ended or there was an unknown error in the long polling.| true | **from-sf-timeout** |
-| `SALESFORCE-INTEGRATION_SUCCESS_STATE`| Status of the bot to send with **Botrunner Client** when the chat ended successfully between a user and an agent.| true | **from-sf-success** |
+| `SALESFORCE-INTEGRATION_BLOCKED_USER_STATE`| Status of the bot to send with **Botrunner Client** when a user is blocked by salesforce.| true | **whatsapp:from-sf-blocked,facebook:from-sf-blocked** |
+| `SALESFORCE-INTEGRATION_TIMEOUT_STATE`| Status of the bot to send with **Botrunner Client** when the chat is rejected because there are no agents, because the waiting time for an agent in salesforce to accept the chat ended or there was an unknown error in the long polling.| true | **whatsapp:from-sf-timeout,facebook:from-sf-timeout** |
+| `SALESFORCE-INTEGRATION_SUCCESS_STATE`| Status of the bot to send with **Botrunner Client** when the chat ended successfully between a user and an agent.| true | **whatsapp:from-sf-success,facebook:from-sf-success** |
 | `SALESFORCE-INTEGRATION_YALO_USERNAME`| Username required to generate a JWT with YALO role through the `/authenticate` endpoint.| true | **yaloUser** |
 | `SALESFORCE-INTEGRATION_YALO_PASSWORD`| Password required to generate a JWT with YALO role through the `/authenticate` endpoint. | true |  |
 | `SALESFORCE-INTEGRATION_SALESFORCE_USERNAME`| Username required to generate a JWT with SALESFORCE role through the `/authenticate` endpoint.| true | **salesforceUser** |
@@ -194,6 +196,9 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_FB_BOT_PHONE`| Phone number to register the facebook bot webhook in integrations API. In this case the phone number is the facebookId of the bot page. | false  |  |
 | `SALESFORCE-INTEGRATION_WEBHOOK_BASE_URL`| Url base of our webhooks where integrations channels will send us the messages received by the bot. | false  |  |
 | `SALESFORCE-INTEGRATION_KEYWORDS_RESTART`| Reserved words of the bot to restart the flow, in case these words are received in the webhook, this integration if it detects that there is an active chat, this will be closed on the side of salesforce and the integration, this function is only active in the environment of development. | false  | ***coppelbot,regresar,reiniciar,restart*** |
+| `SALESFORCE-INTEGRATION_STUDIO_NG_URL`| **Sent-to** API URL, used to change the status of a user in the bot flow with studiong. | false | **http://studiong** |
+| `SALESFORCE-INTEGRATION_STUDIO_NG_TOKEN`| Access token of studiong if necessary to make requests to **Sent-to**.| false | |
+| `SALESFORCE-INTEGRATION_STUDIO_NG_TIMEOUT`| Number of seconds to wait to send a request to **Sent-to** to studiong.| false | **4** |
 
 ## Running project ##
 
@@ -267,11 +272,11 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
         - name: SALESFORCE-INTEGRATION_BOTRUNNER_URL
           value: "http://botrunner.stage-1:3000"
         - name: SALESFORCE-INTEGRATION_BLOCKED_USER_STATE
-          value: "from-sf-blocked"
+          value: "whatsapp:from-sf-blocked,facebook:from-sf-blocked"
         - name: SALESFORCE-INTEGRATION_TIMEOUT_STATE
-          value: "from-sf-timeout"
+          value: "whatsapp:from-sf-timeout,facebook:from-sf-timeout"
         - name: SALESFORCE-INTEGRATION_SUCCESS_STATE
-          value: "from-sf-success"
+          value: "whatsapp:from-sf-success,facebook:from-sf-success"
         - name: SALESFORCE-INTEGRATION_YALO_USERNAME
           value: "{{yalo_user}}"
         - name: SALESFORCE-INTEGRATION_YALO_PASSWORD

@@ -19,6 +19,7 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/login"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
 	"yalochat.com/salesforce-integration/base/clients/salesforce"
+	"yalochat.com/salesforce-integration/base/clients/studiong"
 	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
@@ -28,15 +29,16 @@ var (
 	SfcOrganizationID   string
 	SfcDeploymentID     string
 	SfcRecordTypeID     string
-	BlockedUserState    string
-	TimeoutState        string
-	SuccessState        string
+	BlockedUserState    map[string]string
+	TimeoutState        map[string]string
+	SuccessState        map[string]string
 	SfcCustomFieldsCase map[string]string
 	BotrunnerTimeout    int
 	//TODO: move a integration clients constructor
-	WAPhone        string
-	FBPhone        string
-	WebhookBaseUrl string
+	WAPhone         string
+	FBPhone         string
+	WebhookBaseUrl  string
+	StudioNGTimeout int
 )
 
 const (
@@ -69,14 +71,16 @@ type Manager struct {
 	cacheMessage          cache.IMessageCache
 	SfcSourceFlowBot      envs.SfcSourceFlowBot
 	SfcSourceFlowField    string
+	StudioNG              studiong.StudioNGInterface
+	isStudioNGFlow        bool
 }
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
 	AppName                string
-	BlockedUserState       string
-	TimeoutState           string
-	SuccessState           string
+	BlockedUserState       map[string]string
+	TimeoutState           map[string]string
+	SuccessState           map[string]string
 	RedisOptions           cache.RedisOptions
 	BotrunnerUrl           string
 	BotrunnerToken         string
@@ -111,6 +115,9 @@ type ManagerOptions struct {
 	SfcSourceFlowBot       envs.SfcSourceFlowBot
 	SfcSourceFlowField     string
 	SfcBlockedChatField    bool
+	StudioNGUrl            string
+	StudioNGToken          string
+	StudioNGTimeout        int
 }
 
 type ManagerI interface {
@@ -135,6 +142,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 	WAPhone = config.IntegrationsWABotPhone
 	FBPhone = config.IntegrationsFBBotPhone
 	WebhookBaseUrl = config.WebhookBaseUrl
+	StudioNGTimeout = config.StudioNGTimeout
+	isStudioNG := false
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
@@ -171,6 +180,15 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SfcBlockedChatField: config.SfcBlockedChatField,
 	}
 
+	var studioNG *studiong.StudioNG = nil
+	if config.StudioNGUrl != "" {
+		studioNG = studiong.NewStudioNGClient(
+			config.StudioNGUrl,
+			config.StudioNGToken,
+		)
+		isStudioNG = true
+	}
+
 	integrationsClient := integrations.NewIntegrationsClient(
 		config.IntegrationsUrl,
 		config.IntegrationsWAToken,
@@ -189,7 +207,10 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SfcRecordTypeID)
 
 	salesforceService.AccountRecordTypeId = config.SfcAccountRecordTypeID
-	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
+	var botRunnerClient *botrunner.BotRunner = nil
+	if config.BotrunnerUrl != "" {
+		botRunnerClient = botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
+	}
 
 	interconnections := interconnectionsCache.RetrieveAllInterconnections()
 
@@ -210,6 +231,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SfcSourceFlowBot:      config.SfcSourceFlowBot,
 		SfcSourceFlowField:    config.SfcSourceFlowField,
 		cacheMessage:          cache.NewMessageCache(cacheLocal),
+		StudioNG:              studioNG,
+		isStudioNGFlow:        isStudioNG,
 	}
 
 	for _, interconnection := range *interconnections {
@@ -300,7 +323,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	if contact.Blocked {
-		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState, m.BotrunnnerClient, BotrunnerTimeout)
+		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return fmt.Errorf("%s: %s", "could not create chat in salesforce", "this contact is blocked")
 	}
 
@@ -338,11 +361,20 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 }
 
 // Change to state with botrunner
-func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotRunnerInterface, seconds int) {
-	time.Sleep(time.Second * time.Duration(seconds))
-	_, err := botRunnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, state, ""))
+func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotRunnerInterface, seconds, secondsNG int, studioNGClient studiong.StudioNGInterface, isStudio bool) {
+	if !isStudio {
+		time.Sleep(time.Second * time.Duration(seconds))
+		_, err := botRunnerClient.SendTo(botrunner.GetRequestToSendTo(botSlug, userID, state, ""))
+		if err != nil {
+			logrus.Errorf(helpers.ErrorMessage(fmt.Sprintf("could not sent to state: %s", state), err))
+		}
+		return
+	}
+
+	time.Sleep(time.Second * time.Duration(secondsNG))
+	err := studioNGClient.SendTo(state, userID)
 	if err != nil {
-		logrus.Errorf(helpers.ErrorMessage("could not sent to state timeout", err))
+		logrus.Errorf(helpers.ErrorMessage(fmt.Sprintf("could not sent to state: %s with studioNG client", state), err))
 	}
 }
 
@@ -389,6 +421,8 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 	interconnection.integrationsChannel = m.integrationsChannel
 	interconnection.salesforceChannel = m.salesforceChannel
 	interconnection.interconnectionCache = m.interconnectionsCache
+	interconnection.StudioNG = m.StudioNG
+	interconnection.isStudioNGFlow = m.isStudioNGFlow
 
 	err := m.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 	if err != nil {

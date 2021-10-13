@@ -8,38 +8,41 @@ import (
 
 // Envs represents the list of well known env vars used by the app
 type Envs struct {
-	AppName              string `default:"salesforce-integration" split_words:"true"`
-	Host                 string `required:"true" split_words:"true" default:"localhost"`
-	Port                 string `required:"true" split_words:"true" default:"8080"`
-	SentryDSN            string `default:"" split_words:"true"`
-	Environment          string `default:"dev" split_words:"true"`
-	MainContextTimeOut   int16  `default:"10" split_words:"true"`
-	RedisAddress         string `split_words:"true"`
-	RedisMaster          string `split_words:"true"`
-	RedisSentinelAddress string `split_words:"true"`
-	BlockedUserState     string `required:"true" split_words:"true" default:"from-sf-blocked"`
-	TimeoutState         string `required:"true" split_words:"true" default:"from-sf-timeout"`
-	SuccessState         string `required:"true" split_words:"true" default:"from-sf-success"`
-	YaloUsername         string `required:"true" split_words:"true" default:"yaloUser"`
-	YaloPassword         string `required:"true" split_words:"true"`
-	SalesforceUsername   string `required:"true" split_words:"true" default:"salesforceUser"`
-	SalesforcePassword   string `required:"true" split_words:"true"`
-	SecretKey            string `required:"true" split_words:"true"`
-	BotrunnerUrl         string `split_words:"true"`
-	BotrunnerToken       string `split_words:"true" default:""`
-	BotrunnerTimeout     int    `split_words:"true" default:"4"`
-	SfcClientId          string `split_words:"true"`
-	SfcClientSecret      string `split_words:"true"`
-	SfcUsername          string `split_words:"true"`
-	SfcPassword          string `split_words:"true"`
-	SfcSecurityToken     string `split_words:"true"`
-	SfcBaseUrl           string `split_words:"true"`
-	SfcChatUrl           string `split_words:"true"`
-	SfcLoginUrl          string `split_words:"true"`
-	SfcApiVersion        string `split_words:"true" default:"52"`
-	SfcOrganizationId    string `split_words:"true"`
-	SfcDeploymentId      string `split_words:"true"`
-	SfcRecordTypeId      string `split_words:"true"`
+	AppName              string            `default:"salesforce-integration" split_words:"true"`
+	Host                 string            `required:"true" split_words:"true" default:"localhost"`
+	Port                 string            `required:"true" split_words:"true" default:"8080"`
+	SentryDSN            string            `default:"" split_words:"true"`
+	Environment          string            `default:"dev" split_words:"true"`
+	MainContextTimeOut   int16             `default:"10" split_words:"true"`
+	RedisAddress         string            `split_words:"true"`
+	RedisMaster          string            `split_words:"true"`
+	RedisSentinelAddress string            `split_words:"true"`
+	BlockedUserState     map[string]string `required:"true" split_words:"true" default:"whatsapp:from-sf-blocked,facebook:from-sf-blocked"`
+	TimeoutState         map[string]string `required:"true" split_words:"true" default:"whatsapp:from-sf-timeout,facebook:from-sf-timeout"`
+	SuccessState         map[string]string `required:"true" split_words:"true" default:"whatsapp:from-sf-success,facebook:from-sf-success"`
+	YaloUsername         string            `required:"true" split_words:"true" default:"yaloUser"`
+	YaloPassword         string            `required:"true" split_words:"true"`
+	SalesforceUsername   string            `required:"true" split_words:"true" default:"salesforceUser"`
+	SalesforcePassword   string            `required:"true" split_words:"true"`
+	SecretKey            string            `required:"true" split_words:"true"`
+	BotrunnerUrl         string            `split_words:"true"`
+	BotrunnerToken       string            `split_words:"true" default:""`
+	BotrunnerTimeout     int               `split_words:"true" default:"4"`
+	StudioNGUrl          string            `split_words:"true"`
+	StudioNGToken        string            `split_words:"true"`
+	StudioNGTimeout      int               `split_words:"true" default:"4"`
+	SfcClientId          string            `split_words:"true"`
+	SfcClientSecret      string            `split_words:"true"`
+	SfcUsername          string            `split_words:"true"`
+	SfcPassword          string            `split_words:"true"`
+	SfcSecurityToken     string            `split_words:"true"`
+	SfcBaseUrl           string            `split_words:"true"`
+	SfcChatUrl           string            `split_words:"true"`
+	SfcLoginUrl          string            `split_words:"true"`
+	SfcApiVersion        string            `split_words:"true" default:"52"`
+	SfcOrganizationId    string            `split_words:"true"`
+	SfcDeploymentId      string            `split_words:"true"`
+	SfcRecordTypeId      string            `split_words:"true"`
 	// Only if this value exists will person accounts be created instead of contacts in salesforce
 	SfcAccountRecordTypeId string            `split_words:"true"`
 	SfcCustomFieldsCase    map[string]string `split_words:"true"`

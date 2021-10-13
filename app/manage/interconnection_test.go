@@ -41,8 +41,14 @@ func TestHandleLongPolling_test(t *testing.T) {
 		},
 	}
 	manager := CreateManager(config)
-	SuccessState = successState
-	TimeoutState = timeoutState
+	SuccessState = map[string]string{
+		string(WhatsappProvider): successState,
+		string(FacebookProvider): successState,
+	}
+	TimeoutState = map[string]string{
+		string(WhatsappProvider): timeoutState,
+		string(FacebookProvider): timeoutState,
+	}
 	interconnection := &Interconnection{
 		UserID:               userID,
 		BotSlug:              botSlug,
@@ -73,11 +79,78 @@ func TestHandleLongPolling_test(t *testing.T) {
 			},
 		}, nil).Once()
 
-		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": SuccessState, "userId": userID}).
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": successState, "userId": userID}).
 			Return(true, nil).Once()
 
 		interconnection.SalesforceService = mock
 		interconnection.BotrunnnerClient = botrunnerMock
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.handleLongPolling()
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Handle 204 not content studiong success", func(t *testing.T) {
+		expectedLog := "Not content events"
+		mock := new(SalesforceServiceInterface)
+		studioNGMock := new(StudioNGInterface)
+		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+			StatusCode: http.StatusNoContent,
+		}).Once()
+		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
+			Messages: []chat.MessageObject{
+				{
+					Type: chat.ChatEnded,
+				},
+			},
+		}, nil).Once()
+
+		studioNGMock.On("SendTo", successState, userID).
+			Return(nil).Once()
+
+		interconnection.SalesforceService = mock
+		interconnection.BotrunnnerClient = nil
+		interconnection.isStudioNGFlow = true
+		interconnection.StudioNG = studioNGMock
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.handleLongPolling()
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Handle 204 not content studiong error client", func(t *testing.T) {
+		expectedLog := "Not content events"
+		mock := new(SalesforceServiceInterface)
+		studioNGMock := new(StudioNGInterface)
+		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+			StatusCode: http.StatusNoContent,
+		}).Once()
+		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
+			Messages: []chat.MessageObject{
+				{
+					Type: chat.ChatEnded,
+				},
+			},
+		}, nil).Once()
+
+		studioNGMock.On("SendTo", successState, userID).
+			Return(assert.AnError).Once()
+
+		interconnection.SalesforceService = mock
+		interconnection.BotrunnnerClient = nil
+		interconnection.isStudioNGFlow = true
+		interconnection.StudioNG = studioNGMock
+		defer func() {
+			interconnection.isStudioNGFlow = false
+		}()
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
@@ -97,7 +170,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		}).Once()
 
 		botrunnerMock := new(BotRunnerInterface)
-		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": TimeoutState, "userId": userID}).
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 		interconnection.BotrunnnerClient = botrunnerMock
 
@@ -123,7 +196,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		}).Once()
 
 		botrunnerMock := new(BotRunnerInterface)
-		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": TimeoutState, "userId": userID}).
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 		interconnection.BotrunnnerClient = botrunnerMock
 
@@ -299,5 +372,39 @@ func TestCheckEvent_test(t *testing.T) {
 		}
 
 		assert.Equal(t, Active, interconnection.Status)
+	})
+
+	t.Run("Chat fail event received", func(t *testing.T) {
+		expectedLog := chat.ChatRequestFail
+
+		botrunnerMock := new(BotRunnerInterface)
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+		interconnection.BotrunnnerClient = botrunnerMock
+		interconnection.BotSlug = botSlug
+		TimeoutState = map[string]string{
+			string(WhatsappProvider): timeoutState,
+			string(FacebookProvider): timeoutState,
+		}
+
+		event := chat.MessageObject{
+			Type: chat.ChatRequestFail,
+			Message: chat.Message{
+				Name:                "Name Agent",
+				UserId:              "142451",
+				ChasitorIdleTimeout: map[string]interface{}{"isEnabled": false},
+				GeoLocation:         chat.GeoLocation{},
+			},
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.checkEvent(&event)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+
+		assert.Equal(t, Failed, interconnection.Status)
 	})
 }
