@@ -106,6 +106,7 @@ type ManagerOptions struct {
 	KeywordsRestart        []string
 	SfcSourceFlowBot       envs.SfcSourceFlowBot
 	SfcSourceFlowField     string
+	SfcBlockedChatField    bool
 }
 
 type ManagerI interface {
@@ -157,8 +158,9 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	salesforceClient := &salesforce.SalesforceClient{
-		Proxy:      proxy.NewProxy(config.SfcBaseUrl, 30),
-		APIVersion: config.SfcApiVersion,
+		Proxy:               proxy.NewProxy(config.SfcBaseUrl, 30),
+		APIVersion:          config.SfcApiVersion,
+		SfcBlockedChatField: config.SfcBlockedChatField,
 	}
 
 	integrationsClient := integrations.NewIntegrationsClient(
@@ -189,7 +191,13 @@ func CreateManager(config *ManagerOptions) *Manager {
 		logrus.Errorf("could not set facebook webhook on integrations : %s", err.Error())
 	}
 
-	salesforceService := services.NewSalesforceService(*sfcLoginClient, *sfcChatClient, *salesforceClient, tokenPayload, config.SfcCustomFieldsCase)
+	salesforceService := services.NewSalesforceService(*sfcLoginClient,
+		*sfcChatClient,
+		*salesforceClient,
+		tokenPayload,
+		config.SfcCustomFieldsCase,
+		SfcRecordTypeID)
+
 	salesforceService.AccountRecordTypeId = config.SfcAccountRecordTypeID
 	botRunnerClient := botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 
@@ -308,7 +316,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 
 	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
-	caseId, err := m.SalesforceService.CreatCase(SfcRecordTypeID, contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
+	caseId, err := m.SalesforceService.CreatCase(contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -562,12 +570,19 @@ func (m *Manager) GetContextByUserID(userID string) []cache.Context {
 func (m *Manager) changeButtonIDAndOwnerID(provider Provider, extraData map[string]interface{}) (buttonID, ownerID, subject string) {
 	var sourceFlow envs.SourceFlowBot
 	if SourceFlowBotOption, ok := extraData[m.SfcSourceFlowField]; ok {
-		sourceFlow = m.SfcSourceFlowBot[SourceFlowBotOption.(string)]
+		if sourceFlow, ok = m.SfcSourceFlowBot[SourceFlowBotOption.(string)]; !ok {
+			if sourceFlow, ok = m.SfcSourceFlowBot[defaultFieldCustom]; !ok {
+				return
+			}
+		}
+
 	} else {
 		if sourceFlow, ok = m.SfcSourceFlowBot[defaultFieldCustom]; !ok {
 			return
 		}
+
 	}
+
 	providerConf := sourceFlow.Providers[string(provider)]
 	buttonID = providerConf.ButtonID
 	ownerID = providerConf.OwnerID

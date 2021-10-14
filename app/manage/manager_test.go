@@ -111,7 +111,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
-			SfcRecordTypeID,
 			contact.ID,
 			"Caso levantado por el Bot : ",
 			"subject",
@@ -155,6 +154,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnectionsCache: interconnectionMock,
 			contextcache:          cacheContextMock,
 			interconnectionMap:    interconectionLocal,
+			SfcSourceFlowField:    "data",
 			SfcSourceFlowBot: envs.SfcSourceFlowBot{
 				defaultFieldCustom: {
 					Subject: "subject",
@@ -201,7 +201,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
-			SfcRecordTypeID,
 			contact.ID,
 			"Caso levantado por el Bot : ",
 			"subject",
@@ -302,7 +301,6 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
-			SfcRecordTypeID,
 			contact.ID,
 			"Caso levantado por el Bot : ",
 			"",

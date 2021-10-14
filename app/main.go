@@ -76,6 +76,7 @@ func main() {
 		WebhookBaseUrl:         envs.WebhookBaseUrl,
 		Environment:            envs.Environment,
 		KeywordsRestart:        envs.KeywordsRestart,
+		SfcBlockedChatField:    envs.SfcBlockedChatField,
 	}
 
 	if len(envs.RedisMaster) > 0 {
