@@ -1,6 +1,6 @@
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-09-27)
+## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
 
 ### Chore
 
