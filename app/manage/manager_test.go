@@ -1640,3 +1640,114 @@ func TestManager_SaveContextFB(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestManager_RegisterWebhook(t *testing.T) {
+	t.Run("Register webhook whastapp Succesfull", func(t *testing.T) {
+		WAPhone = "waphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		response := &integrations.HealthcheckResponse{
+			BotId:   "botID",
+			Channel: "outgoing",
+			Webhook: WebhookBaseUrl + "/v1/integrations/whatsapp/webhook",
+		}
+
+		payload := integrations.HealthcheckPayload{
+			Phone:    WAPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", WebhookBaseUrl),
+			Provider: string(WhatsappProvider),
+		}
+
+		integrationsClientMock.On("WebhookRegister", payload).Return(response, nil).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RegisterWebhookInIntegrations("whatsapp")
+		assert.NoError(t, err)
+	})
+
+	t.Run("Register webhook whastapp Fail", func(t *testing.T) {
+		WAPhone = "waphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.HealthcheckPayload{
+			Phone:    WAPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", WebhookBaseUrl),
+			Provider: string(WhatsappProvider),
+		}
+
+		integrationsClientMock.On("WebhookRegister", payload).Return(nil, assert.AnError).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RegisterWebhookInIntegrations("whatsapp")
+		assert.Error(t, err)
+	})
+
+	t.Run("Register webhook facebook Succesfull", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		response := &integrations.HealthcheckResponse{
+			BotId:   "botID",
+			Channel: "outgoing",
+			Webhook: WebhookBaseUrl + "/v1/integrations/facebook/webhook",
+		}
+
+		payload := integrations.HealthcheckPayload{
+			Phone:    FBPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Provider: string(FacebookProvider),
+		}
+
+		integrationsClientMock.On("WebhookRegister", payload).Return(response, nil).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RegisterWebhookInIntegrations("facebook")
+		assert.NoError(t, err)
+	})
+
+	t.Run("Register webhook facebook fail", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.HealthcheckPayload{
+			Phone:    FBPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Provider: string(FacebookProvider),
+		}
+
+		integrationsClientMock.On("WebhookRegister", payload).Return(nil, assert.AnError).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RegisterWebhookInIntegrations("facebook")
+		assert.Error(t, err)
+	})
+
+	t.Run("Register webhook default value", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RegisterWebhookInIntegrations("facebooks")
+		assert.Error(t, err)
+	})
+}

@@ -2,6 +2,10 @@
 <a name="v0.1.3"></a>
 ## [v0.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
 
+### Feat
+
+* **Integration-interconnection:** Add register webhook endpoint. Add register webhook endpoint and remove de createManager. Closes #CSF-196
+
 ### Fix
 
 * **Integration-webhook:** Fixes when receiving requests from integrations. Fix response type message and save context concurrent. Closes #CSF-197
