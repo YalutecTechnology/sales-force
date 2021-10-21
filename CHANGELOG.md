@@ -1,4 +1,12 @@
 
+<a name="v0.1.3"></a>
+## [v0.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
+
+### Fix
+
+* **Integration-webhook:** Fixes when receiving requests from integrations. Fix response type message and save context concurrent. Closes #CSF-197
+
+
 <a name="v0.1.2"></a>
 ## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
 
