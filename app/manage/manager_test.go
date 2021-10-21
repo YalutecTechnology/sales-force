@@ -581,6 +581,39 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("Should save context  error StoreContext", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 123456789,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		manager := &Manager{
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      userID,
+			Text: models.Text{
+				Body: "text",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
 	t.Run("Should save context error", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
@@ -611,7 +644,7 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		err := manager.SaveContext(integrations)
 
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Should save context default", func(t *testing.T) {
@@ -644,7 +677,7 @@ func TestManager_SaveContext(t *testing.T) {
 		}
 		err := manager.SaveContext(integrations)
 
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Should save context error timestamp", func(t *testing.T) {
@@ -1050,6 +1083,61 @@ func TestManager_SaveContextFB(t *testing.T) {
 			From:      fromUser,
 		}
 		contextCache.On("StoreContext", ctx).Return(nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		manager := &Manager{
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
+		}
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Message: models.MessagingMessage{
+									Mid:  messageID,
+									Text: "text",
+								},
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should save context text from user error StoreContext", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 1631202334957,
+			Text:      "text",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(assert.AnError).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()

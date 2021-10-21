@@ -460,10 +460,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.Caption = integration.Document.Caption
 		ctx.MIMEType = integration.Document.MIMEType
 	default:
-		logrus.WithFields(logrus.Fields{
-			"integration": integration,
-		}).WithError(err).Error("invalid type message")
-		return fmt.Errorf("invalid type message")
+		return nil
 	}
 
 	if integration.To != "" {
@@ -471,13 +468,14 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.UserID = integration.To
 	}
 
-	err = m.contextcache.StoreContext(ctx)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"context": ctx,
-		}).WithError(err).Error("Error store context")
-		return err
-	}
+	go func() {
+		err = m.contextcache.StoreContext(ctx)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"context": ctx,
+			}).WithError(err).Error("Error store context")
+		}
+	}()
 
 	return nil
 }
@@ -641,13 +639,16 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 				From:      from,
 				Text:      message.Message.Text,
 			}
-			err = m.contextcache.StoreContext(ctx)
-			if err != nil {
-				logrus.WithFields(logrus.Fields{
-					"context": ctx,
-				}).WithError(err).Error("Error store context")
-				errorsMessage = append(errorsMessage, err.Error())
-			}
+			go func() {
+				err = m.contextcache.StoreContext(ctx)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"context": ctx,
+					}).WithError(err).Error("Error store context")
+					errorsMessage = append(errorsMessage, err.Error())
+				}
+			}()
+
 		}
 
 	}
