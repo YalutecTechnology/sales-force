@@ -33,6 +33,10 @@ var (
 	SuccessState        string
 	SfcCustomFieldsCase map[string]string
 	BotrunnerTimeout    int
+	//TODO: move a integration clients constructor
+	WAPhone        string
+	FBPhone        string
+	WebhookBaseUrl string
 )
 
 const (
@@ -115,6 +119,7 @@ type ManagerI interface {
 	GetContextByUserID(userID string) []cache.Context
 	SaveContextFB(integration *models.IntegrationsFacebook) error
 	FinishChat(userId string) error
+	RegisterWebhookInIntegrations(provider string) error
 }
 
 // CreateManager retrieves an agents manager
@@ -127,6 +132,9 @@ func CreateManager(config *ManagerOptions) *Manager {
 	SuccessState = config.SuccessState
 	SfcCustomFieldsCase = config.SfcCustomFieldsCase
 	BotrunnerTimeout = config.BotrunnerTimeout
+	WAPhone = config.IntegrationsWABotPhone
+	FBPhone = config.IntegrationsFBBotPhone
+	WebhookBaseUrl = config.WebhookBaseUrl
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
@@ -172,24 +180,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 		config.IntegrationsWABotID,
 		config.IntegrationsFBBotID,
 	)
-
-	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
-		Phone:    config.IntegrationsWABotPhone,
-		Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", config.WebhookBaseUrl),
-		Provider: string(WhatsappProvider),
-	})
-	if err != nil {
-		logrus.Errorf("could not set whatsapp webhook on integrations : %s", err.Error())
-	}
-
-	_, err = integrationsClient.WebhookRegister(integrations.HealthcheckPayload{
-		Phone:    config.IntegrationsFBBotPhone,
-		Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", config.WebhookBaseUrl),
-		Provider: string(FacebookProvider),
-	})
-	if err != nil {
-		logrus.Errorf("could not set facebook webhook on integrations : %s", err.Error())
-	}
 
 	salesforceService := services.NewSalesforceService(*sfcLoginClient,
 		*sfcChatClient,
@@ -704,4 +694,39 @@ func (m *Manager) salesforceComunicationFB(message models.Messaging) (bool, erro
 	}
 
 	return isSend, nil
+}
+
+func (m *Manager) RegisterWebhookInIntegrations(provider string) error {
+
+	switch provider {
+	case string(WhatsappProvider):
+		_, err := m.IntegrationsClient.WebhookRegister(integrations.HealthcheckPayload{
+			Phone:    WAPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", WebhookBaseUrl),
+			Provider: string(WhatsappProvider),
+		})
+		if err != nil {
+			errorMessage := fmt.Sprintf("could not set whatsapp webhook on integrations : %s", err.Error())
+			logrus.Error(errorMessage)
+			return errors.New(errorMessage)
+		}
+		return nil
+
+	case string(FacebookProvider):
+		_, err := m.IntegrationsClient.WebhookRegister(integrations.HealthcheckPayload{
+			Phone:    FBPhone,
+			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Provider: string(FacebookProvider),
+		})
+		if err != nil {
+			errorMessage := fmt.Sprintf("could not set facebok webhook on integrations : %s", err.Error())
+			logrus.Error(errorMessage)
+			return errors.New(errorMessage)
+		}
+		return nil
+	default:
+		errorMessage := fmt.Sprintf("Invalid provider webhook : %s", provider)
+		logrus.Error(errorMessage)
+		return errors.New(errorMessage)
+	}
 }

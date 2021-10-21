@@ -369,3 +369,41 @@ func TestGetContext(t *testing.T) {
 		assert.Equal(t, string(expectedBin), response.Body.String())
 	})
 }
+
+func TestRegisterWebhook(t *testing.T) {
+	requestURLWebhookRegister := "/v1/integrations/webhook/register/:provider"
+	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
+	handler.POST(requestURLWebhookRegister, app.registerWebhook)
+
+	t.Run("Should get a valid response with wa", func(t *testing.T) {
+		managerMock := new(ManagerI)
+		managerMock.On("RegisterWebhookInIntegrations", "whatsapp").Return(nil).Once()
+		getApp().ManageManager = managerMock
+
+		req, _ := http.NewRequest("POST", "/v1/integrations/webhook/register/whatsapp", nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+	})
+
+	t.Run("Should get a fail response with wa", func(t *testing.T) {
+		managerMock := new(ManagerI)
+		managerMock.On("RegisterWebhookInIntegrations", "whatsapp").Return(assert.AnError).Once()
+		getApp().ManageManager = managerMock
+
+		req, _ := http.NewRequest("POST", "/v1/integrations/webhook/register/whatsapp", nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+
+		if response.Code != http.StatusInternalServerError {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusInternalServerError, response.Code)
+		}
+	})
+}
