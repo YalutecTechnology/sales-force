@@ -27,14 +27,15 @@ const (
 )
 
 type SalesforceService struct {
-	TokenPayload        login.TokenPayload
-	SfcLoginClient      login.SfcLoginInterface
-	SfcChatClient       chat.SfcChatInterface
-	SfcClient           salesforce.SaleforceInterface
-	SourceFlowBot       envs.SfcSourceFlowBot
-	CustomFields        map[string]string
-	AccountRecordTypeId string
-	RecordTypeID        string
+	TokenPayload            login.TokenPayload
+	SfcLoginClient          login.SfcLoginInterface
+	SfcChatClient           chat.SfcChatInterface
+	SfcClient               salesforce.SaleforceInterface
+	SourceFlowBot           envs.SfcSourceFlowBot
+	CustomFields            map[string]string
+	AccountRecordTypeId     string
+	DefaultBirthDateAccount string
+	RecordTypeID            string
 }
 
 type SalesforceServiceInterface interface {
@@ -49,12 +50,13 @@ type SalesforceServiceInterface interface {
 
 func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID string) *SalesforceService {
 	salesforceService := &SalesforceService{
-		SfcLoginClient: &loginClient,
-		SfcChatClient:  &chatClient,
-		SfcClient:      &salesforceClient,
-		TokenPayload:   tokenPayload,
-		CustomFields:   customFields,
-		RecordTypeID:   recordTypeID,
+		SfcLoginClient:          &loginClient,
+		SfcChatClient:           &chatClient,
+		SfcClient:               &salesforceClient,
+		TokenPayload:            tokenPayload,
+		CustomFields:            customFields,
+		RecordTypeID:            recordTypeID,
+		DefaultBirthDateAccount: time.Now().Format(constants.DateFormatDateTime),
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
@@ -166,13 +168,12 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 
 	if s.AccountRecordTypeId != "" {
 		firstName := firstNameDefault
-		date := time.Now().Format(constants.DateFormatDateTime)
 		account, err := s.SfcClient.CreateAccountComposite(salesforce.AccountRequest{
 			FirstName:         &firstName,
 			LastName:          &name,
 			PersonEmail:       &email,
 			PersonMobilePhone: &phoneNumber,
-			PersonBirthDate:   &date,
+			PersonBirthDate:   &s.DefaultBirthDateAccount,
 			RecordTypeID:      &s.AccountRecordTypeId,
 		})
 

@@ -77,47 +77,48 @@ type Manager struct {
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName                string
-	BlockedUserState       map[string]string
-	TimeoutState           map[string]string
-	SuccessState           map[string]string
-	RedisOptions           cache.RedisOptions
-	BotrunnerUrl           string
-	BotrunnerToken         string
-	BotrunnerTimeout       int
-	SfcClientID            string
-	SfcClientSecret        string
-	SfcUsername            string
-	SfcPassword            string
-	SfcSecurityToken       string
-	SfcBaseUrl             string
-	SfcChatUrl             string
-	SfcLoginUrl            string
-	SfcApiVersion          string
-	SfcOrganizationID      string
-	SfcDeploymentID        string
-	SfcRecordTypeID        string
-	SfcAccountRecordTypeID string
-	SfcCustomFieldsCase    map[string]string
-	IntegrationsUrl        string
-	IntegrationsWAChannel  string
-	IntegrationsFBChannel  string
-	IntegrationsWAToken    string
-	IntegrationsFBToken    string
-	IntegrationsWABotID    string
-	IntegrationsFBBotID    string
-	IntegrationsSignature  string
-	IntegrationsWABotPhone string
-	IntegrationsFBBotPhone string
-	WebhookBaseUrl         string
-	Environment            string
-	KeywordsRestart        []string
-	SfcSourceFlowBot       envs.SfcSourceFlowBot
-	SfcSourceFlowField     string
-	SfcBlockedChatField    bool
-	StudioNGUrl            string
-	StudioNGToken          string
-	StudioNGTimeout        int
+	AppName                    string
+	BlockedUserState           map[string]string
+	TimeoutState               map[string]string
+	SuccessState               map[string]string
+	RedisOptions               cache.RedisOptions
+	BotrunnerUrl               string
+	BotrunnerToken             string
+	BotrunnerTimeout           int
+	SfcClientID                string
+	SfcClientSecret            string
+	SfcUsername                string
+	SfcPassword                string
+	SfcSecurityToken           string
+	SfcBaseUrl                 string
+	SfcChatUrl                 string
+	SfcLoginUrl                string
+	SfcApiVersion              string
+	SfcOrganizationID          string
+	SfcDeploymentID            string
+	SfcRecordTypeID            string
+	SfcAccountRecordTypeID     string
+	SfcDefaultBirthDateAccount string
+	SfcCustomFieldsCase        map[string]string
+	IntegrationsUrl            string
+	IntegrationsWAChannel      string
+	IntegrationsFBChannel      string
+	IntegrationsWAToken        string
+	IntegrationsFBToken        string
+	IntegrationsWABotID        string
+	IntegrationsFBBotID        string
+	IntegrationsSignature      string
+	IntegrationsWABotPhone     string
+	IntegrationsFBBotPhone     string
+	WebhookBaseUrl             string
+	Environment                string
+	KeywordsRestart            []string
+	SfcSourceFlowBot           envs.SfcSourceFlowBot
+	SfcSourceFlowField         string
+	SfcBlockedChatField        bool
+	StudioNGUrl                string
+	StudioNGToken              string
+	StudioNGTimeout            int
 }
 
 type ManagerI interface {
@@ -207,6 +208,10 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SfcRecordTypeID)
 
 	salesforceService.AccountRecordTypeId = config.SfcAccountRecordTypeID
+	if config.SfcDefaultBirthDateAccount != "" {
+		salesforceService.DefaultBirthDateAccount = config.SfcDefaultBirthDateAccount
+	}
+
 	var botRunnerClient *botrunner.BotRunner = nil
 	if config.BotrunnerUrl != "" {
 		botRunnerClient = botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
@@ -438,7 +443,7 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 
 // SaveContext method will save context of integration message
 func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
-	logrus.Info("WEBHOOK WHATSAPP: ", integration)
+	//logrus.Info("WEBHOOK WHATSAPP: ", integration)
 	if m.cacheMessage.IsRepeatedMessage(integration.ID) {
 		return nil
 	}
@@ -634,7 +639,7 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 
 // SaveContext method will save context of integration message from facebook
 func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
-	logrus.Info("WEBHOOK FACEBOOK: ", integration)
+	//logrus.Info("WEBHOOK FACEBOOK: ", integration)
 	errorsMessage := []string{}
 	var err error
 	isSend := false

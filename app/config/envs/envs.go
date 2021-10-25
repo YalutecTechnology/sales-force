@@ -44,23 +44,24 @@ type Envs struct {
 	SfcDeploymentId      string            `split_words:"true"`
 	SfcRecordTypeId      string            `split_words:"true"`
 	// Only if this value exists will person accounts be created instead of contacts in salesforce
-	SfcAccountRecordTypeId string            `split_words:"true"`
-	SfcCustomFieldsCase    map[string]string `split_words:"true"`
-	SfcSourceFlowBot       SfcSourceFlowBot  `required:"true" split_words:"true"`
-	SfcSourceFlowField     string            `required:"true" split_words:"true" default:"source_flow_bot"`
-	SfcBlockedChatField    bool              `split_words:"true" default:"false"`
-	IntegrationsWAChannel  string            `split_words:"true" default:"outgoing_webhook"`
-	IntegrationsFBChannel  string            `split_words:"true" default:"passthrough"`
-	IntegrationsWABotID    string            `split_words:"true"`
-	IntegrationsFBBotID    string            `split_words:"true"`
-	IntegrationsWABotJWT   string            `split_words:"true"`
-	IntegrationsFBBotJWT   string            `split_words:"true"`
-	IntegrationsBaseUrl    string            `split_words:"true"`
-	IntegrationsSignature  string            `split_words:"true"`
-	WebhookBaseUrl         string            `split_words:"true"`
-	IntegrationsWABotPhone string            `split_words:"true"`
-	IntegrationsFBBotPhone string            `split_words:"true"`
-	KeywordsRestart        []string          `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
+	SfcAccountRecordTypeId     string            `split_words:"true"`
+	SfcDefaultBirthDateAccount string            `split_words:"true" default:"1921-01-01T00:00:00"`
+	SfcCustomFieldsCase        map[string]string `split_words:"true"`
+	SfcSourceFlowBot           SfcSourceFlowBot  `required:"true" split_words:"true"`
+	SfcSourceFlowField         string            `required:"true" split_words:"true" default:"source_flow_bot"`
+	SfcBlockedChatField        bool              `split_words:"true" default:"false"`
+	IntegrationsWAChannel      string            `split_words:"true" default:"outgoing_webhook"`
+	IntegrationsFBChannel      string            `split_words:"true" default:"passthrough"`
+	IntegrationsWABotID        string            `split_words:"true"`
+	IntegrationsFBBotID        string            `split_words:"true"`
+	IntegrationsWABotJWT       string            `split_words:"true"`
+	IntegrationsFBBotJWT       string            `split_words:"true"`
+	IntegrationsBaseUrl        string            `split_words:"true"`
+	IntegrationsSignature      string            `split_words:"true"`
+	WebhookBaseUrl             string            `split_words:"true"`
+	IntegrationsWABotPhone     string            `split_words:"true"`
+	IntegrationsFBBotPhone     string            `split_words:"true"`
+	KeywordsRestart            []string          `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
 }
 type Provider struct {
 	ButtonID string `json:"button_id"`
