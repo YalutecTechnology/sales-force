@@ -48,6 +48,7 @@ func TestCreateManager(t *testing.T) {
 			BotrunnnerClient:   nil,
 			cacheMessage:       nil,
 			interconnectionMap: nil,
+			StudioNG:           nil,
 		}
 		config := &ManagerOptions{
 			AppName: "salesforce-integration",
@@ -58,11 +59,14 @@ func TestCreateManager(t *testing.T) {
 				},
 				SessionsTTL: time.Second,
 			},
+			BotrunnerUrl: "uri",
+			StudioNGUrl:  "uriStudio",
 		}
 		actual := CreateManager(config)
 		actual.SalesforceService = nil
 		actual.IntegrationsClient = nil
 		actual.BotrunnnerClient = nil
+		actual.StudioNG = nil
 		actual.cacheMessage = nil
 		actual.interconnectionMap = nil
 		expected.integrationsChannel = actual.integrationsChannel
@@ -70,6 +74,7 @@ func TestCreateManager(t *testing.T) {
 		expected.finishInterconnection = actual.finishInterconnection
 		expected.contextcache = actual.contextcache
 		expected.interconnectionsCache = actual.interconnectionsCache
+		expected.isStudioNGFlow = true
 
 		assert.Equal(t, expected, actual)
 	})
@@ -365,7 +370,11 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
-		BlockedUserState = "from-sf-blocked"
+		BlockedUserState = map[string]string{
+			provider:                 "from-sf-blocked",
+			string(FacebookProvider): "from-sf-blocked",
+		}
+
 		contact := &models.SfcContact{
 			FirstName:   interconnection.Name,
 			LastName:    interconnection.Name,
@@ -382,7 +391,7 @@ func TestSalesforceService_CreateChat(t *testing.T) {
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
-		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": BlockedUserState, "userId": userID}).
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": blockedUserState, "userId": userID}).
 			Return(true, nil).Once()
 
 		interconnectionMock := new(InterconnectionCache)

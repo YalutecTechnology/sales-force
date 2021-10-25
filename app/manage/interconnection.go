@@ -11,6 +11,7 @@ import (
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
+	"yalochat.com/salesforce-integration/base/clients/studiong"
 	"yalochat.com/salesforce-integration/base/helpers"
 )
 
@@ -53,7 +54,9 @@ type Interconnection struct {
 	interconnectionCache cache.InterconnectionCache          `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
-	offset int `json:"-"`
+	offset         int `json:"-"`
+	StudioNG       studiong.StudioNGInterface
+	isStudioNGFlow bool
 }
 
 // Message represents the messages that will be sent through the chat
@@ -99,7 +102,7 @@ func (in *Interconnection) handleLongPolling() {
 			case http.StatusNoContent:
 				logrus.Info("Not content events")
 			case http.StatusForbidden:
-				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
@@ -112,7 +115,7 @@ func (in *Interconnection) handleLongPolling() {
 				logrus.Info("StatusServiceUnavailable")
 			default:
 				logrus.Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
-				go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
@@ -132,7 +135,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	switch event.Type {
 	case chat.ChatRequestFail:
 		logrus.Infof("Event [%s]", chat.ChatRequestFail)
-		go ChangeToState(in.UserID, in.BotSlug, TimeoutState, in.BotrunnnerClient, BotrunnerTimeout)
+		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
 		in.Status = Failed
@@ -154,7 +157,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
 		}*/
 	case chat.ChatEnded:
-		go ChangeToState(in.UserID, in.BotSlug, SuccessState, in.BotrunnnerClient, 0)
+		go ChangeToState(in.UserID, in.BotSlug, SuccessState[string(in.Provider)], in.BotrunnnerClient, 0, 0, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Closed))
 		in.runnigLongPolling = false
 		in.Status = Closed

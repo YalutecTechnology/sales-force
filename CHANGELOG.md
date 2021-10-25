@@ -1,4 +1,12 @@
 
+<a name="v0.1.4"></a>
+## [v0.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-13)
+
+### Feat
+
+* **Integration-interconnection:** Create library for studio ng and modify state varibles to make it work with it. Add library for studio ng to switch method to change state bot. Closes #CSF-194
+
+
 <a name="v0.1.3"></a>
 ## [v0.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
 
