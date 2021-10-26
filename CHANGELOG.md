@@ -1,9 +1,10 @@
 
 <a name="v0.1.4"></a>
-## [v0.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-13)
+## [v0.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-25)
 
 ### Feat
 
+* **Integration-interconnection:** Default birthday date to env var. The environment variable SfcDefaultBirthDateAccount is added that defines a default date when creating personal accounts in Salesforce. Closes #CSF-201
 * **Integration-interconnection:** Create library for studio ng and modify state varibles to make it work with it. Add library for studio ng to switch method to change state bot. Closes #CSF-194
 
 

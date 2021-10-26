@@ -59,8 +59,9 @@ func TestCreateManager(t *testing.T) {
 				},
 				SessionsTTL: time.Second,
 			},
-			BotrunnerUrl: "uri",
-			StudioNGUrl:  "uriStudio",
+			BotrunnerUrl:               "uri",
+			StudioNGUrl:                "uriStudio",
+			SfcDefaultBirthDateAccount: "1999-01-01T00:00:00",
 		}
 		actual := CreateManager(config)
 		actual.SalesforceService = nil
