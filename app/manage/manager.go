@@ -354,10 +354,11 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		}).WithError(err).Error("error CreatChat")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
+
+	go m.getContext(interconnection)
 	interconnection.AffinityToken = session.AffinityToken
 	interconnection.SessionID = session.Id
 	interconnection.SessionKey = session.Key
-	interconnection.Context = "Contexto:\n" + m.getContextByUserID(interconnection.UserID)
 	interconnection.Status = OnHold
 	interconnection.Timestamp = time.Now()
 	time.Sleep(time.Second * 1)
@@ -432,16 +433,25 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 	interconnection.StudioNG = m.StudioNG
 	interconnection.isStudioNGFlow = m.isStudioNGFlow
 
-	err := m.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
-	if err != nil {
-		logrus.Errorf("Could not store interconnection with userID[%s] in redis[%s]", interconnection.UserID, interconnection.SessionID)
-	}
+	go m.storeInterconnectionInRedis(interconnection)
 
 	m.interconnectionMap.Set(fmt.Sprintf(constants.UserKey, interconnection.UserID), interconnection, 0)
 
 	go interconnection.handleLongPolling()
 	go interconnection.handleStatus()
 	logrus.Info("Create interconnection successfully")
+}
+
+func (m *Manager) storeInterconnectionInRedis(interconnection *Interconnection) {
+	err := m.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
+	if err != nil {
+		logrus.Errorf("Could not store interconnection with userID[%s] in redis[%s]", interconnection.UserID, interconnection.SessionID)
+	}
+}
+
+func (m *Manager) getContext(interconnection *Interconnection) {
+	interconnection.Context = "Contexto:\n" + m.getContextByUserID(interconnection.UserID)
+	logrus.Infof("Get context of userID : %s", interconnection.UserID)
 }
 
 // SaveContext method will save context of integration message
