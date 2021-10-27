@@ -1,10 +1,14 @@
 
 <a name="v0.1.5"></a>
-## [v0.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-12)
+## [v0.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-27)
 
 ### Feat
 
 * **Integration - interconnections:** create setup url webhooks
+
+### Fix
+
+* **Validation-Bugfix:** Fix finishChat endpoint. Update to the closed state of the interconnection in redis. Closes #CSF-200
 
 
 <a name="v0.1.4"></a>
