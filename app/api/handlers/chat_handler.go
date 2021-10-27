@@ -20,7 +20,6 @@ type ChatPayload struct {
 	ExtraData   map[string]interface{} `json:"extraData"`
 }
 
-
 // Connect and create chat between user and salesforce
 func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var chatPayload = &ChatPayload{}
@@ -57,12 +56,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 
 // Connect and end the chat between the user and the sales force
 func (app *App) finishChat(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-    userID := params.ByName("user_id")
-
-    if userID == "" {
-        helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.MissingParam+" : user_id")
-        return
-    }
+	userID := params.ByName("user_id")
 
 	// Finished chat
 	if err := app.ManageManager.FinishChat(userID); err != nil {

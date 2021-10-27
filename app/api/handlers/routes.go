@@ -45,6 +45,11 @@ func setApp(newApp App) {
 // API Rest interface for app
 func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig ApiConfig) {
 	logrus.Info("API initilizated")
+
+	// Define Webhooks
+	managerOptions.WebhookWhatsapp = fmt.Sprintf("%s/integrations/whatsapp/webhook", apiVersion)
+	managerOptions.WebhookFacebook = fmt.Sprintf("%s/integrations/facebook/webhook", apiVersion)
+
 	manager := manage.CreateManager(managerOptions)
 	yaloHash := sha1.New()
 	yaloHash.Write([]byte(apiConfig.YaloPassword))
@@ -66,9 +71,9 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	srv.POST(fmt.Sprintf("%s/authenticate", apiVersion), app.authenticate)
 	srv.GET(fmt.Sprintf("%s/tokens/check", apiVersion), app.authorizeMiddleware(app.getUserByToken, []RoleType{Yalo, Salesforce}))
 	srv.POST(fmt.Sprintf("%s/chats/connect", apiVersion), app.authorizeMiddleware(app.createChat, []RoleType{Yalo}))
-	srv.POST(fmt.Sprintf("%s/integrations/whatsapp/webhook", apiVersion), app.webhook)
+	srv.POST(managerOptions.WebhookWhatsapp, app.webhook)
 	srv.GET(fmt.Sprintf("%s/context/:user_id", apiVersion), app.authorizeMiddleware(app.getContext, []RoleType{Yalo}))
-	srv.POST(fmt.Sprintf("%s/integrations/facebook/webhook", apiVersion), app.webhookFB)
+	srv.POST(managerOptions.WebhookFacebook, app.webhookFB)
 	srv.DELETE(fmt.Sprintf("%s/chat/finish/:user_id", apiVersion), app.authorizeMiddleware(app.finishChat, []RoleType{Yalo}))
 	srv.POST(fmt.Sprintf("%s/integrations/webhook/register/:provider", apiVersion), app.authorizeMiddleware(app.registerWebhook, []RoleType{Yalo}))
 }
