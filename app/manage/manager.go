@@ -402,6 +402,7 @@ func (m *Manager) FinishChat(userId string) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
+	in.updateStatusRedis(string(Closed))
 	m.EndChat(in)
 	return nil
 }
