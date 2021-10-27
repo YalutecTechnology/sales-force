@@ -1,12 +1,14 @@
 package manage
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -1772,5 +1774,57 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 		err := manager.RegisterWebhookInIntegrations("facebooks")
 		assert.Error(t, err)
+	})
+}
+
+func TestManager_StoreInterconnectionInRedis(t *testing.T) {
+	t.Run("Fail store interconnection", func(t *testing.T) {
+		interconnection := &Interconnection{
+			UserID:    "55125421545",
+			SessionID: "sessionId",
+		}
+		intCache := NewInterconectionCache(interconnection)
+		interconnectionCacheMock := new(InterconnectionCache)
+		interconnectionCacheMock.On("StoreInterconnection", intCache).
+			Return(assert.AnError).Once()
+		manager := &Manager{
+			interconnectionsCache: interconnectionCacheMock,
+		}
+		expectedLog := "Could not store interconnection with userID"
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.storeInterconnectionInRedis(interconnection)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+}
+
+func TestManager_GetContextInterconnection(t *testing.T) {
+	t.Run("Should get context from user", func(t *testing.T) {
+		interconnection := &Interconnection{
+			UserID: "55125421545",
+		}
+		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock.On("RetrieveContext", userID).
+			Return([]cache.Context{
+				{
+					UserID:    userID,
+					Timestamp: 1111111111,
+					Text:      "text",
+				},
+			}).Once()
+		manager := &Manager{
+			contextcache: cacheContextMock,
+		}
+		expectedLog := "Get context of userID"
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.getContext(interconnection)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
 	})
 }
