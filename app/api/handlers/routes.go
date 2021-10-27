@@ -76,4 +76,5 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	srv.POST(managerOptions.WebhookFacebook, app.webhookFB)
 	srv.DELETE(fmt.Sprintf("%s/chat/finish/:user_id", apiVersion), app.authorizeMiddleware(app.finishChat, []RoleType{Yalo}))
 	srv.POST(fmt.Sprintf("%s/integrations/webhook/register/:provider", apiVersion), app.authorizeMiddleware(app.registerWebhook, []RoleType{Yalo}))
+	srv.DELETE(fmt.Sprintf("%s/integrations/webhook/remove/:provider", apiVersion), app.authorizeMiddleware(app.removeWebhook, []RoleType{Yalo}))
 }

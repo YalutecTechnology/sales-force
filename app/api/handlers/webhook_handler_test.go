@@ -407,3 +407,41 @@ func TestRegisterWebhook(t *testing.T) {
 		}
 	})
 }
+
+func TestRemoveWebhook(t *testing.T) {
+	requestURLWebhookRemove := "/v1/integrations/webhook/remove/:provider"
+	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
+	handler.DELETE(requestURLWebhookRemove, app.removeWebhook)
+
+	t.Run("Should get a valid response with whatsapp", func(t *testing.T) {
+		managerMock := new(ManagerI)
+		managerMock.On("RemoveWebhookInIntegrations", "whatsapp").Return(nil).Once()
+		getApp().ManageManager = managerMock
+
+		req, _ := http.NewRequest("DELETE", "/v1/integrations/webhook/remove/whatsapp", nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+	})
+
+	t.Run("Should get a fail response with wa", func(t *testing.T) {
+		managerMock := new(ManagerI)
+		managerMock.On("RemoveWebhookInIntegrations", "whatsapp").Return(assert.AnError).Once()
+		getApp().ManageManager = managerMock
+
+		req, _ := http.NewRequest("DELETE", "/v1/integrations/webhook/remove/whatsapp", nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		logrus.Infof("Response : %s", response.Body.String())
+
+		if response.Code != http.StatusInternalServerError {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusInternalServerError, response.Code)
+		}
+	})
+}
