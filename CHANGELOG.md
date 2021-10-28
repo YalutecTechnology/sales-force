@@ -6,6 +6,7 @@
 
 * **Endpoints:** endpoint to remove webhook from integrations. Closes #CSF-199
 * **Integration - interconnections:** create setup url webhooks
+* **Integration-interconnection:** Implement cron and api call to keep session alive. Add a cron to do api call to keep session alive. Closes #CSF-203
 * **Validation-Bugfix:** Add env var with values to remove mx international code from phone number. Add SfcCodePhoneRemove envar, if exists it and phone number over 10 digits, remove phoneNumber international code Closes #CSF-204
 * **Validation-Bugfix:** Move redis to a gorutine when doing chat connect. Move to a gorutine StoreInterconnectionInRedis. Closes #CSF-202
 
