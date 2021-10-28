@@ -63,6 +63,7 @@ type Envs struct {
 	IntegrationsWABotPhone     string            `split_words:"true"`
 	IntegrationsFBBotPhone     string            `split_words:"true"`
 	KeywordsRestart            []string          `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
+	SpecSchedule               string            `split_words:"true" default:"@every 59m"`
 }
 type Provider struct {
 	ButtonID string `json:"button_id"`

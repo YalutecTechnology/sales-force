@@ -39,6 +39,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 			},
 			SessionsTTL: time.Second,
 		},
+		SpecSchedule: "@every 1h30m",
 	}
 	manager := CreateManager(config)
 	SuccessState = map[string]string{
@@ -269,6 +270,7 @@ func TestCheckEvent_test(t *testing.T) {
 			},
 			SessionsTTL: time.Second,
 		},
+		SpecSchedule: "@every 1h30m",
 	}
 	manager := CreateManager(config)
 	interconnection := &Interconnection{
