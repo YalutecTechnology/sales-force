@@ -1,10 +1,12 @@
 
 <a name="v0.1.5"></a>
-## [v0.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-27)
+## [v0.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-28)
 
 ### Feat
 
+* **Endpoints:** endpoint to remove webhook from integrations. Closes #CSF-199
 * **Integration - interconnections:** create setup url webhooks
+* **Validation-Bugfix:** Add env var with values to remove mx international code from phone number. Add SfcCodePhoneRemove envar, if exists it and phone number over 10 digits, remove phoneNumber international code Closes #CSF-204
 * **Validation-Bugfix:** Move redis to a gorutine when doing chat connect. Move to a gorutine StoreInterconnectionInRedis. Closes #CSF-202
 
 ### Fix

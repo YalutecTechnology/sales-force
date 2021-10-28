@@ -64,6 +64,7 @@ func main() {
 		SfcCustomFieldsCase:        envs.SfcCustomFieldsCase,
 		SfcSourceFlowField:         envs.SfcSourceFlowField,
 		SfcSourceFlowBot:           envs.SfcSourceFlowBot,
+		SfcCodePhoneRemove:         envs.SfcCodePhoneRemove,
 		IntegrationsUrl:            envs.IntegrationsBaseUrl,
 		IntegrationsWAChannel:      envs.IntegrationsWAChannel,
 		IntegrationsFBChannel:      envs.IntegrationsFBChannel,

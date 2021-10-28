@@ -55,7 +55,7 @@ type HealthcheckPayload struct {
 	Phone    string `json:"phone" validate:"required"`
 	Webhook  string `json:"webhook" validate:"required"`
 	Provider string `json:"provider" validate:"required"`
-	Version  string `json:"version"`
+	Version  int    `json:"version"`
 }
 
 type RemoveWebhookPayload struct {

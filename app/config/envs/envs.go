@@ -50,6 +50,7 @@ type Envs struct {
 	SfcSourceFlowBot           SfcSourceFlowBot  `required:"true" split_words:"true"`
 	SfcSourceFlowField         string            `required:"true" split_words:"true" default:"source_flow_bot"`
 	SfcBlockedChatField        bool              `split_words:"true" default:"false"`
+	SfcCodePhoneRemove         []string          `split_words:"true" default:"521,52"`
 	IntegrationsWAChannel      string            `split_words:"true" default:"outgoing_webhook"`
 	IntegrationsFBChannel      string            `split_words:"true" default:"passthrough"`
 	IntegrationsWABotID        string            `split_words:"true"`

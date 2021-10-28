@@ -41,6 +41,7 @@ var (
 	WebhookWhatsapp string
 	WebhookFacebook string
 	StudioNGTimeout int
+	CodePhoneRemove []string
 )
 
 const (
@@ -102,6 +103,7 @@ type ManagerOptions struct {
 	SfcAccountRecordTypeID     string
 	SfcDefaultBirthDateAccount string
 	SfcCustomFieldsCase        map[string]string
+	SfcCodePhoneRemove         []string
 	IntegrationsUrl            string
 	IntegrationsWAChannel      string
 	IntegrationsFBChannel      string
@@ -151,6 +153,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	WebhookFacebook = config.WebhookFacebook
 	WebhookWhatsapp = config.WebhookWhatsapp
 	StudioNGTimeout = config.StudioNGTimeout
+	CodePhoneRemove = config.SfcCodePhoneRemove
 	isStudioNG := false
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
@@ -325,6 +328,9 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
+	// Clean phoneNumber
+	cleanPrefixPhoneNumber(interconnection)
+
 	// We get the contact if it exists by your email or phone.
 	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
@@ -371,6 +377,21 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	//Add interconection to Redis and interconnectionMap
 	m.AddInterconnection(interconnection)
 	return nil
+}
+
+func cleanPrefixPhoneNumber(interconnection *Interconnection) {
+	if len(interconnection.PhoneNumber) > 10 {
+		for _, code := range CodePhoneRemove {
+			if strings.HasPrefix(interconnection.PhoneNumber, code) {
+				newPhoneNumber := strings.TrimPrefix(interconnection.PhoneNumber, code)
+				if len(newPhoneNumber) < 10 {
+					continue
+				}
+				interconnection.PhoneNumber = newPhoneNumber
+				break
+			}
+		}
+	}
 }
 
 // Change to state with botrunner
@@ -773,7 +794,7 @@ func (m *Manager) RegisterWebhookInIntegrations(provider string) error {
 		_, err := m.IntegrationsClient.WebhookRegister(integrations.HealthcheckPayload{
 			Phone:    FBPhone,
 			Webhook:  WebhookBaseUrl + WebhookFacebook,
-			Version:  "3",
+			Version:  3,
 			Provider: string(FacebookProvider),
 		})
 		if err != nil {
