@@ -38,6 +38,8 @@ var (
 	WAPhone         string
 	FBPhone         string
 	WebhookBaseUrl  string
+	WebhookWhatsapp string
+	WebhookFacebook string
 	StudioNGTimeout int
 )
 
@@ -130,6 +132,7 @@ type ManagerI interface {
 	SaveContextFB(integration *models.IntegrationsFacebook) error
 	FinishChat(userId string) error
 	RegisterWebhookInIntegrations(provider string) error
+	RemoveWebhookInIntegrations(provider string) error
 }
 
 // CreateManager retrieves an agents manager
@@ -145,6 +148,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 	WAPhone = config.IntegrationsWABotPhone
 	FBPhone = config.IntegrationsFBBotPhone
 	WebhookBaseUrl = config.WebhookBaseUrl
+	WebhookFacebook = config.WebhookFacebook
+	WebhookWhatsapp = config.WebhookWhatsapp
 	StudioNGTimeout = config.StudioNGTimeout
 	isStudioNG := false
 
@@ -754,7 +759,7 @@ func (m *Manager) RegisterWebhookInIntegrations(provider string) error {
 	case string(WhatsappProvider):
 		_, err := m.IntegrationsClient.WebhookRegister(integrations.HealthcheckPayload{
 			Phone:    WAPhone,
-			Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", WebhookBaseUrl),
+			Webhook:  WebhookBaseUrl + WebhookWhatsapp,
 			Provider: string(WhatsappProvider),
 		})
 		if err != nil {
@@ -767,11 +772,45 @@ func (m *Manager) RegisterWebhookInIntegrations(provider string) error {
 	case string(FacebookProvider):
 		_, err := m.IntegrationsClient.WebhookRegister(integrations.HealthcheckPayload{
 			Phone:    FBPhone,
-			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Webhook:  WebhookBaseUrl + WebhookFacebook,
+			Version:  "3",
 			Provider: string(FacebookProvider),
 		})
 		if err != nil {
-			errorMessage := fmt.Sprintf("could not set facebok webhook on integrations : %s", err.Error())
+			errorMessage := fmt.Sprintf("could not set facebook webhook on integrations : %s", err.Error())
+			logrus.Error(errorMessage)
+			return errors.New(errorMessage)
+		}
+		return nil
+	default:
+		errorMessage := fmt.Sprintf("Invalid provider webhook : %s", provider)
+		logrus.Error(errorMessage)
+		return errors.New(errorMessage)
+	}
+}
+
+func (m *Manager) RemoveWebhookInIntegrations(provider string) error {
+
+	switch provider {
+	case string(WhatsappProvider):
+		_, err := m.IntegrationsClient.WebhookRemove(integrations.RemoveWebhookPayload{
+			Phone:    WAPhone,
+			Provider: string(WhatsappProvider),
+		})
+		if err != nil {
+			errorMessage := fmt.Sprintf("could not remove whatsapp webhook on integrations : %s", err.Error())
+			logrus.Error(errorMessage)
+			return errors.New(errorMessage)
+		}
+		return nil
+
+	case string(FacebookProvider):
+		_, err := m.IntegrationsClient.WebhookRemove(integrations.RemoveWebhookPayload{
+			Phone:    FBPhone,
+			Provider: string(FacebookProvider),
+		})
+		if err != nil {
+			errorMessage := fmt.Sprintf("could not remove facebook webhook on integrations : %s", err.Error())
 			logrus.Error(errorMessage)
 			return errors.New(errorMessage)
 		}

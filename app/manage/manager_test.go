@@ -1667,15 +1667,17 @@ func TestManager_SaveContextFB(t *testing.T) {
 }
 
 func TestManager_RegisterWebhook(t *testing.T) {
+	WebhookBaseUrl = "http://localhost"
+	WebhookFacebook = "/v1/integrations/facebook/webhook"
+	WebhookWhatsapp = "/v1/integrations/whatsapp/webhook"
 	t.Run("Register webhook whastapp Succesfull", func(t *testing.T) {
 		WAPhone = "waphone"
-		WebhookBaseUrl = "http://localhost"
 		integrationsClientMock := new(IntegrationInterface)
 
 		response := &integrations.HealthcheckResponse{
 			BotId:   "botID",
 			Channel: "outgoing",
-			Webhook: WebhookBaseUrl + "/v1/integrations/whatsapp/webhook",
+			Webhook: WebhookBaseUrl + WebhookWhatsapp,
 		}
 
 		payload := integrations.HealthcheckPayload{
@@ -1696,12 +1698,11 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook whastapp Fail", func(t *testing.T) {
 		WAPhone = "waphone"
-		WebhookBaseUrl = "http://localhost"
 		integrationsClientMock := new(IntegrationInterface)
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    WAPhone,
-			Webhook:  fmt.Sprintf("%s/v1/integrations/whatsapp/webhook", WebhookBaseUrl),
+			Webhook:  WebhookBaseUrl + WebhookWhatsapp,
 			Provider: string(WhatsappProvider),
 		}
 
@@ -1717,18 +1718,18 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook facebook Succesfull", func(t *testing.T) {
 		FBPhone = "fbphone"
-		WebhookBaseUrl = "http://localhost"
 		integrationsClientMock := new(IntegrationInterface)
 
 		response := &integrations.HealthcheckResponse{
 			BotId:   "botID",
 			Channel: "outgoing",
-			Webhook: WebhookBaseUrl + "/v1/integrations/facebook/webhook",
+			Webhook: WebhookBaseUrl + WebhookFacebook,
 		}
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    FBPhone,
 			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Version:  "3",
 			Provider: string(FacebookProvider),
 		}
 
@@ -1744,12 +1745,12 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook facebook fail", func(t *testing.T) {
 		FBPhone = "fbphone"
-		WebhookBaseUrl = "http://localhost"
 		integrationsClientMock := new(IntegrationInterface)
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    FBPhone,
-			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
+			Version:  "3",
+			Webhook:  WebhookBaseUrl + WebhookFacebook,
 			Provider: string(FacebookProvider),
 		}
 
@@ -1765,7 +1766,6 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook default value", func(t *testing.T) {
 		FBPhone = "fbphone"
-		WebhookBaseUrl = "http://localhost"
 		integrationsClientMock := new(IntegrationInterface)
 
 		manager := &Manager{
@@ -1826,5 +1826,100 @@ func TestManager_GetContextInterconnection(t *testing.T) {
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
+	})
+}
+
+func TestManager_RemoveWebhook(t *testing.T) {
+	t.Run("Remove webhook whastapp Succesfull", func(t *testing.T) {
+		WAPhone = "waphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.RemoveWebhookPayload{
+			Phone:    WAPhone,
+			Provider: string(WhatsappProvider),
+		}
+
+		integrationsClientMock.On("WebhookRemove", payload).Return(true, nil).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RemoveWebhookInIntegrations("whatsapp")
+		assert.NoError(t, err)
+	})
+
+	t.Run("Remove webhook whastapp Fail", func(t *testing.T) {
+		WAPhone = "waphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.RemoveWebhookPayload{
+			Phone:    WAPhone,
+			Provider: string(WhatsappProvider),
+		}
+
+		integrationsClientMock.On("WebhookRemove", payload).Return(false, assert.AnError).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RemoveWebhookInIntegrations("whatsapp")
+		assert.Error(t, err)
+	})
+
+	t.Run("Remove webhook facebook Succesfull", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.RemoveWebhookPayload{
+			Phone:    FBPhone,
+			Provider: string(FacebookProvider),
+		}
+
+		integrationsClientMock.On("WebhookRemove", payload).Return(true, nil).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RemoveWebhookInIntegrations("facebook")
+		assert.NoError(t, err)
+	})
+
+	t.Run("Remove webhook facebook fail", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		payload := integrations.RemoveWebhookPayload{
+			Phone:    FBPhone,
+			Provider: string(FacebookProvider),
+		}
+
+		integrationsClientMock.On("WebhookRemove", payload).Return(false, assert.AnError).Once()
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RemoveWebhookInIntegrations("facebook")
+		assert.Error(t, err)
+	})
+
+	t.Run("Remove webhook default value", func(t *testing.T) {
+		FBPhone = "fbphone"
+		WebhookBaseUrl = "http://localhost"
+		integrationsClientMock := new(IntegrationInterface)
+
+		manager := &Manager{
+			IntegrationsClient: integrationsClientMock,
+		}
+
+		err := manager.RemoveWebhookInIntegrations("facebooks")
+		assert.Error(t, err)
 	})
 }

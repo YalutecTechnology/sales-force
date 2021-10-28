@@ -96,7 +96,7 @@ func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprou
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "insert success"})
 }
 
-//Register webhook intagrations
+//Register webhook to intagrations
 func (app *App) registerWebhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	provider := params.ByName("provider")
 
@@ -111,4 +111,21 @@ func (app *App) registerWebhook(w http.ResponseWriter, r *http.Request, params h
 	}
 
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "Register webhook success with provider : " + provider})
+}
+
+//Remove webhook to intagrations
+func (app *App) removeWebhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	provider := params.ByName("provider")
+
+	err := app.ManageManager.RemoveWebhookInIntegrations(provider)
+	if err != nil {
+		errorMessage := "error remove webhook"
+		logrus.WithFields(logrus.Fields{
+			"provider": provider,
+		}).WithError(err).Error(errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusInternalServerError, errorMessage)
+		return
+	}
+
+	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "Remove webhook success with provider : " + provider})
 }

@@ -72,6 +72,20 @@ func (_m *ManagerI) RegisterWebhookInIntegrations(provider string) error {
 	return r0
 }
 
+// RemoveWebhookInIntegrations provides a mock function with given fields: provider
+func (_m *ManagerI) RemoveWebhookInIntegrations(provider string) error {
+	ret := _m.Called(provider)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(provider)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SaveContext provides a mock function with given fields: integration
 func (_m *ManagerI) SaveContext(integration *models.IntegrationsRequest) error {
 	ret := _m.Called(integration)
