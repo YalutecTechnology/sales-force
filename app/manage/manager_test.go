@@ -1729,7 +1729,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 		payload := integrations.HealthcheckPayload{
 			Phone:    FBPhone,
 			Webhook:  fmt.Sprintf("%s/v1/integrations/facebook/webhook", WebhookBaseUrl),
-			Version:  "3",
+			Version:  3,
 			Provider: string(FacebookProvider),
 		}
 
@@ -1749,7 +1749,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    FBPhone,
-			Version:  "3",
+			Version:  3,
 			Webhook:  WebhookBaseUrl + WebhookFacebook,
 			Provider: string(FacebookProvider),
 		}
@@ -1921,5 +1921,38 @@ func TestManager_RemoveWebhook(t *testing.T) {
 
 		err := manager.RemoveWebhookInIntegrations("facebooks")
 		assert.Error(t, err)
+	})
+}
+
+func TestManager_CleanPrefixPhoneNumber(t *testing.T) {
+	t.Run("No remove code if SfcCodePhoneRemove is empty", func(t *testing.T) {
+		phoneNumberExpected := "521124512451"
+		interconnection := &Interconnection{PhoneNumber: phoneNumberExpected}
+		cleanPrefixPhoneNumber(interconnection)
+		assert.Equal(t, phoneNumberExpected, interconnection.PhoneNumber)
+	})
+
+	t.Run("Remove code 521 of interconnection", func(t *testing.T) {
+		CodePhoneRemove = []string{"521", "52"}
+		phoneNumberExpected := "1245124510"
+		interconnection := &Interconnection{PhoneNumber: "5211245124510"}
+		cleanPrefixPhoneNumber(interconnection)
+		assert.Equal(t, phoneNumberExpected, interconnection.PhoneNumber)
+	})
+
+	t.Run("Remove code 52 of interconnection", func(t *testing.T) {
+		CodePhoneRemove = []string{"521", "52"}
+		phoneNumberExpected := "1245124510"
+		interconnection := &Interconnection{PhoneNumber: "521245124510"}
+		cleanPrefixPhoneNumber(interconnection)
+		assert.Equal(t, phoneNumberExpected, interconnection.PhoneNumber)
+	})
+
+	t.Run("No remove code 521 if phoneNumber is less than ten digits in interconnection", func(t *testing.T) {
+		CodePhoneRemove = []string{"521", "52"}
+		phoneNumberExpected := "52124512451"
+		interconnection := &Interconnection{PhoneNumber: phoneNumberExpected}
+		cleanPrefixPhoneNumber(interconnection)
+		assert.Equal(t, phoneNumberExpected, interconnection.PhoneNumber)
 	})
 }
