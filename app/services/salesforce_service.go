@@ -46,6 +46,8 @@ type SalesforceServiceInterface interface {
 	CreatCase(contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
+	RefreshToken()
+	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
 }
 
 func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID string) *SalesforceService {
@@ -267,6 +269,7 @@ func (s *SalesforceService) RefreshToken() {
 		logrus.Errorf("Could not get access token from salesforce Server : %s", err.Error())
 		return
 	}
+
 	s.SfcChatClient.UpdateToken(token)
 	s.SfcClient.UpdateToken(token)
 	logrus.Info("Refresh token successful")
@@ -342,4 +345,8 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 
 func (s *SalesforceService) EndChat(affinityToken, sessionKey string) error {
 	return s.SfcChatClient.ChatEnd(affinityToken, sessionKey)
+}
+
+func (s *SalesforceService) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	return s.SfcClient.SearchContactComposite(email, phoneNumber)
 }

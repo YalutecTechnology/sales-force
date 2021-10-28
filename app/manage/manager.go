@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"yalochat.com/salesforce-integration/app/config/envs"
+	"yalochat.com/salesforce-integration/app/cron"
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/botrunner"
@@ -125,6 +126,7 @@ type ManagerOptions struct {
 	StudioNGUrl                string
 	StudioNGToken              string
 	StudioNGTimeout            int
+	SpecSchedule               string
 }
 
 type ManagerI interface {
@@ -216,6 +218,11 @@ func CreateManager(config *ManagerOptions) *Manager {
 		tokenPayload,
 		config.SfcCustomFieldsCase,
 		SfcRecordTypeID)
+
+	if config.SpecSchedule != "" {
+		cronService := cron.NewCron(salesforceService, config.SpecSchedule, config.SfcUsername)
+		cronService.Run()
+	}
 
 	salesforceService.AccountRecordTypeId = config.SfcAccountRecordTypeID
 	if config.SfcDefaultBirthDateAccount != "" {

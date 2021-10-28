@@ -574,3 +574,23 @@ func TestSalesforceService_RefreshToken(t *testing.T) {
 	})
 
 }
+
+func TestSalesforceService_SearchContactComposite(t *testing.T) {
+	t.Run("Get message Succesfull", func(t *testing.T) {
+		mock := new(SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID)
+		salesforceService.SfcClient = mock
+
+		contact := &models.SfcContact{
+			FirstName:   firstNameDefault,
+			Email:       email,
+			MobilePhone: phoneNumber,
+		}
+		mock.On("SearchContactComposite", email, "").Return(contact, nil).Once()
+
+		searchResponse, err := salesforceService.SearchContactComposite(email, "")
+
+		assert.Nil(t, err)
+		assert.Equal(t, contact, searchResponse)
+	})
+}
