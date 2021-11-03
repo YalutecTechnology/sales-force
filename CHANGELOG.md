@@ -1,6 +1,10 @@
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-04)
+## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-03)
+
+### Chore
+
+* **Validation-Bugfix:** Update documentation and userID to logs. Closes #CSF-206
 
 ### Feat
 

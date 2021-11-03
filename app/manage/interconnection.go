@@ -87,7 +87,7 @@ func NewSfMessage(affinityToken, key, text string) *Message {
 }
 
 func (in *Interconnection) handleLongPolling() {
-	logrus.WithField("userId", in.UserID).Info("Starting long polling service from salesforce ")
+	logrus.WithField("userID", in.UserID).Info("Starting long polling service from salesforce")
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
 		response, errorResponse := in.SalesforceService.GetMessages(in.AffinityToken, in.SessionKey)
@@ -95,21 +95,21 @@ func (in *Interconnection) handleLongPolling() {
 		if errorResponse != nil {
 			switch errorResponse.StatusCode {
 			case http.StatusNoContent:
-				logrus.WithField("userId", in.UserID).Info("Not content events")
+				logrus.WithField("userID", in.UserID).Info("Not content events")
 			case http.StatusForbidden:
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
-				logrus.WithField("userId", in.UserID).Info("StatusForbidden")
+				logrus.WithField("userID", in.UserID).Info("StatusForbidden")
 			case http.StatusServiceUnavailable:
 				// TODO: Reconnect Session
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
-				logrus.WithField("userId", in.UserID).Info("StatusServiceUnavailable")
+				logrus.WithField("userID", in.UserID).Info("StatusServiceUnavailable")
 			default:
-				logrus.WithField("userId", in.UserID).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
+				logrus.WithField("userID", in.UserID).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
@@ -129,24 +129,24 @@ func (in *Interconnection) handleLongPolling() {
 func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	switch event.Type {
 	case chat.ChatRequestFail:
-		logrus.WithField("userId", in.UserID).Infof("Event [%s]", chat.ChatRequestFail)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.ChatRequestFail)
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
-		logrus.WithField("userId", in.UserID).Infof("Event [%s]", chat.ChatRequestSuccess)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.ChatRequestSuccess)
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente", in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
-		logrus.WithField("userId", in.UserID).Infof("Event [%s]", event.Type)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s]", event.Type)
 		in.ActiveChat()
 	case chat.ChatMessage:
-		logrus.WithField("userId", in.UserID).Infof("Message from salesforce : %s", event.Message.Text)
+		logrus.WithField("userID", in.UserID).Infof("Message from salesforce : %s", event.Message.Text)
 		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, event.Message.Text, in.Provider)
 	case chat.QueueUpdate:
-		logrus.WithField("userId", in.UserID).Infof("Event [%s]", chat.QueueUpdate)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.QueueUpdate)
 		/*if event.Message.QueuePosition > 0 {
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
@@ -157,7 +157,7 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		in.runnigLongPolling = false
 		in.Status = Closed
 	default:
-		logrus.WithField("userId", in.UserID).Infof("Event [%s]", event.Type)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s]", event.Type)
 	}
 }
 

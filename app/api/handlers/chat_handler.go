@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -23,15 +24,20 @@ type ChatPayload struct {
 // Connect and create chat between user and salesforce
 func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var chatPayload = &ChatPayload{}
+	var errorMessage string
 	//unmarshalling payload
 	if err := json.NewDecoder(r.Body).Decode(&chatPayload); err != nil {
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.ErrorMessage(helpers.InvalidPayload, err))
+		errorMessage = helpers.ErrorMessage(helpers.InvalidPayload, err)
+		logrus.Error(errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
 	//validating payload struct
 	if err := helpers.Govalidator().Struct(chatPayload); err != nil {
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.ErrorMessage(helpers.ValidatePayloadError, err))
+		errorMessage = helpers.ErrorMessage(helpers.ValidatePayloadError, err)
+		logrus.Error(errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
@@ -47,7 +53,9 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		ExtraData:   chatPayload.ExtraData,
 	}
 	if err := app.ManageManager.CreateChat(interconnection); err != nil {
-		helpers.WriteFailedResponse(w, http.StatusNotFound, err.Error())
+		errorMessage = err.Error()
+		logrus.Error(errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
 		return
 	}
 

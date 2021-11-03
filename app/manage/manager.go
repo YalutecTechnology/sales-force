@@ -334,9 +334,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	logrus.WithField("userID", interconnection.UserID).Info("Validate UserID")
 	err := m.ValidateUserID(interconnection.UserID)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"interconnection": interconnection,
-		}).WithError(err).Error("error ValidateUserID")
+		logrus.WithField("interconnection", interconnection).WithError(err).Error("error ValidateUserID")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
@@ -348,9 +346,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	logrus.WithField("userID", interconnection.UserID).Info("GetOrCreateContact")
 	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"interconnection": interconnection,
-		}).WithError(err).Error("error GetOrCreateContact")
+		logrus.WithField("interconnection", interconnection).WithError(err).Error("error GetOrCreateContact")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
@@ -366,9 +362,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	caseId, err := m.SalesforceService.CreatCase(contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"interconnection": interconnection,
-		}).WithError(err).Error("error CreatCase")
+		logrus.WithField("interconnection", interconnection).WithError(err).Error("error CreatCase")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.CaseID = caseId
@@ -377,9 +371,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	logrus.WithField("userID", interconnection.UserID).Info("CreateChat")
 	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.ID)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"interconnection": interconnection,
-		}).WithError(err).Error("error CreatChat")
+		logrus.WithField("interconnection", interconnection).WithError(err).Error("error CreatChat")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
@@ -487,7 +479,7 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 
 	go interconnection.handleLongPolling()
 	go interconnection.handleStatus()
-	logrus.Infof("Create interconnection successfully: %s", interconnection.UserID)
+	logrus.Infof("Create interconnection successfully : %s", interconnection.UserID)
 }
 
 func (m *Manager) storeInterconnectionInRedis(interconnection *Interconnection) {

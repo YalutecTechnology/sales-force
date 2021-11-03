@@ -6,7 +6,7 @@ The requirements of this solution are documented in the following [RFC-155.](htt
 
 We can have more detailed information on the flow of this solution in the following documentation:
 
-- [Salesforce Integration Middleware](https://www.notion.so/yalo/Salesforce-Integration-Middleware-fca28101435948a8a52b61733c955973) 
+- [Salesforce Integration Middleware](https://www.notion.so/yalo/Salesforce-Integration-Middleware-fca28101435948a8a52b61733c955973)
 
 ## What is this repository for? ##
 
@@ -14,11 +14,11 @@ This service will serve as a middleware that will connect a user of a Yalo bot w
 
 This solution aims to be used for different implementations with any client in a simple way, in which it is necessary to establish a live chat, through a Yalo bot and the Salesforce CRM platform.
 
-The flow implemented for creating chat between an end user and a human agent in Salesforce is as follows: 
+The flow implemented for creating chat between an end user and a human agent in Salesforce is as follows:
 
-1. The user is interacting with a Yalo bot. 
-2. If the user requests human assistance by typing the keyword ***"Ayuda"***, Yalo Core, puts the artificial intelligence in a waiting state and Yalo Component creates a Chat session with Salesforce by making a request to the endpoint [`v1/chats/connect`](https://www.notion.so/yalo/Salesforce-Integrations-Endpoints-57ff093479084b89a9990a5bd0faa7b1) of this solution. 
-3. The endpoint must consume the following minimum information to create a chat: 
+1. The user is interacting with a Yalo bot.
+2. If the user requests human assistance by typing the keyword ***"Ayuda"***, Yalo Core, puts the artificial intelligence in a waiting state and Yalo Component creates a Chat session with Salesforce by making a request to the endpoint [`v1/chats/connect`](https://www.notion.so/yalo/Salesforce-Integrations-Endpoints-57ff093479084b89a9990a5bd0faa7b1) of this solution.
+3. The endpoint must consume the following minimum information to create a chat:
 
 | Field | Description
 | :---  | :--- |
@@ -33,17 +33,19 @@ The flow implemented for creating chat between an end user and a human agent in 
 
 4. First, it is validated that the user does not have a live chat in existence at the time of making the request.
 
-5. We search through the email or phone received that there is a **contact** or **personal account** in the customer's Salesforce account, if it does not exist, the contact or personal account is created.
+5. First, it is validated that the user does not have a live chat in existence at the time of making the request.
 
-6. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the botrunner or studiong client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
+6. We search through the email or phone received that there is a **contact** or **personal account** in the customer's Salesforce account, if it does not exist, the contact or personal account is created.
 
-7. Once the contact has been validated in Salesforce, we create a query case with the data provided to add it and request a chat. [ChatRequest in LiveAgent API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChasitorInit.htm)
+7. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the botrunner or studiong client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
 
-8. After successfully requesting the chat session with Salesforce, we save the information necessary to maintain the session in an **Interconnection** object in Redis.
+8. Once the contact has been validated in Salesforce, we create a query case with the data provided to add it and request a chat. [ChatRequest in LiveAgent API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChasitorInit.htm)
 
-9. Finally, we initialize in the ***Interconnection*** a goroutine that starts the [***Long Polling***](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_http_long_polling_loop.htm) process with Salesforce, with which we consume a service to identify the different events that happen in the chat every 5 seconds.
+9. After successfully requesting the chat session with Salesforce, we save the information necessary to maintain the session in an **Interconnection** object in Redis.
 
-10. According to the events received, **salesforce-integration** performs the following actions:
+10. Finally, we initialize in the ***Interconnection*** a goroutine that starts the [***Long Polling***](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_http_long_polling_loop.htm) process with Salesforce, with which we consume a service to identify the different events that happen in the chat every 5 seconds.
+
+11. According to the events received, **salesforce-integration** performs the following actions:
 
 * ***204 HTTP Status :*** It means that there are no changes in the chat.
 * ***503 HTTP Status :*** An attempt will be made to reconnect the session because the connection to Salesforce was lost. More details [ReconnectSession](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ReconnectSession.htm)
@@ -51,18 +53,18 @@ The flow implemented for creating chat between an end user and a human agent in 
 * ***ChatRequestFail:*** The chat was not created correctly in the Salesforce console, due to no agents available in the queue the chat was sent to or some unknown error.
 * ***ChatRequestSuccess :*** The chat was created successfully and the **Interconnection** goes to `OnHold` status waiting for a human agent to accept the chat. The service sends the user a `Esperando agente` message via [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1).
 * ***ChatEstablished :*** An agent accepts the chat and the **Interconnection** goes to `Active` status, at this time both can send messages to each other, but before that, the service sends the context of the query as the first message, that is, the previous conversation between the bot's AI and the user before requesting a live chat.
-* ***ChatMessage :*** The agent sent a message to the user, then through [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1) we forward the message to the user to their *WhatsApp* or *Messenger*. 
-* ***ChatEnded :*** The agent ended the chat and the **Interconnection** goes to `Closed` status, closing the session in the integration and through the **Botrunner or Studiong client** the user is changed to a successfully *finished chat state*, specified in the environment variable **SUCCESS_STATE**. 
+* ***ChatMessage :*** The agent sent a message to the user, then through [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1) we forward the message to the user to their *WhatsApp* or *Messenger*.
+* ***ChatEnded :*** The agent ended the chat and the **Interconnection** goes to `Closed` status, closing the session in the integration and through the **Botrunner or Studiong client** the user is changed to a successfully *finished chat state*, specified in the environment variable **SUCCESS_STATE**.
 
 ***How do I send a user's response to an agent in the Salesforce console?***
 
-When the instance is raised, the webhooks are registered in the [Integrations API](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#de3c9ae04829401e86f756092e0e58e2) that will receive the messages between the users and the bot.
+When the instance is raised, we need to register the webhooks through the endpoint `/v1/integrations/webhook/register/{{provider}}`, then the webhooks are registered in the [Integrations API](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#de3c9ae04829401e86f756092e0e58e2) that will receive the messages between the users and the bot.
 
 If we receive a text or image message from a user, we validate the following:
 
 * If the user does not have an Active or OnHold chat, this message is saved as context in Redis.
 
-* If there is an Active chat then through our [LiveAgent API client](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChatMessage_request.htm) we send that message to the agent's console. If the message is of type Image, a message is sent to the agent saying `"El usuario adjunto una imagen al caso"`, and the image through our Salesforce APÏ client is attached to the case.
+* If there is an Active chat then through our [LiveAgent API client](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChatMessage_request.htm) we send that message to the agent's console. If the message is of type Image, a message is sent to the agent saying `"El usuario adjunto una imagen al caso"`, and the image through our Salesforce API client is attached to the case.
 
 Any other type of message other than TEXT or IMAGE in the webhooks is ignored.
 
@@ -112,10 +114,10 @@ In **/manager** folder we will find all the logic implemented to be able to mana
 | text |  Message text. |
 | from | Who sent the message the user or the bot. |
 
-* ***SalesforceService:*** This component contains the clients to connect to the Salesforce APIs and the functions used with Salesforce: 
-    1. Authorization API
-    2. [Live Agent Rest API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_API_requests.htm)
-    3. [Data Salesforce API](https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_quickstart_intro.htm) 
+* ***SalesforceService:*** This component contains the clients to connect to the Salesforce APIs and the functions used with Salesforce:
+  1. Authorization API
+  2. [Live Agent Rest API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_API_requests.htm)
+  3. [Data Salesforce API](https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_quickstart_intro.htm)
 
 * ***IntegrationsClient:*** Client to use message sending and webhook logging endpoints with [Integrations API](https://developer.yalo.com/yalo/reference/integrations-api-overview).
 
@@ -123,16 +125,16 @@ In **/manager** folder we will find all the logic implemented to be able to mana
 
 #### Base folder
 
-This folder has all the support packages that will be used by the app folder. 
+This folder has all the support packages that will be used by the app folder.
 
 Here is the list of packages in the base folder with its explanation:
 
-Package  | Description  | Implementations or sub-packages  
+Package  | Description  | Implementations or sub-packages
 -------- | ------------ | -------------------------------- 
 cache | Contains logic to retrieve and store mensages of context and interconnections on cache. | Implementations: Redis (ContextCache, InterconnectionCache) and [Ristretto Cache](https://github.com/dgraph-io/ristretto)
 clients | Contains the clients to send requests to Botrunner sent-to, Studiong sent-to, Integrations API, AgentLiveChat API and Saleforce API |
-constants | It will contain the common constants and errors that we use in the service| 
-helpers | It contains utilities that help us in the creation of endpoints or file encoding, and other functionalities.| 
+constants | It will contain the common constants and errors that we use in the service|
+helpers | It contains utilities that help us in the creation of endpoints or file encoding, and other functionalities.|
 models | Contains base structures that we will use for this service.  |
 
 ## How do I get set up? ##
@@ -179,11 +181,13 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_SFC_ DEPLOYMENT_ID`| deployment_id identifier for chat requests.| true *(request it to salesforce team or client)*  |  |
 | `SALESFORCE-INTEGRATION_SFC_RECORD_TYPE_ID`| record_type_id identifier for case requests.| true *(request it to salesforce team or client)*  |  |
 | `SALESFORCE-INTEGRATION_SFC_ACCOUNT_RECORD_TYPE_ID`| record_type_id identifier for submitting requests to create person accounts in Salesforce. If this value does not exist, only the contact is created.| false *(request it to salesforce team or client)*  |  |
+| `SALESFORCE-INTEGRATION_SFC_DEFAULT_BIRTH_DATE_ACCOUNT`| Indicates the default date to create personal accounts in salesforce, only if the send ACCOUNT_RECORD_TYPE exists, in case the client requests a special date we can change it.| false | **1921-01-01T00:00:00** |
 | `SALESFORCE-INTEGRATION_SFC_SOURCE_FLOW_BOT`| It contains a map with the custom values of the client to identify the `bot source flow`, such as the values of the case subject, the buttonIDs, and the ownerIds, you can see an example [here](https://www.notion.so/yalo/Envar-SfcSourceFlowBot-d5ea5a94fca34659996fbf1bf76e33db). | true  |  |
 | `SALESFORCE-INTEGRATION_SFC_SOURCE_FLOW_FIELD`| Name of the parameter that defines the reason for the chat query, this value must be sent in the chat request within the extraData map. Required to redirect to the corresponding queue in Salesforce. | true   | ***source_flow_bot*** |
 | `SALESFORCE-INTEGRATION_SFC_SOURCE_FLOW_FIELD`| Name of the parameter that defines the reason for the chat query, this value must be sent in the chat request within the extraData map. Required to redirect to the corresponding queue in Salesforce. | true   | ***source_flow_bot*** |
 | `SALESFORCE-INTEGRATION_SFC_BLOCKED_CHAT_FIELD`| Name of the parameter that tells us if we should validate the BlockedChatYalo attribute created by Salesforce to block a user. With this we activate reject a chat if the user was blocked in Salesforce for any reason and send it to the user status blocked in the bot. | true | ***false*** |
 | `SALESFORCE-INTEGRATION_SFC_CUSTOM_FIELDS_CASE`| Contains a value map with the customer's custom fields to create a case on your salesforce platform, you can see an example [here](https://www.notion.so/yalo/Envar-SfcSourceFlowBot-d5ea5a94fca34659996fbf1bf76e33db#a264a1c925b94e9e8a4bd23ac097a278). | false   |  |
+| `SALESFORCE-INTEGRATION_SFC_CODE_PHONE_REMOVE`| Indicates the codes of the phones to be deleted if the phone number is greater than 10 digits. By default, the 521 and 52 corresponding to Mexico are eliminated, more codes can be added to this shipment, example: "521,52,54,57,1". | false   | ***521,52*** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_WA_CHANNEL`| Type of channel for sending messages to the WhatsApp bot . | false  | **outgoing_webhook** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_FB_CHANNEL`| Type of channel for sending messages to the Facebook bot . | false  | **passthrough** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_WA_BOT_ID`| Bot ID of the WhatsApp bot . | false  |  |
@@ -199,12 +203,13 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_STUDIO_NG_URL`| **Sent-to** API URL, used to change the status of a user in the bot flow with studiong. | false | **http://studiong** |
 | `SALESFORCE-INTEGRATION_STUDIO_NG_TOKEN`| Access token of studiong if necessary to make requests to **Sent-to**.| false | |
 | `SALESFORCE-INTEGRATION_STUDIO_NG_TIMEOUT`| Number of seconds to wait to send a request to **Sent-to** to studiong.| false | **4** |
+| `SALESFORCE-INTEGRATION_SPEC_SCHEDULE`| It is the time to configure the cron that allows making a request to the Salesforce API, so that our token does not expire due to inactivity. By default every 59 min. Note: remember that the inactivity time is 2 hours for the token to expire.| false | **@every 59m** |
 
 ## Running project ##
 
-We must clone the repository with the ***develop*** branch or the branch with which we must work a *feature* or *bugfix* 
+We must clone the repository with the ***develop*** branch or the branch with which we must work a *feature* or *bugfix*
 
-In order to run the project locally, we must go to the folder of our copy and use the command: 
+In order to run the project locally, we must go to the folder of our copy and use the command:
 ``` sh
 go run app/main.go
 ```
@@ -231,7 +236,7 @@ Log in to docker using this command:
 gcloud auth configure-docker
 ```
 
-Now change the namespace to one that we use to use this project: 
+Now change the namespace to one that we use to use this project:
 
 ```bash 
 kubectl config set-context --current --namespace=${nameSpaceAssigned}
@@ -317,6 +322,8 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
           value: 'default={"subject":"{{subject_case}}","providers":{"whatsapp":{"button_id":"{{button_id}}","owner_id":"{{owner_id}}"},"facebook":{"button_id":"{{button_id}}","owner_id":"{{owner_id}}"}}}'
         - name: SALESFORCE-INTEGRATION_SFC_BLOCKED_CHAT_FIELD
           value: "false"
+        - name: SALESFORCE-INTEGRATION_SFC_CODE_PHONE_REMOVE
+          value: "521,52"
         - name: SALESFORCE-INTEGRATION_INTEGRATIONS_WA_CHANNEL
           value: "outgoing_webhook"
         - name: SALESFORCE-INTEGRATION_INTEGRATIONS_WA_BOT_ID
