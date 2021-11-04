@@ -9,6 +9,7 @@ import (
 // Envs represents the list of well known env vars used by the app
 type Envs struct {
 	AppName              string            `default:"salesforce-integration" split_words:"true"`
+	Client               string            `default:"salesforce" split_words:"true"`
 	Host                 string            `required:"true" split_words:"true" default:"localhost"`
 	Port                 string            `required:"true" split_words:"true" default:"8080"`
 	SentryDSN            string            `default:"" split_words:"true"`

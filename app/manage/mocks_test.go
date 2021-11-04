@@ -289,13 +289,13 @@ func (_m *InterconnectionCache) DeleteInterconnection(_a0 cache.Interconnection)
 	return r0, r1
 }
 
-// RetrieveAllInterconnections provides a mock function with given fields:
-func (_m *InterconnectionCache) RetrieveAllInterconnections() *[]cache.Interconnection {
-	ret := _m.Called()
+// RetrieveAllInterconnections provides a mock function with given fields: client
+func (_m *InterconnectionCache) RetrieveAllInterconnections(client string) *[]cache.Interconnection {
+	ret := _m.Called(client)
 
 	var r0 *[]cache.Interconnection
-	if rf, ok := ret.Get(0).(func() *[]cache.Interconnection); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) *[]cache.Interconnection); ok {
+		r0 = rf(client)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*[]cache.Interconnection)
