@@ -529,6 +529,42 @@ func TestManager_FinishChat(t *testing.T) {
 
 func TestManager_SaveContext(t *testing.T) {
 	interconnectionLocal := cache.New()
+
+	t.Run("Should save context audio", func(t *testing.T) {
+		contextCache := new(ContextCacheMock)
+		ctx := cache.Context{
+			UserID:    userID,
+			Timestamp: 1631202334956,
+			URL:       "uri",
+			MIMEType:  "audio",
+			From:      fromUser,
+		}
+		contextCache.On("StoreContext", ctx).Return(nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		manager := &Manager{
+			contextcache:       contextCache,
+			cacheMessage:       cacheMessage,
+			interconnectionMap: interconnectionLocal,
+		}
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "1631202334956",
+			Type:      audioType,
+			From:      userID,
+			Audio: models.Media{
+				URL:      "uri",
+				MIMEType: "audio",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
 	t.Run("Should save context voice", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := cache.Context{
