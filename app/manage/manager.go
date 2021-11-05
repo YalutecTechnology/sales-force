@@ -46,6 +46,7 @@ var (
 )
 
 const (
+	audioType           = "audio"
 	voiceType           = "voice"
 	documentType        = "document"
 	imageType           = "image"
@@ -541,6 +542,9 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.URL = integration.Document.URL
 		ctx.Caption = integration.Document.Caption
 		ctx.MIMEType = integration.Document.MIMEType
+	case integration.Type == audioType:
+		ctx.URL = integration.Audio.URL
+		ctx.MIMEType = integration.Audio.MIMEType
 	default:
 		return nil
 	}

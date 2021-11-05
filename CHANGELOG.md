@@ -1,6 +1,6 @@
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-03)
+## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-04)
 
 ### Chore
 
@@ -9,6 +9,10 @@
 ### Feat
 
 * **Validation-Bugfix:** Change dynamic key in redis to a static key in redis one per user. Add client to envar, change key redis to {{client}}:{{userID}}:interconnection for to store and  to retrieve interconnection. Closes #CSF-211
+
+### Fix
+
+* **Validation-Bugfix:** Ignore audio template. Closes #CSF-209
 
 
 <a name="v0.1.5"></a>

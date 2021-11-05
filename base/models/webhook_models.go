@@ -6,6 +6,7 @@ type IntegrationsRequest struct {
 	Type      string `json:"type" validate:"required"`
 	From      string `json:"from"`
 	To        string `json:"to"`
+	Audio     Media  `json:"audio,omitempty"`
 	Voice     Media  `json:"voice,omitempty"`
 	Document  Media  `json:"document,omitempty"`
 	Image     Media  `json:"image,omitempty"`
