@@ -297,7 +297,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 			Text:   integrations.TextMessage{Body: message.Text},
 		}, string(message.Provider))
 		if err != nil {
-			logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+			logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage", err))
 		}
 	case FacebookProvider:
 		_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayloadFB{
@@ -311,7 +311,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 			Metadata: "YALOSOURCE:FIREHOSE",
 		}, string(message.Provider))
 		if err != nil {
-			logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+			logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
 		}
 	}
 
@@ -321,7 +321,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 func (m *Manager) sendMessageToSalesforce(message *Message) {
 	_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 	if err != nil {
-		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+		logrus.Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
 	}
 	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }
@@ -441,6 +441,8 @@ func (m *Manager) FinishChat(userId string) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
+	in.runnigLongPolling = false
+
 	in.updateStatusRedis(string(Closed))
 	m.EndChat(in)
 	return nil
@@ -502,13 +504,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		return nil
 	}
 
-	isSend, err := m.salesforceComunication(integration)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"integration": integration,
-		}).WithError(err).Error("Error salesforce comunication")
-		return err
-	}
+	isSend := m.salesforceComunication(integration)
 	if isSend {
 		return nil
 	}
@@ -566,43 +562,49 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 	return nil
 }
 
-func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest) (bool, error) {
-	if interconnection, ok := m.validInterconnection(integration.From); ok && interconnection.Status == Active {
-		switch integration.Type {
-		case textType:
-			if strings.Contains(constants.DevEnvironments, m.environment) {
-				for _, keyword := range m.keywordsRestart {
-					if strings.ToLower(integration.Text.Body) == keyword {
-						err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
-						if err != nil {
-							return false, err
-						}
-						interconnection.updateStatusRedis(string(Closed))
-						interconnection.Status = Closed
-						interconnection.runnigLongPolling = false
-						return true, nil
+func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest) bool {
+	interconnection, ok := m.validInterconnection(integration.From)
+	isInterconnectionActive := ok && interconnection.Status == Active
+	if isInterconnectionActive {
+		go m.sendMessageComunication(interconnection, integration)
+	}
+	return isInterconnectionActive
+}
+
+func (m *Manager) sendMessageComunication(interconnection *Interconnection, integration *models.IntegrationsRequest) {
+	switch integration.Type {
+	case textType:
+		if strings.Contains(constants.DevEnvironments, m.environment) {
+			for _, keyword := range m.keywordsRestart {
+				if strings.ToLower(integration.Text.Body) == keyword {
+					err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+					if err != nil {
+						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("EndChat error")
+						return
 					}
+					interconnection.updateStatusRedis(string(Closed))
+					interconnection.Status = Closed
+					interconnection.runnigLongPolling = false
+					return
 				}
 			}
-
-			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body)
-
-		case imageType:
-			err := m.SalesforceService.InsertImageInCase(
-				integration.Image.URL,
-				interconnection.SessionID,
-				integration.Image.MIMEType,
-				interconnection.CaseID)
-			if err != nil {
-				interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
-				return false, err
-			}
-			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
 		}
 
-		return true, nil
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body)
+
+	case imageType:
+		err := m.SalesforceService.InsertImageInCase(
+			integration.Image.URL,
+			interconnection.SessionID,
+			integration.Image.MIMEType,
+			interconnection.CaseID)
+		if err != nil {
+			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
+			logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+			return
+		}
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
 	}
-	return false, nil
 }
 
 func (m *Manager) validInterconnection(from string) (*Interconnection, bool) {
@@ -698,7 +700,6 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 // SaveContext method will save context of integration message from facebook
 func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
 	//logrus.Info("WEBHOOK FACEBOOK: ", integration)
-	errorsMessage := []string{}
 	var err error
 	isSend := false
 	for _, entry := range integration.Message.Entry {
@@ -709,10 +710,7 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 				continue
 			}
 			if integration.AuthorRole == fromUser {
-				isSend, err = m.salesforceComunicationFB(message)
-				if err != nil {
-					errorsMessage = append(errorsMessage, err.Error())
-				}
+				isSend = m.salesforceComunicationFB(message)
 				userID = message.Sender.ID
 				from = fromUser
 			}
@@ -732,65 +730,64 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 					logrus.WithFields(logrus.Fields{
 						"context": ctx,
 					}).WithError(err).Error("Error store context")
-					errorsMessage = append(errorsMessage, err.Error())
 				}
 			}()
 
 		}
-
-	}
-
-	if len(errorsMessage) > 0 {
-		return errors.New(strings.Join(errorsMessage, "|"))
 	}
 
 	return nil
 }
 
-func (m *Manager) salesforceComunicationFB(message models.Messaging) (bool, error) {
-	isSend := false
-	if interconnection, ok := m.validInterconnection(message.Sender.ID); ok && interconnection.Status == Active {
-		switch {
-		case message.Message.Text != "":
-			if strings.Contains(constants.DevEnvironments, m.environment) {
-				for _, keyword := range m.keywordsRestart {
-					if strings.ToLower(message.Message.Text) == keyword {
-						err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
-						if err != nil {
-							return false, err
-						}
-						interconnection.updateStatusRedis(string(Closed))
-						interconnection.Status = Closed
-						interconnection.runnigLongPolling = false
-						return true, nil
-					}
-				}
-			}
+func (m *Manager) salesforceComunicationFB(message models.Messaging) bool {
+	interconnection, ok := m.validInterconnection(message.Sender.ID)
+	isInterconnectionActive := ok && interconnection.Status == Active
+	if isInterconnectionActive {
+		go m.sendMessageComunicationFB(interconnection, &message)
 
-			interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text)
+	}
 
-			isSend = true
-		case message.Message.Attachments != nil:
-			for _, attachment := range message.Message.Attachments {
-				if attachment.Type == imageType {
-					err := m.SalesforceService.InsertImageInCase(
-						attachment.Payload.URL,
-						interconnection.SessionID,
-						"",
-						interconnection.CaseID)
+	return isInterconnectionActive
+}
+
+func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, message *models.Messaging) {
+	switch {
+	case message.Message.Text != "":
+		if strings.Contains(constants.DevEnvironments, m.environment) {
+			for _, keyword := range m.keywordsRestart {
+				if strings.ToLower(message.Message.Text) == keyword {
+					err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
 					if err != nil {
-						interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
-
-						return false, err
+						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+						return
 					}
-					interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
-					isSend = true
+					interconnection.updateStatusRedis(string(Closed))
+					interconnection.Status = Closed
+					interconnection.runnigLongPolling = false
+					return
 				}
 			}
 		}
-	}
 
-	return isSend, nil
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text)
+
+	case message.Message.Attachments != nil:
+		for _, attachment := range message.Message.Attachments {
+			if attachment.Type == imageType {
+				err := m.SalesforceService.InsertImageInCase(
+					attachment.Payload.URL,
+					interconnection.SessionID,
+					"",
+					interconnection.CaseID)
+				if err != nil {
+					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
+					logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+					return
+				}
+				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
+			}
+		}
+	}
 }
 
 func (m *Manager) RegisterWebhookInIntegrations(provider string) error {

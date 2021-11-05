@@ -998,6 +998,78 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("Should send message end chat error service", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		interconnectionCacheMock := new(InterconnectionCache)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(assert.AnError).Once()
+
+		cacheMock := &cache.Interconnection{
+			UserID:     userID,
+			Client:     client,
+			SessionID:  sessionID,
+			SessionKey: sessionID,
+			Status:     string(Active),
+		}
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{
+				UserID: userID,
+				Client: client,
+			}).
+			Return(cacheMock, nil).Once()
+		cacheMock.Status = string(Closed)
+		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
+			Return(nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			client:                client,
+			salesforceChannel:     make(chan *Message),
+			integrationsChannel:   make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			interconnectionsCache: interconnectionCacheMock,
+			cacheMessage:          cacheMessage,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:               Active,
+			AffinityToken:        affinityToken,
+			SessionKey:           sessionKey,
+			SessionID:            sessionID,
+			UserID:               userID,
+			Client:               client,
+			salesforceChannel:    manager.salesforceChannel,
+			integrationsChannel:  manager.integrationsChannel,
+			finishChannel:        manager.finishInterconnection,
+			interconnectionCache: interconnectionCacheMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      textType,
+			From:      userID,
+			Text: models.Text{
+				Body: "ReStArt",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
 	t.Run("Should send image to salesforce", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
@@ -1021,6 +1093,63 @@ func TestManager_SaveContext(t *testing.T) {
 			SalesforceService:     salesforceMock,
 			keywordsRestart:       []string{"restart", "test"},
 			cacheMessage:          cacheMessage,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			SessionID:           sessionID,
+			UserID:              userID,
+			CaseID:              caseID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      imageType,
+			From:      userID,
+			Image: models.Media{
+				URL:      "http://test.com",
+				MIMEType: "image/png",
+				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send image to salesforce error service", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertImageInCase",
+			"http://test.com", sessionID, "image/png", "caseID").
+			Return(assert.AnError).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := &Manager{
+			contextcache:          contextCache,
+			salesforceChannel:     make(chan *Message),
+			integrationsChannel:   make(chan *Message),
+			finishInterconnection: make(chan *Interconnection),
+			SalesforceService:     salesforceMock,
+			keywordsRestart:       []string{"restart", "test"},
+			cacheMessage:          cacheMessage,
+			IntegrationsClient:    integrationsIMock,
 		}
 		go manager.handleInterconnection()
 
@@ -1771,8 +1900,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		err := manager.SaveContextFB(integrations)
 
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	})
+
 }
 
 func TestManager_RegisterWebhook(t *testing.T) {
