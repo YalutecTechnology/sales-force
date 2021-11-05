@@ -18,6 +18,7 @@ const (
 
 // Interconnection is a struct that defines the interconnection session related to a conversation between agent in Salesforce and user in the bot
 type Interconnection struct {
+	Client        string                 `json:"client"`
 	UserID        string                 `json:"userID"`
 	SessionID     string                 `json:"sessionID"`
 	SessionKey    string                 `json:"sessionKey"`
@@ -40,19 +41,19 @@ type InterconnectionCache interface {
 	RetrieveInterconnection(Interconnection) (*Interconnection, error)
 	DeleteAllInterconnections() error
 	DeleteInterconnection(Interconnection) (bool, error)
-	RetrieveAllInterconnections() *[]Interconnection
+	RetrieveAllInterconnections(client string) *[]Interconnection
 	RetrieveInterconnectionActiveByUserId(userId string) *Interconnection
 }
 
 // assembleKey retrive key by template
 func assembleKey(interconnection Interconnection) string {
-	return fmt.Sprintf(interconnectionKeyTemplate, interconnection.UserID, interconnection.SessionID)
+	return fmt.Sprintf(interconnectionKeyTemplate, interconnection.Client, interconnection.UserID)
 }
 
 // StoreInterconnection saves a interconnection on Cache
 func (rc *RedisCache) StoreInterconnection(interconnection Interconnection) error {
 	data, _ := json.Marshal(interconnection)
-	return rc.StoreData(assembleKey(interconnection), data, 0)
+	return rc.StoreData(assembleKey(interconnection), data, ttl)
 }
 
 // RetrieveInterconnection returns a interconnection from the Cache
@@ -68,9 +69,9 @@ func (rc *RedisCache) RetrieveInterconnection(interconnection Interconnection) (
 }
 
 // RetrieveAllInterconnections returns interconnections array from the Cache
-func (rc *RedisCache) RetrieveAllInterconnections() *[]Interconnection {
+func (rc *RedisCache) RetrieveAllInterconnections(client string) *[]Interconnection {
 	var redisInterconnectionsArray []Interconnection
-	keys, err := rc.GetAllKeysWithScanByMatch("*:interconnection", countScan)
+	keys, err := rc.GetAllKeysWithScanByMatch(fmt.Sprintf("%s:*:interconnection", client), countScan)
 	if err != nil {
 		logrus.WithError(err).Error("Redis 'RetrieveAllInterconnections'")
 		return nil
@@ -84,6 +85,7 @@ func (rc *RedisCache) RetrieveAllInterconnections() *[]Interconnection {
 	return &redisInterconnectionsArray
 }
 
+//TODO remove method
 // RetrieveInterconnectionActiveByUserId returns interconnection from the Cache with status OnHold or Active
 func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userID string) *Interconnection {
 	var redisInterconnection Interconnection
@@ -92,7 +94,7 @@ func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userID string) *Inte
 	cursor := uint64(0)
 
 	for {
-		keys, cursor, err = rc.ScanKeys(cursor, fmt.Sprintf("%s:*:interconnection", userID), countScan)
+		keys, cursor, err = rc.ScanKeys(cursor, fmt.Sprintf("*:%s:interconnection", userID), countScan)
 		if err != nil {
 			logrus.WithError(err).Error("Redis 'RetrieveInterconnectionActiveByUserId'")
 			return nil

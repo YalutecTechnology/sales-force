@@ -131,6 +131,7 @@ func TestRetrieveInterconnections(t *testing.T) {
 		interconnection := Interconnection{
 			BotID:         "botID",
 			BotSlug:       "coppel-bot",
+			Client:        "client",
 			UserID:        "userID",
 			Status:        "status",
 			SessionID:     "session",
@@ -149,6 +150,7 @@ func TestRetrieveInterconnections(t *testing.T) {
 		interconnection2 := Interconnection{
 			BotID:         "botID2",
 			BotSlug:       "m2-seller-2",
+			Client:        "client",
 			UserID:        "userID2",
 			Status:        "status",
 			SessionID:     "session",
@@ -167,7 +169,7 @@ func TestRetrieveInterconnections(t *testing.T) {
 		rcs.StoreInterconnection(interconnection)
 		rcs.StoreInterconnection(interconnection2)
 
-		arrays := rcs.RetrieveAllInterconnections()
+		arrays := rcs.RetrieveAllInterconnections("client")
 
 		if len(*arrays) != 2 {
 			t.Fatalf("This was expected [2], but this was retrieved [%#v]", len(*arrays))
@@ -183,7 +185,7 @@ func TestRetrieveInterconnections(t *testing.T) {
 			client: c,
 		}
 
-		arrays := rcs.RetrieveAllInterconnections()
+		arrays := rcs.RetrieveAllInterconnections("client")
 
 		assert.Nil(t, arrays)
 	})
@@ -287,11 +289,11 @@ func TestDeleteInterconnection(t *testing.T) {
 
 	t.Run("Should fail when delete all interconnection", func(t *testing.T) {
 		interconnectionToDelete := Interconnection{
-			SessionID: "123",
-			UserID:    "userId",
+			Client: "client",
+			UserID: "userId",
 		}
 		_, err := rcs.DeleteInterconnection(interconnectionToDelete)
-		expectedErr := "Could not delete interconnection with key: userId:123:interconnection from Redis"
+		expectedErr := "Could not delete interconnection with key: client:userId:interconnection from Redis"
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be <%v>, but this was retrieved <%v>", expectedErr, err)
 		}
@@ -316,6 +318,7 @@ func TestRetrieveInterconnectionActiveByUserId(t *testing.T) {
 		defer rcs.client.FlushAll()
 		interconnectionExpected := Interconnection{
 			BotID:         "botID",
+			Client:        "client",
 			BotSlug:       "coppel-bot",
 			UserID:        "userID",
 			Status:        "ON_HOLD",

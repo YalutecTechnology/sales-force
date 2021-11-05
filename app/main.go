@@ -41,6 +41,7 @@ func main() {
 
 	managerOptions := &manage.ManagerOptions{
 		AppName:                    envs.AppName,
+		Client:                     envs.Client,
 		BlockedUserState:           envs.BlockedUserState,
 		BotrunnerUrl:               envs.BotrunnerUrl,
 		BotrunnerToken:             envs.BotrunnerToken,

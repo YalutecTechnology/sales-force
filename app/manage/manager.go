@@ -61,6 +61,7 @@ const (
 // Manager controls the process of the app
 type Manager struct {
 	clientName            string
+	client                string
 	interconnectionMap    cache.ICache
 	SalesforceService     services.SalesforceServiceInterface
 	IntegrationsClient    integrations.IntegrationInterface
@@ -82,6 +83,7 @@ type Manager struct {
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
 	AppName                    string
+	Client                     string
 	BlockedUserState           map[string]string
 	TimeoutState               map[string]string
 	SuccessState               map[string]string
@@ -234,11 +236,12 @@ func CreateManager(config *ManagerOptions) *Manager {
 		botRunnerClient = botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 	}
 
-	interconnections := interconnectionsCache.RetrieveAllInterconnections()
+	interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
 
 	cacheLocal := cache.New()
 	m := &Manager{
 		clientName:            config.AppName,
+		client:                config.Client,
 		SalesforceService:     salesforceService,
 		interconnectionMap:    cacheLocal,
 		IntegrationsClient:    integrationsClient,
@@ -325,8 +328,10 @@ func (m *Manager) sendMessageToSalesforce(message *Message) {
 // Initialize a chat with salesforce
 func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	titleMessage := "could not create chat in salesforce"
+	interconnection.Client = m.client
 
 	// Validate that user does not have an active session
+	logrus.WithField("userID", interconnection.UserID).Info("Validate UserID")
 	err := m.ValidateUserID(interconnection.UserID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -336,9 +341,11 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	// Clean phoneNumber
+	logrus.WithField("userID", interconnection.UserID).Info("cleanPrefixPhoneNumber")
 	cleanPrefixPhoneNumber(interconnection)
 
 	// We get the contact if it exists by your email or phone.
+	logrus.WithField("userID", interconnection.UserID).Info("GetOrCreateContact")
 	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -348,12 +355,14 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	}
 
 	if contact.Blocked {
+		logrus.WithField("userID", interconnection.UserID).Info("User Blocked")
 		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return fmt.Errorf("%s: %s", "could not create chat in salesforce", "this contact is blocked")
 	}
 
 	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
+	logrus.WithField("userID", interconnection.UserID).Info("CreateCase")
 	caseId, err := m.SalesforceService.CreatCase(contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
@@ -365,6 +374,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	interconnection.CaseID = caseId
 
 	//Creating chat in Salesforce
+	logrus.WithField("userID", interconnection.UserID).Info("CreateChat")
 	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.ID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -373,6 +383,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
+	logrus.WithField("userID", interconnection.UserID).Info("GetContext Routine")
 	go m.getContext(interconnection)
 	interconnection.AffinityToken = session.AffinityToken
 	interconnection.SessionID = session.Id
@@ -382,6 +393,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	time.Sleep(time.Second * 1)
 
 	//Add interconection to Redis and interconnectionMap
+	logrus.WithField("userID", interconnection.UserID).Info("AddInterconnection")
 	m.AddInterconnection(interconnection)
 	return nil
 }
@@ -442,9 +454,12 @@ func (m *Manager) FinishChat(userId string) error {
 }
 
 func (m *Manager) ValidateUserID(userID string) error {
-	sessionRedis := m.interconnectionsCache.RetrieveInterconnectionActiveByUserId(userID)
+	sessionRedis, _ := m.interconnectionsCache.RetrieveInterconnection(cache.Interconnection{
+		UserID: userID,
+		Client: m.client,
+	})
 
-	if sessionRedis != nil {
+	if sessionRedis != nil && (sessionRedis.Status == string(Active) || sessionRedis.Status == string(OnHold)) {
 		return errors.New("session exists in redis with this userID")
 	}
 
@@ -472,7 +487,7 @@ func (m *Manager) AddInterconnection(interconnection *Interconnection) {
 
 	go interconnection.handleLongPolling()
 	go interconnection.handleStatus()
-	logrus.Info("Create interconnection successfully")
+	logrus.Infof("Create interconnection successfully: %s", interconnection.UserID)
 }
 
 func (m *Manager) storeInterconnectionInRedis(interconnection *Interconnection) {
@@ -667,6 +682,7 @@ func (m *Manager) changeButtonIDAndOwnerID(provider Provider, extraData map[stri
 func NewInterconectionCache(interconnection *Interconnection) cache.Interconnection {
 	return cache.Interconnection{
 		UserID:        interconnection.UserID,
+		Client:        interconnection.Client,
 		SessionID:     interconnection.SessionID,
 		SessionKey:    interconnection.SessionKey,
 		AffinityToken: interconnection.AffinityToken,
