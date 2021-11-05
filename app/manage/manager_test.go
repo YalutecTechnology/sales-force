@@ -22,7 +22,7 @@ import (
 
 const (
 	name                = "username"
-	client 				= "client"
+	client              = "client"
 	email               = "user@exmple.com"
 	botSlug             = "coppel-bot"
 	botID               = "5514254524"
@@ -91,7 +91,7 @@ func TestManager_CreateChat(t *testing.T) {
 		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
-			Client: 	 client,
+			Client:      client,
 			BotSlug:     botSlug,
 			BotID:       botID,
 			Name:        name,
@@ -161,7 +161,7 @@ func TestManager_CreateChat(t *testing.T) {
 			}).Once()
 
 		manager := &Manager{
-			client: client,
+			client:                client,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
 			contextcache:          cacheContextMock,
@@ -189,7 +189,7 @@ func TestManager_CreateChat(t *testing.T) {
 		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
-			Client: 	 client,
+			Client:      client,
 			BotSlug:     botSlug,
 			BotID:       botID,
 			Name:        name,
@@ -258,7 +258,7 @@ func TestManager_CreateChat(t *testing.T) {
 			}).Once()
 
 		manager := &Manager{
-			client: client,
+			client:                client,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
 			SfcSourceFlowBot: envs.SfcSourceFlowBot{
@@ -285,7 +285,7 @@ func TestManager_CreateChat(t *testing.T) {
 		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
-			Client: client,
+			Client:      client,
 			BotSlug:     botSlug,
 			BotID:       botID,
 			Name:        name,
@@ -358,7 +358,7 @@ func TestManager_CreateChat(t *testing.T) {
 				},
 			}).Once()
 		manager := &Manager{
-			client: client,
+			client:                client,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
 			contextcache:          cacheContextMock,
@@ -375,7 +375,7 @@ func TestManager_CreateChat(t *testing.T) {
 		expectedLog := "could not create chat in salesforce: this contact is blocked"
 		interconnection := &Interconnection{
 			UserID:      userID,
-			Client: 	 client,
+			Client:      client,
 			BotSlug:     botSlug,
 			BotID:       botID,
 			Name:        name,
@@ -414,7 +414,7 @@ func TestManager_CreateChat(t *testing.T) {
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
 		manager := &Manager{
-			client: client,
+			client:                client,
 			SalesforceService:     salesforceServiceMock,
 			BotrunnnerClient:      botRunnerMock,
 			interconnectionsCache: interconnectionMock,
@@ -428,6 +428,58 @@ func TestManager_CreateChat(t *testing.T) {
 		}
 	})
 
+	t.Run("Create Chat Failed for invalid user", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+			ExtraData:   map[string]interface{}{"data": "datavalue"},
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcRecordTypeID = recordTypeID
+		SfcCustomFieldsCase = map[string]string{"data": "data"}
+
+		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionMock := new(InterconnectionCache)
+
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(&cache.Interconnection{UserID: userID, Status: string(Active)}, nil).Once()
+
+		cacheContextMock := new(ContextCacheMock)
+
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+			contextcache:          cacheContextMock,
+			interconnectionMap:    interconectionLocal,
+			SfcSourceFlowField:    "data",
+			SfcSourceFlowBot: envs.SfcSourceFlowBot{
+				defaultFieldCustom: {
+					Subject: "subject",
+					Providers: map[string]envs.Provider{
+						"whatsapp": {
+							ButtonID: "buttonWAID",
+							OwnerID:  "ownerWAID",
+						},
+					},
+				},
+			},
+		}
+
+		err := manager.CreateChat(interconnection)
+		assert.Error(t, err)
+		manager.EndChat(interconnection)
+	})
+
 }
 
 func TestManager_FinishChat(t *testing.T) {
@@ -436,7 +488,7 @@ func TestManager_FinishChat(t *testing.T) {
 		interconnectionCacheMock := new(InterconnectionCache)
 		salesforceMock := new(SalesforceServiceInterface)
 		interconnection := &Interconnection{
-			Client: client,
+			Client:               client,
 			Status:               Active,
 			AffinityToken:        affinityToken,
 			SessionKey:           sessionKey,
@@ -849,14 +901,14 @@ func TestManager_SaveContext(t *testing.T) {
 
 		cacheMock := &cache.Interconnection{
 			UserID:     userID,
-			Client: client,
+			Client:     client,
 			SessionID:  sessionID,
 			SessionKey: sessionID,
 			Status:     string(Active),
 		}
 		interconnectionCacheMock.On("RetrieveInterconnection",
 			cache.Interconnection{
-				UserID:    userID,
+				UserID: userID,
 				Client: client,
 			}).
 			Return(cacheMock, nil).Once()
@@ -869,7 +921,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 		manager := &Manager{
 			contextcache:          contextCache,
-			client: client,
+			client:                client,
 			salesforceChannel:     make(chan *Message),
 			integrationsChannel:   make(chan *Message),
 			finishInterconnection: make(chan *Interconnection),
@@ -886,7 +938,7 @@ func TestManager_SaveContext(t *testing.T) {
 			SessionKey:           sessionKey,
 			SessionID:            sessionID,
 			UserID:               userID,
-			Client: client,
+			Client:               client,
 			salesforceChannel:    manager.salesforceChannel,
 			integrationsChannel:  manager.integrationsChannel,
 			finishChannel:        manager.finishInterconnection,
@@ -1500,7 +1552,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		cacheMock := &cache.Interconnection{
 			UserID:     userID,
-			Client: client,
+			Client:     client,
 			SessionID:  sessionID,
 			SessionKey: sessionID,
 			Status:     string(Active),
@@ -1508,7 +1560,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		interconnectionCacheMock := new(InterconnectionCache)
 		interconnectionCacheMock.On("RetrieveInterconnection",
 			cache.Interconnection{
-				UserID:    userID,
+				UserID: userID,
 				Client: client,
 			}).
 			Return(cacheMock, nil).Once()
@@ -1520,7 +1572,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			client: client,
+			client:                client,
 			contextcache:          contextCache,
 			SalesforceService:     salesforceMock,
 			keywordsRestart:       []string{"restart", "test"},
@@ -1533,7 +1585,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		go manager.handleInterconnection()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Client: client,
+			Client:               client,
 			Status:               Active,
 			AffinityToken:        affinityToken,
 			SessionKey:           sessionKey,

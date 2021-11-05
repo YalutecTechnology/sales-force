@@ -479,6 +479,101 @@ It can be used to validate that we are saving the chat with the bot in Redis and
 }
 ```
 
+### Register Webhook 
+
+This resource allows us to register the webhooks mentioned above in ***integrations-api*** so that ***integrations-channels*** send requests to these endpoints and we receive the messages between the users and the bots.
+
+***Note***: It must be taken into account that the registration through this endpoint is currently with version 1, so when registering a webhook for Facebook in prod that is through the ***passthrought*** channel it is necessary to register it in the DB as version 3, for what we need to request the support of the Platform team to set the update to version 3 directly in the database after using the endpoint.
+
+`POST /v1/integrations/webhook/register/{{provider}}`
+
+#### Required role
+
+***YALO ROLE***
+
+#### Path params
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| provider | `whatsapp` or `facebook` | Y |
+
+#### Request header
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| Authorization | `Bearer ${token}` | Y only if token is not sent as queryParam |
+
+#### Query params
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| token | `${token}` | Y only if the token is not sent in the Authorization header  |
+
+#### Response body
+
+##### 200 Status
+
+```json
+{
+  "Message": "Register webhook success with provider : whatsapp"
+}
+```
+
+#### Failed response body
+##### 500 Internal Server
+```json
+{
+  "ErrorDescription": "error register webhook"
+}
+```
+
+### Remove Webhook
+
+This resource allows us to remove the webhooks mentioned above in integrations-api so that integrations-channels no longer send requests to these endpoints.
+
+`DELETE /v1/integrations/webhook/remove/{{provider}}`
+
+#### Required role
+
+***YALO ROLE***
+
+#### Path params
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| provider | `whatsapp` or `facebook` | Y |
+
+#### Request header
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| Authorization | `Bearer ${token}` | Y only if token is not sent as queryParam |
+
+#### Query params
+
+| Name | Value | Required |
+| :--- | :--- | :--- |
+| token | `${token}` | Y only if the token is not sent in the Authorization header  |
+
+#### Response body
+
+##### 200 Status
+
+```json
+{
+  "Message": "Remove webhook success with provider : whatsapp"
+}
+```
+
+#### Failed response body
+##### 500 Internal Server
+```json
+{
+  "ErrorDescription": "error remove webhook"
+}
+```
+
+
 ### Status Codes
 
 salesforce-integration returns the following status codes:

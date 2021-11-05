@@ -409,4 +409,23 @@ func TestCheckEvent_test(t *testing.T) {
 
 		assert.Equal(t, Failed, interconnection.Status)
 	})
+
+	t.Run("Default event received", func(t *testing.T) {
+		expectedLog := fmt.Sprintf("Event [%s]", chat.AgentTyping)
+
+		event := chat.MessageObject{
+			Type: chat.AgentTyping,
+			Message: chat.Message{
+				Name:                "Name Agent",
+			},
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.checkEvent(&event)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
 }

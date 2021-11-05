@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -34,7 +35,7 @@ func TestCreateChat(t *testing.T) {
 	handler := ddrouter.New(ddrouter.WithServiceName("salesforce-integration.http"))
 	handler.POST(requestURL, app.createChat)
 
-	t.Run("Should get a valid response with valid line and agent name", func(t *testing.T) {
+	t.Run("Should get a valid response", func(t *testing.T) {
 		managerMock := new(ManagerI)
 
 		interconnection := &manage.Interconnection{
@@ -79,6 +80,9 @@ func TestCreateChat(t *testing.T) {
 		interconnectionBin, err := json.Marshal(interconnection)
 		assert.NoError(t, err)
 
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+
 		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer(interconnectionBin))
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
 		response := httptest.NewRecorder()
@@ -91,12 +95,20 @@ func TestCreateChat(t *testing.T) {
 		assert.Equal(t,
 			`{"ErrorDescription":"Error validating payload : Key: 'ChatPayload.UserID' Error:Field validation for 'UserID' failed on the 'required' tag"}`,
 			response.Body.String())
+
+		logs := buf.String()
+		expectedLog := "Error validating payload : Key: 'ChatPayload.UserID' Error:Field validation for 'UserID' failed on the 'required' tag"
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
 	})
 
 	t.Run("Should get a valid response with payload encode error", func(t *testing.T) {
 		managerMock := new(ManagerI)
 
 		getApp().ManageManager = managerMock
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
 
 		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer([]byte("error")))
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
@@ -110,6 +122,12 @@ func TestCreateChat(t *testing.T) {
 		assert.Equal(t,
 			`{"ErrorDescription":"Invalid payload received : invalid character 'e' looking for beginning of value"}`,
 			response.Body.String())
+
+		logs := buf.String()
+		expectedLog := "Invalid payload received : invalid character 'e' looking for beginning of value"
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
 	})
 
 	t.Run("Should get a error manage service", func(t *testing.T) {
@@ -130,6 +148,9 @@ func TestCreateChat(t *testing.T) {
 		interconnectionBin, err := json.Marshal(interconnection)
 		assert.NoError(t, err)
 
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+
 		req, _ := http.NewRequest("POST", requestURL, bytes.NewBuffer(interconnectionBin))
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", yaloTokenTest))
 		response := httptest.NewRecorder()
@@ -142,6 +163,12 @@ func TestCreateChat(t *testing.T) {
 		assert.Equal(t,
 			`{"ErrorDescription":"assert.AnError general error for testing"}`,
 			response.Body.String())
+
+		logs := buf.String()
+		expectedLog := "assert.AnError general error for testing"
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
 	})
 
 }
