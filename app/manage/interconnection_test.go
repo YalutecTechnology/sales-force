@@ -3,6 +3,7 @@ package manage
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"strings"
 	"testing"
@@ -416,7 +417,7 @@ func TestCheckEvent_test(t *testing.T) {
 		event := chat.MessageObject{
 			Type: chat.AgentTyping,
 			Message: chat.Message{
-				Name:                "Name Agent",
+				Name: "Name Agent",
 			},
 		}
 
@@ -426,6 +427,66 @@ func TestCheckEvent_test(t *testing.T) {
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+}
+
+func TestInterconnection_updateStatusRedis(t *testing.T) {
+	interconnection := Interconnection{
+		Client: client,
+		UserID: userID,
+		Status: OnHold,
+	}
+
+	t.Run("Update status redis without error ", func(t *testing.T) {
+		interconnectionCache := new(InterconnectionCache)
+		expectedLog := "Could not update status in interconnection"
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, nil).Once()
+		interconnectionCache.On("StoreInterconnection", mock.Anything).
+			Return(nil).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateStatusRedis(string(Active))
+		logs := buf.String()
+		if strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Update status redis with error in RetrieveInterconnection", func(t *testing.T) {
+		interconnectionCache := new(InterconnectionCache)
+		expectedLog := "Could not update status in interconnection"
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, assert.AnError).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateStatusRedis(string(Active))
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Update status redis with error in StoreInterconnection", func(t *testing.T) {
+		expectedLog := "Could not update status in interconnection"
+		interconnectionCache := new(InterconnectionCache)
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, nil).Once()
+		interconnectionCache.On("StoreInterconnection", mock.Anything).
+			Return(assert.AnError).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateStatusRedis(string(Active))
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
 	})
 }

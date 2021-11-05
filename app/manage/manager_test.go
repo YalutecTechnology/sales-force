@@ -42,8 +42,45 @@ func TestCreateManager(t *testing.T) {
 	m, s := cache.CreateRedisServer()
 	defer m.Close()
 	defer s.Close()
+
+	interconnection := &Interconnection{
+		Client:        client,
+		BotID:         "botID",
+		BotSlug:       "coppel-bot",
+		UserID:        "userID",
+		Status:        Active,
+		SessionID:     "session",
+		SessionKey:    "sessionID",
+		AffinityToken: "affinityToken",
+		Timestamp:     time.Time{},
+		Provider:      "provider",
+		Name:          "name",
+		Email:         "email",
+		PhoneNumber:   "55555555555",
+		CaseID:        "caseID",
+		ExtraData: map[string]interface{}{
+			"data": "data",
+		},
+	}
+
 	t.Run("Should retrieve a manager instance", func(t *testing.T) {
+		configRedis := &cache.RedisOptions{
+			FailOverOptions: &redis.FailoverOptions{
+				MasterName:    s.MasterInfo().Name,
+				SentinelAddrs: []string{s.Addr()},
+			},
+			SessionsTTL: time.Second,
+		}
+		rcs, _ := cache.NewRedisCache(configRedis)
+		rcs.StoreInterconnection(NewInterconectionCache(interconnection))
+
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("GetMessages",
+			affinityToken, sessionKey).
+			Return(&chat.MessagesResponse{}, nil).Once()
+
 		expected := &Manager{
+			client:             client,
 			clientName:         "salesforce-integration",
 			SalesforceService:  nil,
 			IntegrationsClient: nil,
@@ -53,34 +90,32 @@ func TestCreateManager(t *testing.T) {
 			StudioNG:           nil,
 		}
 		config := &ManagerOptions{
-			AppName: "salesforce-integration",
-			RedisOptions: cache.RedisOptions{
-				FailOverOptions: &redis.FailoverOptions{
-					MasterName:    s.MasterInfo().Name,
-					SentinelAddrs: []string{s.Addr()},
-				},
-				SessionsTTL: time.Second,
-			},
+			AppName:                    "salesforce-integration",
+			RedisOptions:               *configRedis,
+			Client:                     client,
 			BotrunnerUrl:               "uri",
 			StudioNGUrl:                "uriStudio",
 			SfcDefaultBirthDateAccount: "1999-01-01T00:00:00",
 			SpecSchedule:               "@every 1h30m",
+			CleanContextSchedule:       "0 9 * * *",
 		}
 		actual := CreateManager(config)
-		actual.SalesforceService = nil
+		actual.SalesforceService = salesforceMock
 		actual.IntegrationsClient = nil
 		actual.BotrunnnerClient = nil
 		actual.StudioNG = nil
 		actual.cacheMessage = nil
-		actual.interconnectionMap = nil
+		expected.SalesforceService = salesforceMock
 		expected.integrationsChannel = actual.integrationsChannel
 		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
 		expected.contextcache = actual.contextcache
 		expected.interconnectionsCache = actual.interconnectionsCache
 		expected.isStudioNGFlow = true
-
+		expected.interconnectionMap = actual.interconnectionMap
+		actual.EndChat(interconnection)
 		assert.Equal(t, expected, actual)
+		time.Sleep(1 * time.Second)
 	})
 }
 
@@ -150,9 +185,10 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(nil).Once()
 
 		cacheContextMock := new(ContextCacheMock)
-		cacheContextMock.On("RetrieveContext", userID).
+		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
+					Client:    client,
 					UserID:    userID,
 					Timestamp: 1111111111,
 					Text:      "text",
@@ -246,10 +282,11 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(nil).Once()
 
 		contextMock := new(ContextCacheMock)
-		contextMock.On("RetrieveContext",
-			userID).
+		contextMock.On("RetrieveContextFromSet",
+			client, userID).
 			Return([]cache.Context{
 				{
+					Client:    client,
 					UserID:    userID,
 					Timestamp: 1111111111,
 					Text:      "text",
@@ -348,9 +385,10 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(nil).Once()
 
 		cacheContextMock := new(ContextCacheMock)
-		cacheContextMock.On("RetrieveContext", userID).
+		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
+					Client:    client,
 					UserID:    userID,
 					Timestamp: 1111111111,
 					Text:      "text",
@@ -531,14 +569,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context audio", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334956,
-			URL:       "uri",
-			MIMEType:  "audio",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -566,15 +597,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context voice", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334957,
-			URL:       "uri",
-			MIMEType:  "voice",
-			Caption:   "caption",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -603,15 +626,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context document", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			URL:       "uri",
-			MIMEType:  "document",
-			Caption:   "caption",
-			From:      fromBot,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -640,15 +655,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context document", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			URL:       "uri",
-			MIMEType:  "image",
-			Caption:   "caption",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -677,13 +684,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context text", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -708,20 +709,15 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should save context  error StoreContext", func(t *testing.T) {
+	t.Run("Should save context  error StoreContextToSet", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
+			client:             client,
 			contextcache:       contextCache,
 			cacheMessage:       cacheMessage,
 			interconnectionMap: interconnectionLocal,
@@ -741,15 +737,9 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should save context error", func(t *testing.T) {
+	t.Run("Should save context with error", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -776,13 +766,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context default", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -809,13 +793,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context error timestamp", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -842,13 +820,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should save context repeated message", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 123456789,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
@@ -1185,47 +1157,66 @@ func TestManager_SaveContext(t *testing.T) {
 }
 
 func TestManager_getContextByUserID(t *testing.T) {
-	t.Run("Should save context voice", func(t *testing.T) {
+	t.Run("ContextByUserID", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
 			{
 				UserID:    userID,
+				Client:    client,
 				Timestamp: 1631202337350,
 				Text: `this a test
 second line
 `,
 				From: fromUser,
+				Ttl:  time.Now().Add(2 * time.Minute),
 			},
 			{
 				UserID:    userID,
+				Client:    client,
 				Timestamp: 1630404000000,
-				Text:      "Hello",
+				Ttl:       time.Now().Add(2 * time.Minute * -1),
+				Text:      "This message should not appear",
 				From:      fromUser,
 			},
 			{
 				UserID:    userID,
+				Client:    client,
+				Timestamp: 1630404000000,
+				Ttl:       time.Now().Add(2 * time.Minute),
+				Text:      "Hello",
+				From:      fromUser,
+			},
+			{
+				Client:    client,
+				UserID:    userID,
 				Timestamp: 1630404060000,
+				Ttl:       time.Now().Add(2 * time.Minute),
 				Text:      "Hello I'm a bot",
 				From:      fromBot,
 			},
 			{
 				UserID:    userID,
+				Client:    client,
 				Timestamp: 1630404240000,
+				Ttl:       time.Now().Add(2 * time.Minute),
 				Text:      "ok.",
 				From:      fromBot,
 			},
 			{
 				UserID:    userID,
+				Client:    client,
 				Timestamp: 1630404120000,
 				Text:      "I need help",
 				From:      fromUser,
+				Ttl:       time.Now().Add(2 * time.Minute),
 			},
 		}
 
 		userID := "userID"
-		contextCache.On("RetrieveContext", userID).Return(ctx)
+		contextCache.On("RetrieveContextFromSet", client, userID).Return(ctx)
 
 		manager := &Manager{
+			client:       client,
 			contextcache: contextCache,
 		}
 
@@ -1247,12 +1238,15 @@ second line
 }
 
 func TestManager_GetContextByUserID(t *testing.T) {
-	t.Run("Should save context voice", func(t *testing.T) {
+	t.Run("Should Get context by userID and client", func(t *testing.T) {
+		ttlExpected := time.Now().Add(2 * time.Minute)
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
 			{
 				UserID:    userID,
 				Timestamp: 1631202337350,
+				Client:    client,
+				Ttl:       ttlExpected,
 				Text: `this a test
 second line
 `,
@@ -1260,23 +1254,39 @@ second line
 			},
 			{
 				UserID:    userID,
+				Client:    client,
+				Timestamp: 1630404000000,
+				Ttl:       time.Now().Add(2 * time.Minute * -1),
+				Text:      "This message should not appear",
+				From:      fromUser,
+			},
+			{
+				Client:    client,
+				Ttl:       ttlExpected,
+				UserID:    userID,
 				Timestamp: 1630404000000,
 				Text:      "Hello",
 				From:      fromUser,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404060000,
 				Text:      "Hello I'm a bot",
 				From:      fromBot,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404240000,
 				Text:      "ok.",
 				From:      fromBot,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404120000,
 				Text:      "I need help",
@@ -1284,38 +1294,50 @@ second line
 			},
 		}
 
-		contextCache.On("RetrieveContext", userID).Return(ctx)
+		contextCache.On("RetrieveContextFromSet", client, userID).Return(ctx)
 
 		manager := &Manager{
+			client:       client,
 			contextcache: contextCache,
 		}
 
 		expected := []cache.Context{
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404000000,
 				Text:      "Hello",
 				From:      fromUser,
 			},
 			{
-				UserID:    userID,
+				Client: client,
+				Ttl:    ttlExpected,
+				UserID: userID,
+
 				Timestamp: 1630404060000,
 				Text:      "Hello I'm a bot",
 				From:      fromBot,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404120000,
 				Text:      "I need help",
 				From:      fromUser,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1630404240000,
 				Text:      "ok.",
 				From:      fromBot,
 			},
 			{
+				Client:    client,
+				Ttl:       ttlExpected,
 				UserID:    userID,
 				Timestamp: 1631202337350,
 				Text: `this a test
@@ -1326,7 +1348,6 @@ second line
 		}
 
 		ctxStr := manager.GetContextByUserID(userID)
-
 		assert.Equal(t, expected, ctxStr)
 	})
 }
@@ -1335,13 +1356,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	interconnectionLocal := cache.New()
 	t.Run("Should save context text from user", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334957,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -1388,15 +1403,9 @@ func TestManager_SaveContextFB(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should save context text from user error StoreContext", func(t *testing.T) {
+	t.Run("Should save context text from user error StoreContextToSet", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334957,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(assert.AnError).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -1490,13 +1499,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 	t.Run("Should save context text from bot", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334957,
-			Text:      "text",
-			From:      fromBot,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -1547,13 +1550,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		ctx := cache.Context{
-			UserID:    userID,
-			Timestamp: 1631202334957,
-			Text:      "text",
-			From:      fromUser,
-		}
-		contextCache.On("StoreContext", ctx).Return(nil).Once()
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		salesforceMock.On("SendMessage",
 			affinityToken, sessionKey, chat.MessagePayload{Text: "text"}).
@@ -1562,6 +1559,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
+			client:                client,
 			contextcache:          contextCache,
 			SalesforceService:     salesforceMock,
 			keywordsRestart:       []string{"restart", "test"},
@@ -2045,15 +2043,17 @@ func TestManager_GetContextInterconnection(t *testing.T) {
 			UserID: "55125421545",
 		}
 		cacheContextMock := new(ContextCacheMock)
-		cacheContextMock.On("RetrieveContext", userID).
+		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
 					UserID:    userID,
+					Client:    client,
 					Timestamp: 1111111111,
 					Text:      "text",
 				},
 			}).Once()
 		manager := &Manager{
+			client:       client,
 			contextcache: cacheContextMock,
 		}
 		expectedLog := "Get context of userID"
@@ -2395,5 +2395,40 @@ func TestManager_sendMessageToUser(t *testing.T) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
 	})
+}
 
+func TestManager_saveContextInRedis(t *testing.T) {
+	t.Run("Should save context in redis without error", func(t *testing.T) {
+		expectedLog := "Error store context in set"
+		contextCache := new(ContextCacheMock)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
+		manager := Manager{
+			contextcache: contextCache,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.saveContextInRedis(&cache.Context{})
+		logs := buf.String()
+		if strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should save context in redis with error", func(t *testing.T) {
+		expectedLog := "Error store context in set"
+		contextCache := new(ContextCacheMock)
+		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError).Once()
+		manager := Manager{
+			contextcache: contextCache,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.saveContextInRedis(&cache.Context{})
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
 }

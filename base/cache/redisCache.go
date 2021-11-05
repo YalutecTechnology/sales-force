@@ -23,6 +23,9 @@ const (
 type CommonRedisCache interface {
 	StoreData(string, []byte, time.Duration) error
 	RetrieveData(string) (string, error)
+	StoreDataToSet(key string, data []byte) error
+	RetrieveDataFromSet(key string) ([]string, error)
+	DeleteSet(key string) error
 }
 
 // RedisCache implements a session cache with Redis
@@ -125,4 +128,33 @@ func (rc *RedisCache) GetAllKeysWithScanByMatch(match string, count int64) ([]st
 		}
 	}
 	return allKeys, nil
+}
+
+// StoreDataToSet saves data to set
+func (rc *RedisCache) StoreDataToSet(key string, data []byte) error {
+	_, err := rc.client.SAdd(key, data).Result()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RetrieveDataFromSet retrieve data from set
+func (rc *RedisCache) RetrieveDataFromSet(key string) ([]string, error) {
+	return rc.client.SMembers(key).Result()
+}
+
+// DeleteSet delete data from set
+func (rc *RedisCache) DeleteSet(key string) error {
+	for {
+		countElements, err := rc.client.SCard(key).Result()
+		if err != nil {
+			return err
+		}
+		if countElements == 0 {
+			break
+		}
+		rc.client.SPop(key).Result()
+	}
+	return nil
 }
