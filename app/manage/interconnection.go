@@ -78,11 +78,12 @@ func NewIntegrationsMessage(userID, text string, provider Provider) *Message {
 	}
 }
 
-func NewSfMessage(affinityToken, key, text string) *Message {
+func NewSfMessage(affinityToken, key, text, userID string) *Message {
 	return &Message{
 		AffinityToken: affinityToken,
 		SessionKey:    key,
 		Text:          text,
+		UserID:        userID,
 	}
 }
 
@@ -119,9 +120,12 @@ func (in *Interconnection) handleLongPolling() {
 		}
 
 		in.offset = response.Offset
-		for _, event := range response.Messages {
-			in.checkEvent(&event)
-		}
+		go func() {
+			for _, event := range response.Messages {
+				in.checkEvent(&event)
+			}
+		}()
+
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -181,8 +185,8 @@ func (in *Interconnection) handleStatus() {
 func (in *Interconnection) ActiveChat() {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
-	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context))
-	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name)))
+	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context, in.UserID))
+	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name), in.UserID))
 }
 
 func convertInterconnectionCacheToInterconnection(interconnection cache.Interconnection) *Interconnection {
@@ -223,7 +227,7 @@ func (in *Interconnection) updateStatusRedis(status string) {
 func (in *Interconnection) sendMessageToSalesforce(message *Message) {
 	_, err := in.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 	if err != nil {
-		logrus.Error(helpers.ErrorMessage("Error sendMessage", err))
+		logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage", err))
 	}
 	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }
