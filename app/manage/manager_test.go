@@ -3,14 +3,13 @@ package manage
 import (
 	"bytes"
 	"fmt"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"strings"
+	"testing"
+	"time"
 
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/cache"
@@ -2194,4 +2193,207 @@ func TestManager_CleanPrefixPhoneNumber(t *testing.T) {
 		cleanPrefixPhoneNumber(interconnection)
 		assert.Equal(t, phoneNumberExpected, interconnection.PhoneNumber)
 	})
+}
+
+func TestManager_sendMessageToSalesforce(t *testing.T) {
+	message := &Message{
+		Text:          "Hola test",
+		UserID:        userID,
+		SessionKey:    sessionKey,
+		AffinityToken: affinityToken,
+	}
+
+	t.Run("Should sent message", func(t *testing.T) {
+		expectedLog := "Send message to agent from salesforce"
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
+		manager := Manager{
+			SalesforceService: salesforceServiceMock,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToSalesforce(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+
+	})
+
+	t.Run("Should retry message one time", func(t *testing.T) {
+		expectedLog := "Error sendMessage to salesforce"
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
+		manager := Manager{
+			maxRetries:        1,
+			SalesforceService: salesforceServiceMock,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToSalesforce(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should retry message three times", func(t *testing.T) {
+		expectedLog := "Error sendMessage to salesforce, max retries"
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		manager := Manager{
+			maxRetries:        3,
+			SalesforceService: salesforceServiceMock,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToSalesforce(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+}
+
+func TestManager_sendMessageToUser(t *testing.T) {
+	message := &Message{
+		Text:     "Hola test",
+		UserID:   userID,
+		Provider: WhatsappProvider,
+	}
+
+	t.Run("Should sent message whats", func(t *testing.T) {
+		expectedLog := "Send message to UserID"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+		manager := Manager{
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+
+	})
+
+	t.Run("Should retry message one time whats", func(t *testing.T) {
+		expectedLog := "Error sendMessage to user"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+		manager := Manager{
+			maxRetries:         1,
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should retry message three times whats", func(t *testing.T) {
+		expectedLog := "Error sendMessage to user, max retries"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		manager := Manager{
+			maxRetries:         3,
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	message.Provider = FacebookProvider
+	t.Run("Should sent message fb", func(t *testing.T) {
+		expectedLog := "Send message to UserID"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+		manager := Manager{
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+
+	})
+
+	t.Run("Should retry message one time fb", func(t *testing.T) {
+		expectedLog := "Error sendMessage to user"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+		manager := Manager{
+			maxRetries:         1,
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should retry message three times fb", func(t *testing.T) {
+		expectedLog := "Error sendMessage to user, max retries"
+		integrationsClient := new(IntegrationInterface)
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
+		manager := Manager{
+			maxRetries:         3,
+			IntegrationsClient: integrationsClient,
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		manager.sendMessageToUser(message)
+		logs := buf.String()
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
 }

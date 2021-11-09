@@ -8,6 +8,7 @@
 
 ### Feat
 
+* **Validation-Bugfix:** Retry sent messages. A variable of maximum number of retries is added, in case the sending of messages to a salesforce or integrations APi fails, we can send another message a number of times. Closes #CSF-214
 * **Validation-Bugfix:** Sent  messages to go routines. Send salesforce messages with gorutines to the channel to make sending requests to API integrations faster. Closes #CSF-215
 * **Validation-Bugfix:** Change dynamic key in redis to a static key in redis one per user. Add client to envar, change key redis to {{client}}:{{userID}}:interconnection for to store and  to retrieve interconnection. Closes #CSF-211
 
