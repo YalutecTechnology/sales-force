@@ -84,6 +84,7 @@ func main() {
 		StudioNGToken:              envs.StudioNGToken,
 		StudioNGTimeout:            envs.StudioNGTimeout,
 		SpecSchedule:               envs.SpecSchedule,
+		MaxRetries:                 envs.MaxRetries,
 	}
 
 	if len(envs.RedisMaster) > 0 {

@@ -79,6 +79,7 @@ type Manager struct {
 	SfcSourceFlowField    string
 	StudioNG              studiong.StudioNGInterface
 	isStudioNGFlow        bool
+	maxRetries            int
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -130,6 +131,7 @@ type ManagerOptions struct {
 	StudioNGToken              string
 	StudioNGTimeout            int
 	SpecSchedule               string
+	MaxRetries                 int
 }
 
 type ManagerI interface {
@@ -259,6 +261,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		cacheMessage:          cache.NewMessageCache(cacheLocal),
 		StudioNG:              studioNG,
 		isStudioNGFlow:        isStudioNG,
+		maxRetries:            config.MaxRetries,
 	}
 
 	for _, interconnection := range *interconnections {
@@ -288,42 +291,69 @@ func (m *Manager) handleInterconnection() {
 }
 
 func (m *Manager) sendMessageToUser(message *Message) {
-	switch message.Provider {
-	case WhatsappProvider:
-		_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
-			Id:     helpers.RandomString(36),
-			Type:   "text",
-			UserID: message.UserID,
-			Text:   integrations.TextMessage{Body: message.Text},
-		}, string(message.Provider))
-		if err != nil {
-			logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage", err))
-		}
-	case FacebookProvider:
-		_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayloadFB{
-			MessagingType: "RESPONSE",
-			Recipient: integrations.Recipient{
-				ID: message.UserID,
-			},
-			Message: integrations.Message{
-				Text: message.Text,
-			},
-			Metadata: "YALOSOURCE:FIREHOSE",
-		}, string(message.Provider))
-		if err != nil {
-			logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
+	retries := 0
+	for {
+		switch message.Provider {
+		case WhatsappProvider:
+			_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
+				Id:     helpers.RandomString(36),
+				Type:   "text",
+				UserID: message.UserID,
+				Text:   integrations.TextMessage{Body: message.Text},
+			}, string(message.Provider))
+			if err != nil {
+				logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
+				if retries == m.maxRetries {
+					logrus.WithField("userId", message.UserID).Error("Error sendMessage to user, max retries")
+					return
+				}
+				retries++
+				continue
+			}
+			logrus.Infof("Send message to UserID : %s", message.UserID)
+			return
+		case FacebookProvider:
+			_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayloadFB{
+				MessagingType: "RESPONSE",
+				Recipient: integrations.Recipient{
+					ID: message.UserID,
+				},
+				Message: integrations.Message{
+					Text: message.Text,
+				},
+				Metadata: "YALOSOURCE:FIREHOSE",
+			}, string(message.Provider))
+			if err != nil {
+				logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
+				if retries == m.maxRetries {
+					logrus.WithField("userId", message.UserID).Error("Error sendMessage to user, max retries")
+					return
+				}
+				retries++
+				continue
+			}
+			logrus.Infof("Send message to UserID : %s", message.UserID)
+			return
 		}
 	}
-
-	logrus.Infof("Send message to UserID : %s", message.UserID)
 }
 
 func (m *Manager) sendMessageToSalesforce(message *Message) {
-	_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
-	if err != nil {
-		logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
+	retries := 0
+	for {
+		_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+		if err != nil {
+			logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
+			if retries == m.maxRetries {
+				logrus.WithField("userID", message.UserID).Error("Error sendMessage to salesforce, max retries")
+				return
+			}
+			retries++
+			continue
+		}
+		logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
+		return
 	}
-	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }
 
 // Initialize a chat with salesforce

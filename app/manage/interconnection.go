@@ -97,6 +97,9 @@ func (in *Interconnection) handleLongPolling() {
 			switch errorResponse.StatusCode {
 			case http.StatusNoContent:
 				logrus.WithField("userID", in.UserID).Info("Not content events")
+			case http.StatusConflict:
+				logrus.WithField("userID", in.UserID).Info("Duplicate Long Polling")
+				time.Sleep(time.Second * 5)
 			case http.StatusForbidden:
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.updateStatusRedis(string(Closed))
