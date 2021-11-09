@@ -321,7 +321,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 func (m *Manager) sendMessageToSalesforce(message *Message) {
 	_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 	if err != nil {
-		logrus.Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
+		logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
 	}
 	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
 }
@@ -590,7 +590,7 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			}
 		}
 
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body)
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
 		err := m.SalesforceService.InsertImageInCase(
@@ -603,7 +603,7 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
 			return
 		}
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
 	}
 }
 
@@ -769,7 +769,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 			}
 		}
 
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text)
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
 
 	case message.Message.Attachments != nil:
 		for _, attachment := range message.Message.Attachments {
@@ -784,7 +784,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 					logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
 					return
 				}
-				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess)
+				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
 			}
 		}
 	}

@@ -1,6 +1,6 @@
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-05)
+## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-09)
 
 ### Chore
 
@@ -8,6 +8,7 @@
 
 ### Feat
 
+* **Validation-Bugfix:** Sent  messages to go routines. Send salesforce messages with gorutines to the channel to make sending requests to API integrations faster. Closes #CSF-215
 * **Validation-Bugfix:** Change dynamic key in redis to a static key in redis one per user. Add client to envar, change key redis to {{client}}:{{userID}}:interconnection for to store and  to retrieve interconnection. Closes #CSF-211
 
 ### Fix
