@@ -1,6 +1,6 @@
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-05)
+## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-10)
 
 ### Chore
 
@@ -16,6 +16,7 @@
 ### Fix
 
 * **Integration-interconnection:** Change to goroutine handle image. Add groutine when send image to salesforce. Closes #CSF-210
+* **Validation-Bugfix:** Split handleInterconnection in 3 different interconnection. We separate the message reception channels for faster response speed. Closes #CSF-216
 * **Validation-Bugfix:** Ignore audio template. Closes #CSF-209
 
 

@@ -279,19 +279,46 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	go m.handleInterconnection()
+	go m.handleMessageToSalesforce()
+	go m.handleMessageToUsers()
 	return m
 }
 
-// Esta funcion finaliza las interconecciones y envia los mensajes a salesforce o yalo
+// handleInterconnection This function terminates the interconnections.
 func (m *Manager) handleInterconnection() {
 	for {
 		select {
 		case interconection := <-m.finishInterconnection:
+			logrus.WithField("userID", interconection.UserID).Info("Finish interconnection")
 			m.EndChat(interconection)
+		default:
+
+		}
+	}
+}
+
+// handleMessageToSalesforce This function sends messages to salesforce agents.
+func (m *Manager) handleMessageToSalesforce() {
+	for {
+		select {
 		case messageSf := <-m.salesforceChannel:
+			logrus.WithField("userID", messageSf.UserID).Info("Message to agent from user")
 			m.sendMessageToSalesforce(messageSf)
+		default:
+
+		}
+	}
+}
+
+// handleMessageToUsers This function sends messages to users.
+func (m *Manager) handleMessageToUsers() {
+	for {
+		select {
 		case messageInt := <-m.integrationsChannel:
+			logrus.WithField("userID", messageInt.UserID).Info("Message to user from agent")
 			m.sendMessageToUser(messageInt)
+		default:
+			
 		}
 	}
 }
@@ -619,7 +646,6 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 				}
 			}
 		}
-		logrus.WithField("userID", interconnection.UserID).Info("Send Message to agent")
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
@@ -775,7 +801,7 @@ func (m *Manager) salesforceComunicationFB(message models.Messaging) bool {
 	interconnection, ok := m.validInterconnection(message.Sender.ID)
 	isInterconnectionActive := ok && interconnection.Status == Active
 	if isInterconnectionActive {
-		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat")
+		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat FB")
 		go m.sendMessageComunicationFB(interconnection, &message)
 	}
 
@@ -800,7 +826,6 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 				}
 			}
 		}
-		logrus.WithField("userID", interconnection.UserID).Info("Send Message to agent")
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
 
 	case message.Message.Attachments != nil:
@@ -816,7 +841,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
 					return
 				}
-				logrus.WithField("userID", interconnection.UserID).Info("Send Image to agent")
+				logrus.WithField("userID", interconnection.UserID).Info("FB Send Image to agent")
 				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
 			}
 		}
