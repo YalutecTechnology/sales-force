@@ -42,7 +42,6 @@ type InterconnectionCache interface {
 	DeleteAllInterconnections() error
 	DeleteInterconnection(Interconnection) (bool, error)
 	RetrieveAllInterconnections(client string) *[]Interconnection
-	RetrieveInterconnectionActiveByUserId(userId string) *Interconnection
 }
 
 // assembleKey retrive key by template
@@ -53,7 +52,7 @@ func assembleKey(interconnection Interconnection) string {
 // StoreInterconnection saves a interconnection on Cache
 func (rc *RedisCache) StoreInterconnection(interconnection Interconnection) error {
 	data, _ := json.Marshal(interconnection)
-	return rc.StoreData(assembleKey(interconnection), data, ttl)
+	return rc.StoreData(assembleKey(interconnection), data, Ttl)
 }
 
 // RetrieveInterconnection returns a interconnection from the Cache
@@ -83,45 +82,6 @@ func (rc *RedisCache) RetrieveAllInterconnections(client string) *[]Interconnect
 		redisInterconnectionsArray = append(redisInterconnectionsArray, redisInterconnections)
 	}
 	return &redisInterconnectionsArray
-}
-
-//TODO remove method
-// RetrieveInterconnectionActiveByUserId returns interconnection from the Cache with status OnHold or Active
-func (rc *RedisCache) RetrieveInterconnectionActiveByUserId(userID string) *Interconnection {
-	var redisInterconnection Interconnection
-	var err error
-	var keys []string
-	cursor := uint64(0)
-
-	for {
-		keys, cursor, err = rc.ScanKeys(cursor, fmt.Sprintf("*:%s:interconnection", userID), countScan)
-		if err != nil {
-			logrus.WithError(err).Error("Redis 'RetrieveInterconnectionActiveByUserId'")
-			return nil
-		}
-
-		var value string
-		for i := range keys {
-			value, err = rc.RetrieveData(keys[i])
-			if err != nil {
-				logrus.WithError(err).Error("error RetrieveData")
-				return nil
-			}
-			err = json.Unmarshal([]byte(value), &redisInterconnection)
-			if redisInterconnection.UserID == userID {
-				if redisInterconnection.Status == "ON_HOLD" || redisInterconnection.Status == "ACTIVE" {
-					return &redisInterconnection
-				}
-				return nil
-			}
-		}
-		if cursor == 0 {
-			break
-		}
-	}
-	logrus.Errorf("Interconnection not found in redis with userID : [%s], Description: %s",
-		userID, err)
-	return nil
 }
 
 // DeleteAllInterconnections delete all Interconnections from Cache

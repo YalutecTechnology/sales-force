@@ -105,13 +105,13 @@ func (in *Interconnection) handleLongPolling() {
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
-				logrus.WithField("userID", in.UserID).Info("StatusForbidden")
+				logrus.WithField("userID", in.UserID).Error("StatusForbidden")
 			case http.StatusServiceUnavailable:
 				// TODO: Reconnect Session
 				in.updateStatusRedis(string(Closed))
 				in.Status = Closed
 				in.runnigLongPolling = false
-				logrus.WithField("userID", in.UserID).Info("StatusServiceUnavailable")
+				logrus.WithField("userID", in.UserID).Error("StatusServiceUnavailable")
 			default:
 				logrus.WithField("userID", in.UserID).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)

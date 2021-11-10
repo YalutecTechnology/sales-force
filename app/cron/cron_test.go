@@ -1,19 +1,22 @@
 package cron
 
 import (
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	helpers "yalochat.com/salesforce-integration/base/helpers"
-	models "yalochat.com/salesforce-integration/base/models"
+	"yalochat.com/salesforce-integration/base/helpers"
+	"yalochat.com/salesforce-integration/base/models"
 )
 
 const (
-	oneSecond = 1*time.Second + 50*time.Millisecond
-	email     = "email@example.com"
+	waitTime      = 1*time.Second + 20*time.Millisecond
+	email         = "email@example.com"
+	client        = "client"
+	expresionCron = "0 9 * * *"
 )
 
 func Test_crons_Run(t *testing.T) {
@@ -39,11 +42,18 @@ func Test_crons_setCron(t *testing.T) {
 			Email:   email,
 			Blocked: true,
 		}
-		saleforceService.On("SearchContactComposite", email, "").Return(contact, nil).Once()
+		saleforceService.On("SearchContactComposite", email, "").Return(contact, nil).Times(10)
+
+		contextCacheMock := new(ContextCache)
+		contextCacheMock.On("CleanContextToDate", client, mock.Anything).Return(nil).Times(10)
 
 		cronService := NewCron(saleforceService, "@every 1s", email)
+		cronService.Client = client
+		cronService.Contextschedule = "@every 1s"
+		cronService.ContextCache = contextCacheMock
 		err := cronService.setCron()
 
+		time.Sleep(waitTime)
 		assert.NoError(t, err)
 
 	})
@@ -56,17 +66,22 @@ func Test_crons_setCron(t *testing.T) {
 		contact := &models.SfcContact{}
 		saleforceService.On("SearchContactComposite", email, "").Return(contact, &helpers.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
-		}).Once()
+		}).Times(10)
 
-		saleforceService.On("RefreshToken").Once().After(oneSecond)
+		saleforceService.On("RefreshToken").Times(10)
+
+		contextCacheMock := new(ContextCache)
+		contextCacheMock.On("CleanContextToDate", client, mock.Anything).Return(assert.AnError).Times(10)
 
 		cronService := NewCron(saleforceService, "@every 1s", email)
+		cronService.Client = client
+		cronService.Contextschedule = "@every 1s"
+		cronService.ContextCache = contextCacheMock
 		err := cronService.setCron()
 
+		time.Sleep(waitTime)
 		assert.NoError(t, err)
 
 	})
-
-	<-time.After(oneSecond)
 
 }

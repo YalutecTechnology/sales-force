@@ -132,6 +132,7 @@ type ManagerOptions struct {
 	StudioNGTimeout            int
 	SpecSchedule               string
 	MaxRetries                 int
+	CleanContextSchedule       string
 }
 
 type ManagerI interface {
@@ -226,6 +227,12 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	if config.SpecSchedule != "" {
 		cronService := cron.NewCron(salesforceService, config.SpecSchedule, config.SfcUsername)
+
+		if config.CleanContextSchedule != "" {
+			cronService.Contextschedule = config.CleanContextSchedule
+			cronService.Client = config.Client
+			cronService.ContextCache = contextCache
+		}
 		cronService.Run()
 	}
 
@@ -269,7 +276,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 			in := convertInterconnectionCacheToInterconnection(interconnection)
 			m.AddInterconnection(in)
 		}
-
 	}
 
 	go m.handleInterconnection()
@@ -356,7 +362,7 @@ func (m *Manager) sendMessageToSalesforce(message *Message) {
 	}
 }
 
-// Initialize a chat with salesforce
+// CreateChat Initialize a chat with salesforce
 func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	titleMessage := "could not create chat in salesforce"
 	interconnection.Client = m.client
@@ -436,7 +442,7 @@ func cleanPrefixPhoneNumber(interconnection *Interconnection) {
 	}
 }
 
-// Change to state with botrunner
+// ChangeToState Change to state with botrunner
 func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotRunnerInterface, seconds, secondsNG int, studioNGClient studiong.StudioNGInterface, isStudio bool) {
 	if !isStudio {
 		time.Sleep(time.Second * time.Duration(seconds))
@@ -547,7 +553,8 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		return err
 	}
 
-	ctx := cache.Context{
+	ctx := &cache.Context{
+		Client:    m.client,
 		UserID:    integration.From,
 		Timestamp: timestamp,
 		From:      fromUser,
@@ -580,15 +587,7 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.UserID = integration.To
 	}
 
-	go func() {
-		err = m.contextcache.StoreContext(ctx)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"context": ctx,
-			}).WithError(err).Error("Error store context")
-		}
-	}()
-
+	go m.saveContextInRedis(ctx)
 	return nil
 }
 
@@ -596,6 +595,7 @@ func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest
 	interconnection, ok := m.validInterconnection(integration.From)
 	isInterconnectionActive := ok && interconnection.Status == Active
 	if isInterconnectionActive {
+		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat")
 		go m.sendMessageComunication(interconnection, integration)
 	}
 	return isInterconnectionActive
@@ -619,7 +619,7 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 				}
 			}
 		}
-
+		logrus.WithField("userID", interconnection.UserID).Info("Send Message to agent")
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
@@ -629,10 +629,11 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			integration.Image.MIMEType,
 			interconnection.CaseID)
 		if err != nil {
-			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
 			logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
 			return
 		}
+		logrus.WithField("userID", interconnection.UserID).Info("Send Image to agent")
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
 	}
 }
@@ -652,11 +653,15 @@ func (m *Manager) EndChat(interconnection *Interconnection) {
 }
 
 func (m *Manager) getContextByUserID(userID string) string {
-	allContext := m.contextcache.RetrieveContext(userID)
+	allContext := m.contextcache.RetrieveContextFromSet(m.client, userID)
 
 	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
 	builder := strings.Builder{}
 	for _, ctx := range allContext {
+		if ctx.Ttl.Before(time.Now()) {
+			continue
+		}
+
 		loc, _ := time.LoadLocation("America/Mexico_City")
 
 		date := time.Unix(0, int64(ctx.Timestamp)*int64(time.Millisecond)).
@@ -675,9 +680,15 @@ func (m *Manager) getContextByUserID(userID string) string {
 }
 
 func (m *Manager) GetContextByUserID(userID string) []cache.Context {
-	allContext := m.contextcache.RetrieveContext(userID)
+	allContext := m.contextcache.RetrieveContextFromSet(m.client, userID)
 
 	sort.Slice(allContext, func(i, j int) bool { return allContext[j].Timestamp > allContext[i].Timestamp })
+
+	for i, ctx := range allContext {
+		if ctx.Ttl.Before(time.Now()) {
+			allContext = append(allContext[:i], allContext[i+1:]...)
+		}
+	}
 
 	return allContext
 }
@@ -727,10 +738,9 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 	}
 }
 
-// SaveContext method will save context of integration message from facebook
+// SaveContextFB method will save context of integration message from facebook
 func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
 	//logrus.Info("WEBHOOK FACEBOOK: ", integration)
-	var err error
 	isSend := false
 	for _, entry := range integration.Message.Entry {
 		for _, message := range entry.Messaging {
@@ -748,24 +758,16 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 				continue
 			}
 
-			ctx := cache.Context{
+			ctx := &cache.Context{
 				UserID:    userID,
 				Timestamp: message.Timestamp,
 				From:      from,
 				Text:      message.Message.Text,
+				Client:    m.client,
 			}
-			go func() {
-				err = m.contextcache.StoreContext(ctx)
-				if err != nil {
-					logrus.WithFields(logrus.Fields{
-						"context": ctx,
-					}).WithError(err).Error("Error store context")
-				}
-			}()
-
+			go m.saveContextInRedis(ctx)
 		}
 	}
-
 	return nil
 }
 
@@ -773,8 +775,8 @@ func (m *Manager) salesforceComunicationFB(message models.Messaging) bool {
 	interconnection, ok := m.validInterconnection(message.Sender.ID)
 	isInterconnectionActive := ok && interconnection.Status == Active
 	if isInterconnectionActive {
+		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat")
 		go m.sendMessageComunicationFB(interconnection, &message)
-
 	}
 
 	return isInterconnectionActive
@@ -798,7 +800,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 				}
 			}
 		}
-
+		logrus.WithField("userID", interconnection.UserID).Info("Send Message to agent")
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
 
 	case message.Message.Attachments != nil:
@@ -810,10 +812,11 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 					"",
 					interconnection.CaseID)
 				if err != nil {
-					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
 					logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
 					return
 				}
+				logrus.WithField("userID", interconnection.UserID).Info("Send Image to agent")
 				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
 			}
 		}
@@ -886,5 +889,15 @@ func (m *Manager) RemoveWebhookInIntegrations(provider string) error {
 		errorMessage := fmt.Sprintf("Invalid provider webhook : %s", provider)
 		logrus.Error(errorMessage)
 		return errors.New(errorMessage)
+	}
+}
+
+func (m *Manager) saveContextInRedis(ctx *cache.Context) {
+	ctx.Ttl = time.Now().Add(cache.Ttl)
+	err := m.contextcache.StoreContextToSet(*ctx)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"context": ctx,
+		}).WithError(err).Error("Error store context in set")
 	}
 }

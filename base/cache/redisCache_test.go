@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -199,5 +200,78 @@ func TestGetAllKeysWithScanByMatch(t *testing.T) {
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
 		}
+	})
+}
+
+func TestStoreDataToSet(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+
+	t.Run("Should failed store data to set", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rc := &RedisCache{
+			client: c,
+		}
+		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
+		err := rc.StoreDataToSet("key-test", nil)
+		if err.Error() != expectedErr {
+			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
+		}
+	})
+}
+
+func TestRetrieveDataFromSet(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+
+	t.Run("Should failed getting data", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rc := &RedisCache{
+			client: c,
+		}
+		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
+		_, err := rc.RetrieveDataFromSet("key-test")
+		if err.Error() != expectedErr {
+			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
+		}
+	})
+}
+
+func TestDeleteSet(t *testing.T) {
+	m, s := CreateRedisServer()
+	defer m.Close()
+	defer s.Close()
+
+	t.Run("Should failed getting data", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rc := &RedisCache{
+			client: c,
+		}
+		expectedErr := "dial tcp 127.0.0.1:10000: connect: connection refused"
+		err := rc.DeleteSet("key-test")
+		if err.Error() != expectedErr {
+			t.Fatalf("Error should be %v, but this was retrieved %v", expectedErr, err)
+		}
+	})
+
+	t.Run("Should delete set data", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: m.Addr(),
+		})
+		rc := &RedisCache{
+			client: c,
+		}
+		rc.client.SAdd("key-test", "member1")
+		rc.client.SAdd("key-test", "member2")
+		err := rc.DeleteSet("key-test")
+		assert.NoError(t, err)
 	})
 }
