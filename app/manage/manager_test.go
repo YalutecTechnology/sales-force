@@ -196,6 +196,7 @@ func TestManager_CreateChat(t *testing.T) {
 			}).Once()
 
 		manager := &Manager{
+			environment:           "dev",
 			client:                client,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionMock,
@@ -861,6 +862,7 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
+			environment:           "dev",
 			contextcache:          contextCache,
 			salesforceChannel:     channelSaleforce,
 			integrationsChannel:   channelIntegrations,
@@ -869,6 +871,8 @@ func TestManager_SaveContext(t *testing.T) {
 			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
@@ -938,6 +942,8 @@ func TestManager_SaveContext(t *testing.T) {
 			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:               Active,
@@ -1010,6 +1016,8 @@ func TestManager_SaveContext(t *testing.T) {
 			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:               Active,
@@ -1066,6 +1074,8 @@ func TestManager_SaveContext(t *testing.T) {
 			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
@@ -1123,6 +1133,8 @@ func TestManager_SaveContext(t *testing.T) {
 			IntegrationsClient:    integrationsIMock,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
@@ -1570,6 +1582,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
@@ -1645,6 +1659,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
@@ -1745,6 +1761,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 		}
 
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Client:               client,
@@ -1838,6 +1856,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 			cacheMessage:          cacheMessage,
 		}
 		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:              Active,
