@@ -104,6 +104,7 @@ func TestCreateManager(t *testing.T) {
 			CleanContextSchedule:       "0 9 * * *",
 			IntegrationsRateLimit:      20,
 			SalesforceRateLimit:        20,
+			Messages:                   models.MessageTemplate{WelcomeTemplate: "Hola soy Lalo", WaitAgent: "Esperando Agente"},
 		}
 
 		actual := CreateManager(config)
@@ -127,11 +128,191 @@ func TestCreateManager(t *testing.T) {
 		assert.Equal(t, expected, actual)
 		time.Sleep(1 * time.Second)
 	})
+
+	t.Run("Should retrieve a simple manager instance", func(t *testing.T) {
+		expected := &Manager{
+			client:                       client,
+			clientName:                   "salesforce-integration",
+			SalesforceService:            nil,
+			IntegrationsClient:           nil,
+			BotrunnnerClient:             nil,
+			cacheMessage:                 nil,
+			interconnectionMap:           nil,
+			StudioNG:                     nil,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		config := &ManagerOptions{
+			AppName:                    "salesforce-integration",
+			Client:                     client,
+			BotrunnerUrl:               "uri",
+			StudioNGUrl:                "uriStudio",
+			SfcDefaultBirthDateAccount: "1999-01-01T00:00:00",
+			SpecSchedule:               "@every 1h30m",
+			CleanContextSchedule:       "0 9 * * *",
+			IntegrationsRateLimit:      20,
+			SalesforceRateLimit:        20,
+			Messages:                   models.MessageTemplate{WelcomeTemplate: "Hola soy Lalo", WaitAgent: "Esperando Agente"},
+		}
+		actual := CreateManager(config)
+		actual.SalesforceService = nil
+		actual.IntegrationsClient = nil
+		actual.BotrunnnerClient = nil
+		actual.StudioNG = nil
+		actual.cacheMessage = nil
+		expected.SalesforceService = actual.SalesforceService
+		expected.integrationsChannel = actual.integrationsChannel
+		expected.salesforceChannel = actual.salesforceChannel
+		expected.finishInterconnection = actual.finishInterconnection
+		expected.contextcache = actual.contextcache
+		expected.interconnectionsCache = actual.interconnectionsCache
+		expected.isStudioNGFlow = true
+		expected.interconnectionMap = actual.interconnectionMap
+		expected.IntegrationChanRateLimiter = actual.IntegrationChanRateLimiter
+		expected.SalesforceChanRequestLimiter = actual.SalesforceChanRequestLimiter
+		assert.Equal(t, expected, actual)
+	})
+}
+
+func TestManager_handleInterconnection(t *testing.T) {
+
+	t.Run("Should receive interconnection", func(t *testing.T) {
+		expectedLog := "Finish interconnection"
+		interconectionLocal := cache.New()
+		defer interconectionLocal.Clear()
+		manager := Manager{
+			finishInterconnection: make(chan *Interconnection),
+			interconnectionMap:    interconectionLocal,
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleInterconnection()
+		manager.finishInterconnection <- &Interconnection{UserID: "121"}
+		time.Sleep(1 * time.Second)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should no receive interconnection", func(t *testing.T) {
+		log := "Finish interconnection"
+		interconectionLocal := cache.New()
+		defer interconectionLocal.Clear()
+		manager := Manager{
+			finishInterconnection: make(chan *Interconnection),
+			interconnectionMap:    interconectionLocal,
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleInterconnection()
+		time.Sleep(500 * time.Millisecond)
+		logs := buf.String()
+		if strings.Contains(logs, log) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", log, logs)
+		}
+	})
+
+}
+
+func TestManager_handleMessageToSalesforce(t *testing.T) {
+
+	t.Run("Should receive message", func(t *testing.T) {
+		expectedLog := "Message to agent from user"
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
+
+		manager := Manager{
+			salesforceChannel:            make(chan *Message),
+			SalesforceService:            salesforceServiceMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleMessageToSalesforce()
+		manager.salesforceChannel <- &Message{UserID: userID, AffinityToken: affinityToken, SessionKey: sessionKey, Text: "test"}
+		time.Sleep(1 * time.Second)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should no receive message", func(t *testing.T) {
+		log := "Message to agent from user"
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
+
+		manager := Manager{
+			salesforceChannel:            make(chan *Message),
+			SalesforceService:            salesforceServiceMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleMessageToSalesforce()
+		time.Sleep(500 * time.Millisecond)
+		logs := buf.String()
+		if strings.Contains(logs, log) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", log, logs)
+		}
+	})
+
+}
+
+func TestManager_handleMessageToUsers(t *testing.T) {
+
+	t.Run("Should receive message", func(t *testing.T) {
+		expectedLog := "Message to user from agent"
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, mock.Anything).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := Manager{
+			integrationsChannel:          make(chan *Message),
+			IntegrationsClient:           integrationsIMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleMessageToUsers()
+		manager.integrationsChannel <- &Message{UserID: userID, Provider: FacebookProvider, Text: "test"}
+		time.Sleep(1 * time.Second)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Should no receive message", func(t *testing.T) {
+		log := "Message to user from agent"
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, mock.Anything).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := Manager{
+			integrationsChannel:          make(chan *Message),
+			IntegrationsClient:           integrationsIMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		go manager.handleMessageToUsers()
+		time.Sleep(500 * time.Millisecond)
+		logs := buf.String()
+		if strings.Contains(logs, log) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", log, logs)
+		}
+	})
+
 }
 
 func TestManager_CreateChat(t *testing.T) {
 	interconectionLocal := cache.New()
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
+		Messages = models.MessageTemplate{DescriptionCase: "Caso levantado por el Bot"}
 		defer interconectionLocal.Clear()
 		interconnection := &Interconnection{
 			UserID:      userID,
@@ -167,7 +348,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.On("CreatCase",
 			contact.ID,
-			"Caso levantado por el Bot : ",
+			Messages.DescriptionCase,
 			"subject",
 			string(interconnection.Provider),
 			"ownerWAID",
@@ -206,13 +387,15 @@ func TestManager_CreateChat(t *testing.T) {
 			}).Once()
 
 		manager := &Manager{
-			environment:           "dev",
-			client:                client,
-			SalesforceService:     salesforceMock,
-			interconnectionsCache: interconnectionMock,
-			contextcache:          cacheContextMock,
-			interconnectionMap:    interconectionLocal,
-			SfcSourceFlowField:    "data",
+			environment:                  "dev",
+			client:                       client,
+			SalesforceService:            salesforceMock,
+			interconnectionsCache:        interconnectionMock,
+			contextcache:                 cacheContextMock,
+			interconnectionMap:           interconectionLocal,
+			SfcSourceFlowField:           "data",
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 			SfcSourceFlowBot: envs.SfcSourceFlowBot{
 				defaultFieldCustom: {
 					Subject: "subject",
@@ -261,7 +444,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.On("CreatCase",
 			contact.ID,
-			"Caso levantado por el Bot : ",
+			Messages.DescriptionCase,
 			"subject",
 			string(interconnection.Provider),
 			"ownerFBID",
@@ -366,7 +549,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.On("CreatCase",
 			contact.ID,
-			"Caso levantado por el Bot : ",
+			Messages.DescriptionCase,
 			"",
 			string(interconnection.Provider),
 			"",
@@ -1066,6 +1249,7 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should send image to salesforce", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida"}
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
@@ -1074,7 +1258,7 @@ func TestManager_SaveContext(t *testing.T) {
 			Return(nil).Once()
 
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			affinityToken, sessionKey, chat.MessagePayload{Text: Messages.UploadImageSuccess}).
 			Return(false, nil).Once()
 
 		cacheMessage := new(IMessageCache)
@@ -1664,7 +1848,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Return(nil).Once()
 
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		cacheMessage := new(IMessageCache)
@@ -1845,6 +2029,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should interaction  image from user error", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadImageError: "Error al subir imagen"}
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
@@ -1853,7 +2038,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Return(assert.AnError).Once()
 
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: messageImageSuccess}).
+			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		integrationsIMock := new(IntegrationInterface)
@@ -1863,7 +2048,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 				ID: userID,
 			},
 			Message: integrations.Message{
-				Text: messageError,
+				Text: Messages.UploadImageError,
 			},
 			Metadata: "YALOSOURCE:FIREHOSE",
 		}, string(FacebookProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()

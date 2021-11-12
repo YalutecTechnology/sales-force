@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"yalochat.com/salesforce-integration/base/models"
 )
 
 // Envs represents the list of well known env vars used by the app
@@ -45,30 +46,31 @@ type Envs struct {
 	SfcDeploymentId      string            `split_words:"true"`
 	SfcRecordTypeId      string            `split_words:"true"`
 	// Only if this value exists will person accounts be created instead of contacts in salesforce
-	SfcAccountRecordTypeId     string            `split_words:"true"`
-	SfcDefaultBirthDateAccount string            `split_words:"true" default:"1921-01-01T00:00:00"`
-	SfcCustomFieldsCase        map[string]string `split_words:"true"`
-	SfcSourceFlowBot           SfcSourceFlowBot  `required:"true" split_words:"true"`
-	SfcSourceFlowField         string            `required:"true" split_words:"true" default:"source_flow_bot"`
-	SfcBlockedChatField        bool              `split_words:"true" default:"false"`
-	SfcCodePhoneRemove         []string          `split_words:"true" default:"521,52"`
-	IntegrationsWAChannel      string            `split_words:"true" default:"outgoing_webhook"`
-	IntegrationsFBChannel      string            `split_words:"true" default:"passthrough"`
-	IntegrationsWABotID        string            `split_words:"true"`
-	IntegrationsFBBotID        string            `split_words:"true"`
-	IntegrationsWABotJWT       string            `split_words:"true"`
-	IntegrationsFBBotJWT       string            `split_words:"true"`
-	IntegrationsBaseUrl        string            `split_words:"true"`
-	IntegrationsSignature      string            `split_words:"true"`
-	WebhookBaseUrl             string            `split_words:"true"`
-	IntegrationsWABotPhone     string            `split_words:"true"`
-	IntegrationsFBBotPhone     string            `split_words:"true"`
-	KeywordsRestart            []string          `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
-	SpecSchedule               string            `split_words:"true" default:"@every 59m"`
-	MaxRetries                 int               `split_words:"true" default:"2"`
-	CleanContextSchedule       string            `split_words:"true" default:"0 9 * * *"`
-	IntegrationChanRateLimit   float64           `split_words:"true" default:"20"`
-	SaleforceChanRateLimit     float64           `split_words:"true" default:"20"`
+	SfcAccountRecordTypeId     string                 `split_words:"true"`
+	SfcDefaultBirthDateAccount string                 `split_words:"true" default:"1921-01-01T00:00:00"`
+	SfcCustomFieldsCase        map[string]string      `split_words:"true"`
+	SfcSourceFlowBot           SfcSourceFlowBot       `required:"true" split_words:"true"`
+	SfcSourceFlowField         string                 `required:"true" split_words:"true" default:"source_flow_bot"`
+	SfcBlockedChatField        bool                   `split_words:"true" default:"false"`
+	SfcCodePhoneRemove         []string               `split_words:"true" default:"521,52"`
+	IntegrationsWAChannel      string                 `split_words:"true" default:"outgoing_webhook"`
+	IntegrationsFBChannel      string                 `split_words:"true" default:"passthrough"`
+	IntegrationsWABotID        string                 `split_words:"true"`
+	IntegrationsFBBotID        string                 `split_words:"true"`
+	IntegrationsWABotJWT       string                 `split_words:"true"`
+	IntegrationsFBBotJWT       string                 `split_words:"true"`
+	IntegrationsBaseUrl        string                 `split_words:"true"`
+	IntegrationsSignature      string                 `split_words:"true"`
+	WebhookBaseUrl             string                 `split_words:"true"`
+	IntegrationsWABotPhone     string                 `split_words:"true"`
+	IntegrationsFBBotPhone     string                 `split_words:"true"`
+	KeywordsRestart            []string               `split_words:"true" default:"coppelbot,regresar,reiniciar,restart"`
+	SpecSchedule               string                 `split_words:"true" default:"@every 59m"`
+	MaxRetries                 int                    `split_words:"true" default:"2"`
+	CleanContextSchedule       string                 `split_words:"true" default:"0 9 * * *"`
+	IntegrationChanRateLimit   float64                `split_words:"true" default:"20"`
+	SaleforceChanRateLimit     float64                `split_words:"true" default:"20"`
+	Messages                   models.MessageTemplate `split_words:"true" required:"true" default:"{\"waitAgent\":\"Esperando un agente\",\"welcomeTemplate\":\"Hola soy %s y necesito ayuda\",\"context\":\"Contexto\",\"DescriptionCase\":\"Caso levantado por el Bot\",\"uploadImageError\":\"Imagen no enviada\",\"uploadImageSuccess\":\"**El usuario adjunto una imagen al caso**\",\"queuePosition\":\"Posición en la cola\",\"waitTime\":\"Tiempo de espera\",\"FirstNameContact\":\"Contacto Bot - \"}"`
 }
 type Provider struct {
 	ButtonID string `json:"button_id"`

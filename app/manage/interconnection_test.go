@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"yalochat.com/salesforce-integration/base/models"
 
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
@@ -76,12 +77,12 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
-					Type: chat.ChatEnded,
+					Type: chat.ChatRequestFail,
 				},
 			},
 		}, nil).Once()
 
-		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": successState, "userId": userID}).
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 
 		interconnection.SalesforceService = mock
@@ -234,27 +235,6 @@ func TestHandleLongPolling_test(t *testing.T) {
 		assert.Equal(t, false, interconnection.runnigLongPolling)
 	})
 
-	// t.Run("Handle Messages from salesforce", func(t *testing.T) {
-	// 	expectedLog := "Get Messages sucessfully"
-	// 	mock := new(SalesforceServiceInterface)
-	// 	interconnection.SalesforceService = mock
-
-	// 	mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
-	// 		Messages: []chat.MessageObject{
-	// 			{
-	// 				Type: chat.ChatEnded,
-	// 			},
-	// 		},
-	// 	}, nil).Once()
-
-	// 	var buf bytes.Buffer
-	// 	logrus.SetOutput(&buf)
-	// 	interconnection.handleLongPolling()
-	// 	logs := buf.String()
-	// 	if !strings.Contains(logs, expectedLog) {
-	// 		t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
-	// 	}
-	// })
 }
 
 func TestCheckEvent_test(t *testing.T) {
@@ -305,11 +285,12 @@ func TestCheckEvent_test(t *testing.T) {
 	})
 
 	t.Run("Chat Established event received", func(t *testing.T) {
+		Messages = models.MessageTemplate{WelcomeTemplate: "Hola soy %s y necesito ayuda"}
 		expectedLog := chat.ChatEstablished
 		mock := new(SalesforceServiceInterface)
 		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
 			Return(true, nil).Once()
-		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf("Hola soy %s y necesito ayuda", interconnection.Name)}).
+		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
 			Return(false, assert.AnError).Once()
 
 		interconnection.SalesforceService = mock
@@ -378,7 +359,7 @@ func TestCheckEvent_test(t *testing.T) {
 	})
 
 	t.Run("Chat fail event received", func(t *testing.T) {
-		expectedLog := chat.ChatRequestFail
+		expectedLog := "Event [ChatRequestFail] : [Unavailable]"
 
 		botrunnerMock := new(BotRunnerInterface)
 		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
@@ -397,6 +378,7 @@ func TestCheckEvent_test(t *testing.T) {
 				UserId:              "142451",
 				ChasitorIdleTimeout: map[string]interface{}{"isEnabled": false},
 				GeoLocation:         chat.GeoLocation{},
+				Reason:              "Unavailable",
 			},
 		}
 

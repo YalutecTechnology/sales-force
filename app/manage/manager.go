@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -48,20 +49,18 @@ var (
 	CodePhoneRemove       []string
 	salesforceRateLimit   float64
 	integrationsRateLimit float64
+	Messages              models.MessageTemplate
 )
 
 const (
-	audioType           = "audio"
-	voiceType           = "voice"
-	documentType        = "document"
-	imageType           = "image"
-	textType            = "text"
-	fromUser            = "user"
-	fromBot             = "bot"
-	descriptionDefualt  = "Caso levantado por el Bot : "
-	messageError        = "Imagen no enviada"
-	messageImageSuccess = "**El usuario adjunto una imagen al caso**"
-	defaultFieldCustom  = "default"
+	audioType          = "audio"
+	voiceType          = "voice"
+	documentType       = "document"
+	imageType          = "image"
+	textType           = "text"
+	fromUser           = "user"
+	fromBot            = "bot"
+	defaultFieldCustom = "default"
 )
 
 // Manager controls the process of the app
@@ -144,6 +143,7 @@ type ManagerOptions struct {
 	CleanContextSchedule       string
 	IntegrationsRateLimit      float64
 	SalesforceRateLimit        float64
+	Messages                   models.MessageTemplate
 }
 
 type ManagerI interface {
@@ -174,6 +174,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	StudioNGTimeout = config.StudioNGTimeout
 	CodePhoneRemove = config.SfcCodePhoneRemove
 	isStudioNG := false
+	Messages = config.Messages
 
 	salesforceRateLimit := rate.Limit(config.SalesforceRateLimit)
 	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(salesforceRateLimit)+1)
@@ -240,7 +241,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 		*salesforceClient,
 		tokenPayload,
 		config.SfcCustomFieldsCase,
-		SfcRecordTypeID)
+		SfcRecordTypeID,
+		Messages.FirstNameContact)
 
 	if config.SpecSchedule != "" {
 		cronService := cron.NewCron(salesforceService, config.SpecSchedule, config.SfcUsername)
@@ -262,8 +264,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 	if config.BotrunnerUrl != "" {
 		botRunnerClient = botrunner.NewBotrunnerClient(config.BotrunnerUrl, config.BotrunnerToken)
 	}
-
-	interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
 
 	cacheLocal := cache.New()
 	m := &Manager{
@@ -290,10 +290,14 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SalesforceChanRequestLimiter: salesforceRateLimiter,
 	}
 
-	for _, interconnection := range *interconnections {
-		if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
-			in := convertInterconnectionCacheToInterconnection(interconnection)
-			m.AddInterconnection(in)
+	// TODO: Add function restore interconnections
+	if !reflect.ValueOf(m.interconnectionsCache).IsNil() {
+		interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
+		for _, interconnection := range *interconnections {
+			if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
+				in := convertInterconnectionCacheToInterconnection(interconnection)
+				m.AddInterconnection(in)
+			}
 		}
 	}
 
@@ -442,7 +446,7 @@ func (m *Manager) CreateChat(interconnection *Interconnection) error {
 	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
 	logrus.WithField("userID", interconnection.UserID).Info("CreateCase")
-	caseId, err := m.SalesforceService.CreatCase(contact.ID, descriptionDefualt, subject, string(interconnection.Provider), ownerID,
+	caseId, err := m.SalesforceService.CreatCase(contact.ID, Messages.DescriptionCase, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
 		logrus.WithField("interconnection", interconnection).WithError(err).Error("error CreatCase")
@@ -575,7 +579,7 @@ func (m *Manager) storeInterconnectionInRedis(interconnection *Interconnection) 
 }
 
 func (m *Manager) getContext(interconnection *Interconnection) {
-	interconnection.Context = "Contexto:\n" + m.getContextByUserID(interconnection.UserID)
+	interconnection.Context = fmt.Sprintf("%s:\n%s", Messages.Context, m.getContextByUserID(interconnection.UserID))
 	logrus.Infof("Get context of userID : %s", interconnection.UserID)
 }
 
@@ -676,11 +680,11 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			interconnection.CaseID)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
-			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, messageError, WhatsappProvider)
+			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, Messages.UploadImageError, WhatsappProvider)
 			return
 		}
 		logrus.WithField("userID", interconnection.UserID).Info("Send Image to agent")
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
+		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
 	}
 }
 
@@ -836,7 +840,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 				if strings.ToLower(message.Message.Text) == keyword {
 					err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
 					if err != nil {
-						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
+						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("End Chat for restart key error")
 						return
 					}
 					interconnection.updateStatusRedis(string(Closed))
@@ -858,11 +862,11 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 					interconnection.CaseID)
 				if err != nil {
 					logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
-					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, messageError, FacebookProvider)
+					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, Messages.UploadImageError, FacebookProvider)
 					return
 				}
 				logrus.WithField("userID", interconnection.UserID).Info("FB Send Image to agent")
-				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, messageImageSuccess, interconnection.UserID)
+				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
 			}
 		}
 	}
