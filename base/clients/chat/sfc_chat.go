@@ -119,6 +119,7 @@ type Message struct {
 	VisitorId             string                 `json:"visitorId,omitempty"`
 	Type                  string                 `json:"type,omitempty"`
 	GeoLocation           GeoLocation            `json:"geoLocation,omitempty"`
+	Reason                string                 `json:"reason,omitempty"`
 	ResetSequence         bool                   `json:"resetSequence,omitempty"`
 	AffinityToken         string                 `json:"affinityToken,omitempty"`
 }
