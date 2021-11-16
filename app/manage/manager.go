@@ -1,13 +1,15 @@
 package manage
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/time/rate"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/sirupsen/logrus"
 
@@ -64,27 +66,29 @@ const (
 
 // Manager controls the process of the app
 type Manager struct {
-	clientName                 string
-	client                     string
-	interconnectionMap         cache.ICache
-	SalesforceService          services.SalesforceServiceInterface
-	IntegrationsClient         integrations.IntegrationInterface
-	BotrunnnerClient           botrunner.BotRunnerInterface
-	salesforceChannel          chan *Message
-	integrationsChannel        chan *Message
-	finishInterconnection      chan *Interconnection
-	contextcache               cache.ContextCache
-	interconnectionsCache      cache.InterconnectionCache
-	environment                string
-	keywordsRestart            []string
-	cacheMessage               cache.IMessageCache
-	SfcSourceFlowBot           envs.SfcSourceFlowBot
-	SfcSourceFlowField         string
-	StudioNG                   studiong.StudioNGInterface
-	isStudioNGFlow             bool
-	maxRetries                 int
-	IntegrationChanRateLimit   int
-	SalesforceChanRequestLimit int
+	clientName                   string
+	client                       string
+	interconnectionMap           cache.ICache
+	SalesforceService            services.SalesforceServiceInterface
+	IntegrationsClient           integrations.IntegrationInterface
+	BotrunnnerClient             botrunner.BotRunnerInterface
+	salesforceChannel            chan *Message
+	integrationsChannel          chan *Message
+	finishInterconnection        chan *Interconnection
+	contextcache                 cache.ContextCache
+	interconnectionsCache        cache.InterconnectionCache
+	environment                  string
+	keywordsRestart              []string
+	cacheMessage                 cache.IMessageCache
+	SfcSourceFlowBot             envs.SfcSourceFlowBot
+	SfcSourceFlowField           string
+	StudioNG                     studiong.StudioNGInterface
+	isStudioNGFlow               bool
+	maxRetries                   int
+	IntegrationChanRateLimit     int
+	IntegrationChanRateLimiter   *rate.Limiter
+	SalesforceChanRequestLimit   int
+	SalesforceChanRequestLimiter *rate.Limiter
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -138,8 +142,8 @@ type ManagerOptions struct {
 	SpecSchedule               string
 	MaxRetries                 int
 	CleanContextSchedule       string
-	IntegrationsRateLimit      int
-	SalesforceRateLimit        int
+	IntegrationsRateLimit      float64
+	SalesforceRateLimit        float64
 }
 
 type ManagerI interface {
@@ -170,8 +174,12 @@ func CreateManager(config *ManagerOptions) *Manager {
 	StudioNGTimeout = config.StudioNGTimeout
 	CodePhoneRemove = config.SfcCodePhoneRemove
 	isStudioNG := false
-	salesforceRateLimit = rate.Limit(config.SalesforceRateLimit)
-	integrationsRateLimit = rate.Limit(config.IntegrationsRateLimit)
+
+	salesforceRateLimit := rate.Limit(config.SalesforceRateLimit)
+	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(integrationsRateLimit)+1)
+
+	integrationsRateLimit := rate.Limit(config.IntegrationsRateLimit)
+	integrationsRateLimiter := rate.NewLimiter(integrationsRateLimit, int(integrationsRateLimit)+1)
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
@@ -259,25 +267,27 @@ func CreateManager(config *ManagerOptions) *Manager {
 
 	cacheLocal := cache.New()
 	m := &Manager{
-		clientName:            config.AppName,
-		client:                config.Client,
-		SalesforceService:     salesforceService,
-		interconnectionMap:    cacheLocal,
-		IntegrationsClient:    integrationsClient,
-		salesforceChannel:     make(chan *Message, config.SalesforceRateLimit),
-		integrationsChannel:   make(chan *Message, config.IntegrationsRateLimit),
-		finishInterconnection: make(chan *Interconnection),
-		contextcache:          contextCache,
-		interconnectionsCache: interconnectionsCache,
-		BotrunnnerClient:      botRunnerClient,
-		environment:           config.Environment,
-		keywordsRestart:       config.KeywordsRestart,
-		SfcSourceFlowBot:      config.SfcSourceFlowBot,
-		SfcSourceFlowField:    config.SfcSourceFlowField,
-		cacheMessage:          cache.NewMessageCache(cacheLocal),
-		StudioNG:              studioNG,
-		isStudioNGFlow:        isStudioNG,
-		maxRetries:            config.MaxRetries,
+		clientName:                   config.AppName,
+		client:                       config.Client,
+		SalesforceService:            salesforceService,
+		interconnectionMap:           cacheLocal,
+		IntegrationsClient:           integrationsClient,
+		salesforceChannel:            make(chan *Message, int(config.SalesforceRateLimit)),
+		integrationsChannel:          make(chan *Message, int(config.IntegrationsRateLimit)),
+		finishInterconnection:        make(chan *Interconnection),
+		contextcache:                 contextCache,
+		interconnectionsCache:        interconnectionsCache,
+		BotrunnnerClient:             botRunnerClient,
+		environment:                  config.Environment,
+		keywordsRestart:              config.KeywordsRestart,
+		SfcSourceFlowBot:             config.SfcSourceFlowBot,
+		SfcSourceFlowField:           config.SfcSourceFlowField,
+		cacheMessage:                 cache.NewMessageCache(cacheLocal),
+		StudioNG:                     studioNG,
+		isStudioNGFlow:               isStudioNG,
+		maxRetries:                   config.MaxRetries,
+		IntegrationChanRateLimiter:   integrationsRateLimiter,
+		SalesforceChanRequestLimiter: salesforceRateLimiter,
 	}
 
 	for _, interconnection := range *interconnections {
@@ -309,10 +319,11 @@ func (m *Manager) handleInterconnection() {
 // handleMessageToSalesforce This function sends messages to salesforce agents.
 func (m *Manager) handleMessageToSalesforce() {
 	for {
+		m.SalesforceChanRequestLimiter.Wait(context.Background())
 		select {
 		case messageSf := <-m.salesforceChannel:
 			logrus.WithField("userID", messageSf.UserID).Info("Message to agent from user")
-			m.sendMessageToSalesforce(messageSf)
+			go m.sendMessageToSalesforce(messageSf)
 		default:
 
 		}
@@ -322,16 +333,12 @@ func (m *Manager) handleMessageToSalesforce() {
 // handleMessageToUsers This function sends messages to users.
 func (m *Manager) handleMessageToUsers() {
 	for {
-		var isAllowed = false
+		m.IntegrationChanRateLimiter.Wait(context.Background())
 		select {
 		case messageInt := <-m.integrationsChannel:
 			logrus.WithField("userID", messageInt.UserID).Info("Message to user from agent")
-			waitgroup.Add(1)
 			go m.sendMessageToUser(messageInt)
-		default:
-
 		}
-		waitgroup.Wait()
 	}
 }
 
@@ -658,6 +665,7 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 				}
 			}
 		}
+
 		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
