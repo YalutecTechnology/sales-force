@@ -67,6 +67,8 @@ type Envs struct {
 	SpecSchedule               string            `split_words:"true" default:"@every 59m"`
 	MaxRetries                 int               `split_words:"true" default:"2"`
 	CleanContextSchedule       string            `split_words:"true" default:"0 9 * * *"`
+	IntegrationChanRateLimit   float64           `split_words:"true" default:"20"`
+	SaleforceChanRateLimit     float64           `split_words:"true" default:"20"`
 }
 type Provider struct {
 	ButtonID string `json:"button_id"`

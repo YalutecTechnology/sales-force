@@ -22,6 +22,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	go.mongodb.org/mongo-driver v1.7.1
-	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gopkg.in/DataDog/dd-trace-go.v1 v1.32.0
 )
