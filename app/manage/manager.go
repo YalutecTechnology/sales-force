@@ -176,7 +176,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	isStudioNG := false
 
 	salesforceRateLimit := rate.Limit(config.SalesforceRateLimit)
-	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(integrationsRateLimit)+1)
+	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(salesforceRateLimit)+1)
 
 	integrationsRateLimit := rate.Limit(config.IntegrationsRateLimit)
 	integrationsRateLimiter := rate.NewLimiter(integrationsRateLimit, int(integrationsRateLimit)+1)

@@ -3,13 +3,15 @@ package manage
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"strings"
-	"testing"
-	"time"
+	"golang.org/x/time/rate"
 
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/cache"
@@ -80,14 +82,16 @@ func TestCreateManager(t *testing.T) {
 			Return(&chat.MessagesResponse{}, nil).Once()
 
 		expected := &Manager{
-			client:             client,
-			clientName:         "salesforce-integration",
-			SalesforceService:  nil,
-			IntegrationsClient: nil,
-			BotrunnnerClient:   nil,
-			cacheMessage:       nil,
-			interconnectionMap: nil,
-			StudioNG:           nil,
+			client:                       client,
+			clientName:                   "salesforce-integration",
+			SalesforceService:            nil,
+			IntegrationsClient:           nil,
+			BotrunnnerClient:             nil,
+			cacheMessage:                 nil,
+			interconnectionMap:           nil,
+			StudioNG:                     nil,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		config := &ManagerOptions{
 			AppName:                    "salesforce-integration",
@@ -98,7 +102,10 @@ func TestCreateManager(t *testing.T) {
 			SfcDefaultBirthDateAccount: "1999-01-01T00:00:00",
 			SpecSchedule:               "@every 1h30m",
 			CleanContextSchedule:       "0 9 * * *",
+			IntegrationsRateLimit:      20,
+			SalesforceRateLimit:        20,
 		}
+
 		actual := CreateManager(config)
 		actual.SalesforceService = salesforceMock
 		actual.IntegrationsClient = nil
@@ -113,6 +120,9 @@ func TestCreateManager(t *testing.T) {
 		expected.interconnectionsCache = actual.interconnectionsCache
 		expected.isStudioNGFlow = true
 		expected.interconnectionMap = actual.interconnectionMap
+		expected.IntegrationChanRateLimiter = actual.IntegrationChanRateLimiter
+		expected.SalesforceChanRequestLimiter = actual.SalesforceChanRequestLimiter
+
 		actual.EndChat(interconnection)
 		assert.Equal(t, expected, actual)
 		time.Sleep(1 * time.Second)
@@ -862,13 +872,15 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			environment:           "dev",
-			contextcache:          contextCache,
-			salesforceChannel:     channelSaleforce,
-			integrationsChannel:   channelIntegrations,
-			finishInterconnection: channelFinish,
-			SalesforceService:     salesforceMock,
-			cacheMessage:          cacheMessage,
+			environment:                  "dev",
+			contextcache:                 contextCache,
+			salesforceChannel:            channelSaleforce,
+			integrationsChannel:          channelIntegrations,
+			finishInterconnection:        channelFinish,
+			SalesforceService:            salesforceMock,
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
@@ -931,15 +943,17 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			client:                client,
-			salesforceChannel:     make(chan *Message),
-			integrationsChannel:   make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			interconnectionsCache: interconnectionCacheMock,
-			cacheMessage:          cacheMessage,
+			contextcache:                 contextCache,
+			client:                       client,
+			salesforceChannel:            make(chan *Message),
+			integrationsChannel:          make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			interconnectionsCache:        interconnectionCacheMock,
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
@@ -1005,15 +1019,17 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			client:                client,
-			salesforceChannel:     make(chan *Message),
-			integrationsChannel:   make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			interconnectionsCache: interconnectionCacheMock,
-			cacheMessage:          cacheMessage,
+			contextcache:                 contextCache,
+			client:                       client,
+			salesforceChannel:            make(chan *Message),
+			integrationsChannel:          make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			interconnectionsCache:        interconnectionCacheMock,
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
@@ -1065,13 +1081,15 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			salesforceChannel:     make(chan *Message),
-			integrationsChannel:   make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			cacheMessage:          cacheMessage,
+			contextcache:                 contextCache,
+			salesforceChannel:            make(chan *Message),
+			integrationsChannel:          make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
@@ -1123,14 +1141,16 @@ func TestManager_SaveContext(t *testing.T) {
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			salesforceChannel:     make(chan *Message),
-			integrationsChannel:   make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			cacheMessage:          cacheMessage,
-			IntegrationsClient:    integrationsIMock,
+			contextcache:                 contextCache,
+			salesforceChannel:            make(chan *Message),
+			integrationsChannel:          make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationsClient:           integrationsIMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
@@ -1571,14 +1591,16 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			client:                client,
-			contextcache:          contextCache,
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			salesforceChannel:     make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			integrationsChannel:   make(chan *Message),
-			cacheMessage:          cacheMessage,
+			client:                       client,
+			contextcache:                 contextCache,
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			salesforceChannel:            make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			integrationsChannel:          make(chan *Message),
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 
 		go manager.handleInterconnection()
@@ -1649,13 +1671,15 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			salesforceChannel:     make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			integrationsChannel:   make(chan *Message),
-			cacheMessage:          cacheMessage,
+			contextcache:                 contextCache,
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			salesforceChannel:            make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			integrationsChannel:          make(chan *Message),
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 
 		go manager.handleInterconnection()
@@ -1750,14 +1774,16 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			client:                client,
-			contextcache:          contextCache,
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			salesforceChannel:     make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			integrationsChannel:   make(chan *Message),
-			cacheMessage:          cacheMessage,
+			client:                       client,
+			contextcache:                 contextCache,
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			salesforceChannel:            make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			integrationsChannel:          make(chan *Message),
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 
 		go manager.handleInterconnection()
@@ -1846,14 +1872,16 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
-			contextcache:          contextCache,
-			SalesforceService:     salesforceMock,
-			keywordsRestart:       []string{"restart", "test"},
-			salesforceChannel:     make(chan *Message),
-			finishInterconnection: make(chan *Interconnection),
-			integrationsChannel:   make(chan *Message),
-			IntegrationsClient:    integrationsIMock,
-			cacheMessage:          cacheMessage,
+			contextcache:                 contextCache,
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			salesforceChannel:            make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			integrationsChannel:          make(chan *Message),
+			IntegrationsClient:           integrationsIMock,
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
 		go manager.handleMessageToSalesforce()
