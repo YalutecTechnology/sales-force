@@ -3,6 +3,7 @@ package manage
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/time/rate"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,13 +37,15 @@ var (
 	SfcCustomFieldsCase map[string]string
 	BotrunnerTimeout    int
 	//TODO: move a integration clients constructor
-	WAPhone         string
-	FBPhone         string
-	WebhookBaseUrl  string
-	WebhookWhatsapp string
-	WebhookFacebook string
-	StudioNGTimeout int
-	CodePhoneRemove []string
+	WAPhone               string
+	FBPhone               string
+	WebhookBaseUrl        string
+	WebhookWhatsapp       string
+	WebhookFacebook       string
+	StudioNGTimeout       int
+	CodePhoneRemove       []string
+	salesforceRateLimit   float64
+	integrationsRateLimit float64
 )
 
 const (
@@ -61,25 +64,27 @@ const (
 
 // Manager controls the process of the app
 type Manager struct {
-	clientName            string
-	client                string
-	interconnectionMap    cache.ICache
-	SalesforceService     services.SalesforceServiceInterface
-	IntegrationsClient    integrations.IntegrationInterface
-	BotrunnnerClient      botrunner.BotRunnerInterface
-	salesforceChannel     chan *Message
-	integrationsChannel   chan *Message
-	finishInterconnection chan *Interconnection
-	contextcache          cache.ContextCache
-	interconnectionsCache cache.InterconnectionCache
-	environment           string
-	keywordsRestart       []string
-	cacheMessage          cache.IMessageCache
-	SfcSourceFlowBot      envs.SfcSourceFlowBot
-	SfcSourceFlowField    string
-	StudioNG              studiong.StudioNGInterface
-	isStudioNGFlow        bool
-	maxRetries            int
+	clientName                 string
+	client                     string
+	interconnectionMap         cache.ICache
+	SalesforceService          services.SalesforceServiceInterface
+	IntegrationsClient         integrations.IntegrationInterface
+	BotrunnnerClient           botrunner.BotRunnerInterface
+	salesforceChannel          chan *Message
+	integrationsChannel        chan *Message
+	finishInterconnection      chan *Interconnection
+	contextcache               cache.ContextCache
+	interconnectionsCache      cache.InterconnectionCache
+	environment                string
+	keywordsRestart            []string
+	cacheMessage               cache.IMessageCache
+	SfcSourceFlowBot           envs.SfcSourceFlowBot
+	SfcSourceFlowField         string
+	StudioNG                   studiong.StudioNGInterface
+	isStudioNGFlow             bool
+	maxRetries                 int
+	IntegrationChanRateLimit   int
+	SalesforceChanRequestLimit int
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -133,6 +138,8 @@ type ManagerOptions struct {
 	SpecSchedule               string
 	MaxRetries                 int
 	CleanContextSchedule       string
+	IntegrationsRateLimit      int
+	SalesforceRateLimit        int
 }
 
 type ManagerI interface {
@@ -163,6 +170,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 	StudioNGTimeout = config.StudioNGTimeout
 	CodePhoneRemove = config.SfcCodePhoneRemove
 	isStudioNG := false
+	salesforceRateLimit = rate.Limit(config.SalesforceRateLimit)
+	integrationsRateLimit = rate.Limit(config.IntegrationsRateLimit)
 
 	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
 
@@ -255,8 +264,8 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SalesforceService:     salesforceService,
 		interconnectionMap:    cacheLocal,
 		IntegrationsClient:    integrationsClient,
-		salesforceChannel:     make(chan *Message),
-		integrationsChannel:   make(chan *Message),
+		salesforceChannel:     make(chan *Message, config.SalesforceRateLimit),
+		integrationsChannel:   make(chan *Message, config.IntegrationsRateLimit),
 		finishInterconnection: make(chan *Interconnection),
 		contextcache:          contextCache,
 		interconnectionsCache: interconnectionsCache,
@@ -313,13 +322,16 @@ func (m *Manager) handleMessageToSalesforce() {
 // handleMessageToUsers This function sends messages to users.
 func (m *Manager) handleMessageToUsers() {
 	for {
+		var isAllowed = false
 		select {
 		case messageInt := <-m.integrationsChannel:
 			logrus.WithField("userID", messageInt.UserID).Info("Message to user from agent")
-			m.sendMessageToUser(messageInt)
+			waitgroup.Add(1)
+			go m.sendMessageToUser(messageInt)
 		default:
-			
+
 		}
+		waitgroup.Wait()
 	}
 }
 

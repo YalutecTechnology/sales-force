@@ -86,6 +86,8 @@ func main() {
 		SpecSchedule:               envs.SpecSchedule,
 		MaxRetries:                 envs.MaxRetries,
 		CleanContextSchedule:       envs.CleanContextSchedule,
+		IntegrationsRateLimit:      envs.IntegrationChanRateLimit,
+		SalesforceRateLimit:        envs.SaleforceChanRateLimit,
 	}
 
 	if len(envs.RedisMaster) > 0 {
