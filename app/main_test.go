@@ -35,6 +35,7 @@ func TestMain_Main(t *testing.T) {
 			time.Sleep(time.Second * 3)
 			httpServer.Shutdown(context.Background())
 		}()
+		os.Setenv("DD_SERVICE", "saleforce-integration")
 		os.Setenv("SALESFORCE-INTEGRATION_REDIS_MASTER", m.Addr())
 		os.Setenv("SALESFORCE-INTEGRATION_REDIS_SENTINEL", s.Addr())
 

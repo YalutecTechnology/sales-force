@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"context"
 	"time"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
@@ -16,20 +17,20 @@ type SalesforceServiceInterface struct {
 	mock.Mock
 }
 
-// CreatCase provides a mock function with given fields: contactID, description, subject, origin, ownerID, extraData
-func (_m *SalesforceServiceInterface) CreatCase(contactID string, description string, subject string, origin string, ownerID string, extraData map[string]interface{}) (string, error) {
-	ret := _m.Called(contactID, description, subject, origin, ownerID, extraData)
+// CreatCase provides a mock function with given fields: _a0, contactID, description, subject, origin, ownerID, extraData
+func (_m *SalesforceServiceInterface) CreatCase(_a0 context.Context, contactID string, description string, subject string, origin string, ownerID string, extraData map[string]interface{}) (string, error) {
+	ret := _m.Called(_a0, contactID, description, subject, origin, ownerID, extraData)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(string, string, string, string, string, map[string]interface{}) string); ok {
-		r0 = rf(contactID, description, subject, origin, ownerID, extraData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, map[string]interface{}) string); ok {
+		r0 = rf(_a0, contactID, description, subject, origin, ownerID, extraData)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string, string, map[string]interface{}) error); ok {
-		r1 = rf(contactID, description, subject, origin, ownerID, extraData)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, map[string]interface{}) error); ok {
+		r1 = rf(_a0, contactID, description, subject, origin, ownerID, extraData)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -37,13 +38,13 @@ func (_m *SalesforceServiceInterface) CreatCase(contactID string, description st
 	return r0, r1
 }
 
-// CreatChat provides a mock function with given fields: contactName, organizationID, deploymentID, buttonID, caseID, contactID
-func (_m *SalesforceServiceInterface) CreatChat(contactName string, organizationID string, deploymentID string, buttonID string, caseID string, contactID string) (*chat.SessionResponse, error) {
-	ret := _m.Called(contactName, organizationID, deploymentID, buttonID, caseID, contactID)
+// CreatChat provides a mock function with given fields: _a0, contactName, organizationID, deploymentID, buttonID, caseID, contactID
+func (_m *SalesforceServiceInterface) CreatChat(_a0 context.Context, contactName string, organizationID string, deploymentID string, buttonID string, caseID string, contactID string) (*chat.SessionResponse, error) {
+	ret := _m.Called(_a0, contactName, organizationID, deploymentID, buttonID, caseID, contactID)
 
 	var r0 *chat.SessionResponse
-	if rf, ok := ret.Get(0).(func(string, string, string, string, string, string) *chat.SessionResponse); ok {
-		r0 = rf(contactName, organizationID, deploymentID, buttonID, caseID, contactID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string) *chat.SessionResponse); ok {
+		r0 = rf(_a0, contactName, organizationID, deploymentID, buttonID, caseID, contactID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*chat.SessionResponse)
@@ -51,8 +52,8 @@ func (_m *SalesforceServiceInterface) CreatChat(contactName string, organization
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string, string, string, string) error); ok {
-		r1 = rf(contactName, organizationID, deploymentID, buttonID, caseID, contactID)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, string) error); ok {
+		r1 = rf(_a0, contactName, organizationID, deploymentID, buttonID, caseID, contactID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -99,13 +100,13 @@ func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionK
 	return r0, r1
 }
 
-// GetOrCreateContact provides a mock function with given fields: name, email, phoneNumber
-func (_m *SalesforceServiceInterface) GetOrCreateContact(name string, email string, phoneNumber string) (*models.SfcContact, error) {
-	ret := _m.Called(name, email, phoneNumber)
+// GetOrCreateContact provides a mock function with given fields: _a0, name, email, phoneNumber
+func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, name string, email string, phoneNumber string) (*models.SfcContact, error) {
+	ret := _m.Called(_a0, name, email, phoneNumber)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(string, string, string) *models.SfcContact); ok {
-		r0 = rf(name, email, phoneNumber)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *models.SfcContact); ok {
+		r0 = rf(_a0, name, email, phoneNumber)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -113,8 +114,8 @@ func (_m *SalesforceServiceInterface) GetOrCreateContact(name string, email stri
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
-		r1 = rf(name, email, phoneNumber)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(_a0, name, email, phoneNumber)
 	} else {
 		r1 = ret.Error(1)
 	}

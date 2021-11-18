@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"golang.org/x/time/rate"
 
@@ -149,10 +152,10 @@ type ManagerOptions struct {
 }
 
 type ManagerI interface {
-	SaveContext(integration *models.IntegrationsRequest) error
-	CreateChat(interconnection *Interconnection) error
+	SaveContext(ctx context.Context, integration *models.IntegrationsRequest) error
+	CreateChat(ctx context.Context, interconnection *Interconnection) error
 	GetContextByUserID(userID string) []cache.Context
-	SaveContextFB(integration *models.IntegrationsFacebook) error
+	SaveContextFB(ctx context.Context, integration *models.IntegrationsFacebook) error
 	FinishChat(userId string) error
 	RegisterWebhookInIntegrations(provider string) error
 	RemoveWebhookInIntegrations(provider string) error
@@ -296,10 +299,11 @@ func CreateManager(config *ManagerOptions) *Manager {
 	// TODO: Add function restore interconnections
 	if !reflect.ValueOf(m.interconnectionsCache).IsNil() {
 		interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
+		ctx := context.Background()
 		for _, interconnection := range *interconnections {
 			if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
 				in := convertInterconnectionCacheToInterconnection(interconnection)
-				m.AddInterconnection(in)
+				m.AddInterconnection(ctx, in)
 			}
 		}
 	}
@@ -350,6 +354,17 @@ func (m *Manager) handleMessageToUsers() {
 }
 
 func (m *Manager) sendMessageToUser(message *Message) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(message.MainSpan)
+	span := tracer.StartSpan("sendMessageToUser", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.MessageIntegrations, fmt.Sprintf("%#v", message))
+	span.SetTag(events.UserID, message.UserID)
+	span.SetTag(events.Provider, message.Provider)
+	span.SetTag(events.SendMessage, false)
+	span.SetTag(events.RetryMessage, false)
+	defer span.Finish()
+
 	retries := 0
 	for {
 		switch message.Provider {
@@ -361,15 +376,18 @@ func (m *Manager) sendMessageToUser(message *Message) {
 				Text:   integrations.TextMessage{Body: message.Text},
 			}, string(message.Provider))
 			if err != nil {
-				logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
+				span.SetTag(ext.Error, err)
+				logrus.WithField(events.UserID, message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
 				if retries == m.maxRetries {
-					logrus.WithField("userId", message.UserID).Error("Error sendMessage to user, max retries")
+					logrus.WithField(events.UserID, message.UserID).Error("Error sendMessage to user, max retries")
 					return
 				}
 				retries++
+				span.SetTag(events.RetryMessage, true)
 				continue
 			}
 			logrus.Infof("Send message to UserID : %s", message.UserID)
+			span.SetTag(events.SendMessage, true)
 			return
 		case FacebookProvider:
 			_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayloadFB{
@@ -383,100 +401,140 @@ func (m *Manager) sendMessageToUser(message *Message) {
 				Metadata: "YALOSOURCE:FIREHOSE",
 			}, string(message.Provider))
 			if err != nil {
-				logrus.WithField("userId", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
+				span.SetTag(ext.Error, err)
+				logrus.WithField(events.UserID, message.UserID).Error(helpers.ErrorMessage("Error sendMessage to user", err))
 				if retries == m.maxRetries {
-					logrus.WithField("userId", message.UserID).Error("Error sendMessage to user, max retries")
+					logrus.WithField(events.UserID, message.UserID).Error("Error sendMessage to user, max retries")
 					return
 				}
 				retries++
+				span.SetTag(events.RetryMessage, true)
 				continue
 			}
 			logrus.Infof("Send message to UserID : %s", message.UserID)
+			span.SetTag(events.SendMessage, true)
 			return
 		}
 	}
 }
 
 func (m *Manager) sendMessageToSalesforce(message *Message) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(message.MainSpan)
+	span := tracer.StartSpan("sendMessageToSalesforce", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.MessageSalesforce, fmt.Sprintf("%#v", message))
+	span.SetTag(events.UserID, message.UserID)
+	span.SetTag(events.SendMessage, false)
+	span.SetTag(events.RetryMessage, false)
+	defer span.Finish()
 	retries := 0
 	for {
 		_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 		if err != nil {
+			span.SetTag(ext.Error, err)
 			logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
 			if retries == m.maxRetries {
 				logrus.WithField("userID", message.UserID).Error("Error sendMessage to salesforce, max retries")
 				return
 			}
+			span.SetTag(events.RetryMessage, true)
 			retries++
 			continue
 		}
 		logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
+		span.SetTag(events.SendMessage, true)
 		return
 	}
 }
 
 // CreateChat Initialize a chat with salesforce
-func (m *Manager) CreateChat(interconnection *Interconnection) error {
+func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnection) error {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "manager.CreateChat")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.UserID, interconnection.UserID)
+	span.SetTag(events.Provider, interconnection.Provider)
+	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
+	defer span.Finish()
+
+	logFields := logrus.Fields{
+		constants.TraceIdKey: span.Context().TraceID(),
+		constants.SpanIdKey:  span.Context().SpanID(),
+		events.UserID:        interconnection.UserID,
+	}
+
 	titleMessage := "could not create chat in salesforce"
 	interconnection.Client = m.client
+	span.SetTag(events.Client, interconnection.Client)
 
 	// Validate that user does not have an active session
-	logrus.WithField("userID", interconnection.UserID).Info("Validate UserID")
+	logrus.WithFields(logFields).Info("Validate UserID")
 	err := m.ValidateUserID(interconnection.UserID)
 	if err != nil {
-		logrus.WithField("interconnection", interconnection).WithError(err).Error("error ValidateUserID")
+		logrus.WithFields(logFields).WithError(err).Error("error ValidateUserID")
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, helpers.ErrorMessage("error ValidateUserID", err))
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
 	// Clean phoneNumber
-	logrus.WithField("userID", interconnection.UserID).Info("cleanPrefixPhoneNumber")
+	logrus.WithFields(logFields).Info("cleanPrefixPhoneNumber")
 	cleanPrefixPhoneNumber(interconnection)
 
 	// We get the contact if it exists by your email or phone.
-	logrus.WithField("userID", interconnection.UserID).Info("GetOrCreateContact")
-	contact, err := m.SalesforceService.GetOrCreateContact(interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
+	logrus.WithFields(logFields).Info("GetOrCreateContact")
+	contact, err := m.SalesforceService.GetOrCreateContact(ctx, interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
 	if err != nil {
-		logrus.WithField("interconnection", interconnection).WithError(err).Error("error GetOrCreateContact")
+		logrus.WithFields(logFields).WithError(err).Error("error GetOrCreateContact")
+		span.SetTag(ext.Error, err)
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
+	span.SetTag("Contact", contact)
+	logFields["contactId"] = contact.ID
 	if contact.Blocked {
-		logrus.WithField("userID", interconnection.UserID).Info("User Blocked")
+		logrus.WithFields(logFields).Info("User Blocked")
+		span.SetTag(events.UserBlocked, true)
 		go ChangeToState(interconnection.UserID, interconnection.BotSlug, BlockedUserState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return fmt.Errorf("%s: %s", "could not create chat in salesforce", "this contact is blocked")
 	}
-
 	buttonID, ownerID, subject := m.changeButtonIDAndOwnerID(interconnection.Provider, interconnection.ExtraData)
 
-	logrus.WithField("userID", interconnection.UserID).Info("CreateCase")
-	caseId, err := m.SalesforceService.CreatCase(contact.ID, Messages.DescriptionCase, subject, string(interconnection.Provider), ownerID,
+	logrus.WithFields(logFields).Info("CreateCase")
+	caseId, err := m.SalesforceService.CreatCase(ctx, contact.ID, Messages.DescriptionCase, subject, string(interconnection.Provider), ownerID,
 		interconnection.ExtraData)
 	if err != nil {
-		logrus.WithField("interconnection", interconnection).WithError(err).Error("error CreatCase")
+		span.SetTag(ext.Error, err)
+		logrus.WithFields(logFields).WithError(err).Error("error CreatCase")
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.CaseID = caseId
+	logFields["caseId"] = caseId
+	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
 
 	//Creating chat in Salesforce
-	logrus.WithField("userID", interconnection.UserID).Info("CreateChat")
-	session, err := m.SalesforceService.CreatChat(interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.ID)
+	logrus.WithFields(logFields).Info("CreateChat")
+	session, err := m.SalesforceService.CreatChat(ctx, interconnection.Name, SfcOrganizationID, SfcDeploymentID, buttonID, caseId, contact.ID)
 	if err != nil {
-		logrus.WithField("interconnection", interconnection).WithError(err).Error("error CreatChat")
+		logrus.WithFields(logFields).WithError(err).Error("error CreatChat")
+		span.SetTag(ext.Error, err)
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
-	logrus.WithField("userID", interconnection.UserID).Info("GetContext Routine")
+	logFields["sessionId"] = session.Id
+	logrus.WithFields(logFields).Info("GetContext Routine")
 	go m.getContext(interconnection)
 	interconnection.AffinityToken = session.AffinityToken
 	interconnection.SessionID = session.Id
 	interconnection.SessionKey = session.Key
 	interconnection.Status = OnHold
 	interconnection.Timestamp = time.Now()
-	time.Sleep(time.Second * 1)
 
 	//Add interconection to Redis and interconnectionMap
-	logrus.WithField("userID", interconnection.UserID).Info("AddInterconnection")
-	m.AddInterconnection(interconnection)
+	logrus.WithFields(logFields).Info("AddInterconnection")
+	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
+	m.AddInterconnection(ctx, interconnection)
 	return nil
 }
 
@@ -554,7 +612,13 @@ func (m *Manager) ValidateUserID(userID string) error {
 	return nil
 }
 
-func (m *Manager) AddInterconnection(interconnection *Interconnection) {
+func (m *Manager) AddInterconnection(ctx context.Context, interconnection *Interconnection) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "manager.AddInterconnection")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.UserID, interconnection.UserID)
+	defer span.Finish()
+
 	interconnection.SalesforceService = m.SalesforceService
 	interconnection.IntegrationsClient = m.IntegrationsClient
 	interconnection.BotrunnnerClient = m.BotrunnnerClient
@@ -587,22 +651,36 @@ func (m *Manager) getContext(interconnection *Interconnection) {
 }
 
 // SaveContext method will save context of integration message
-func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
-	//logrus.Info("WEBHOOK WHATSAPP: ", integration)
+func (m *Manager) SaveContext(context context.Context, integration *models.IntegrationsRequest) error {
+	// datadog tracing
+	mainSpan, _ := tracer.StartSpanFromContext(context, "manager.SaveContext")
+	mainSpan.SetTag(ext.AnalyticsEvent, true)
+	mainSpan.SetTag("integrationsMessageWhatsapp", fmt.Sprintf("%#v", integration))
+	mainSpan.SetTag(events.Client, m.client)
+	defer mainSpan.Finish()
+
+	logFields := logrus.Fields{
+		constants.TraceIdKey: mainSpan.Context().TraceID(),
+		constants.SpanIdKey:  mainSpan.Context().SpanID(),
+		events.Payload:       integration,
+	}
+
 	if m.cacheMessage.IsRepeatedMessage(integration.ID) {
+		mainSpan.SetTag(events.MessageRepeated, true)
 		return nil
 	}
 
-	isSend := m.salesforceComunication(integration)
+	isSend := m.salesforceComunication(mainSpan, integration)
 	if isSend {
+		mainSpan.SetTag(events.MessageSentAgent, true)
 		return nil
 	}
 
 	timestamp, err := strconv.ParseInt(integration.Timestamp, 10, 64)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"integration": integration,
-		}).WithError(err).Error("Error format timestamp")
+		mainSpan.SetTag(ext.Error, err)
+		mainSpan.SetTag(events.ContextSaved, false)
+		logrus.WithFields(logFields).WithError(err).Error("Error format timestamp")
 		return err
 	}
 
@@ -640,29 +718,48 @@ func (m *Manager) SaveContext(integration *models.IntegrationsRequest) error {
 		ctx.UserID = integration.To
 	}
 
-	go m.saveContextInRedis(ctx)
+	mainSpan.SetTag(events.UserContext, fmt.Sprintf("%#v", ctx))
+	go m.saveContextInRedis(mainSpan, ctx)
 	return nil
 }
 
-func (m *Manager) salesforceComunication(integration *models.IntegrationsRequest) bool {
+func (m *Manager) salesforceComunication(mainSpan tracer.Span, integration *models.IntegrationsRequest) bool {
 	interconnection, ok := m.validInterconnection(integration.From)
 	isInterconnectionActive := ok && interconnection.Status == Active
+	mainSpan.SetTag(events.ChatActive, isInterconnectionActive)
 	if isInterconnectionActive {
-		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat")
-		go m.sendMessageComunication(interconnection, integration)
+		logrus.WithFields(logrus.Fields{
+			constants.TraceIdKey: mainSpan.Context().TraceID(),
+			constants.SpanIdKey:  mainSpan.Context().SpanID(),
+			events.UserID:        interconnection.UserID,
+			events.Message:       integration,
+		}).Info("Send Message of user with chat")
+		mainSpan.SetTag(events.UserID, interconnection.UserID)
+		mainSpan.SetTag(events.Client, interconnection.Client)
+		go m.sendMessageComunication(mainSpan, interconnection, integration)
 	}
 	return isInterconnectionActive
 }
 
-func (m *Manager) sendMessageComunication(interconnection *Interconnection, integration *models.IntegrationsRequest) {
+func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection *Interconnection, integration *models.IntegrationsRequest) {
+	logFields := logrus.Fields{
+		constants.TraceIdKey:   mainSpan.Context().TraceID(),
+		constants.SpanIdKey:    mainSpan.Context().SpanID(),
+		events.UserID:          interconnection.UserID,
+		events.Interconnection: interconnection,
+		"messageWhatsapp":      integration,
+	}
 	switch integration.Type {
 	case textType:
 		if strings.Contains(constants.DevEnvironments, m.environment) {
 			for _, keyword := range m.keywordsRestart {
 				if strings.ToLower(integration.Text.Body) == keyword {
 					err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+					mainSpan.SetTag("finishChat", true)
 					if err != nil {
-						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("EndChat error")
+						mainSpan.SetTag(ext.Error, err)
+						mainSpan.SetTag("finishChat", false)
+						logrus.WithFields(logFields).WithError(err).Error("EndChat error")
 						return
 					}
 					interconnection.updateStatusRedis(string(Closed))
@@ -673,7 +770,7 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			}
 		}
 
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
+		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
 		err := m.SalesforceService.InsertImageInCase(
@@ -682,12 +779,15 @@ func (m *Manager) sendMessageComunication(interconnection *Interconnection, inte
 			integration.Image.MIMEType,
 			interconnection.CaseID)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
-			interconnection.integrationsChannel <- NewIntegrationsMessage(integration.From, Messages.UploadImageError, WhatsappProvider)
+			mainSpan.SetTag(ext.Error, err)
+			mainSpan.SetTag(events.SendImage, false)
+			logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
+			interconnection.integrationsChannel <- NewIntegrationsMessage(mainSpan, integration.From, Messages.UploadImageError, WhatsappProvider)
 			return
 		}
-		logrus.WithField("userID", interconnection.UserID).Info("Send Image to agent")
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
+		logrus.WithFields(logFields).Info("Send Image to agent")
+		mainSpan.SetTag(events.SendImage, true)
+		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
 	}
 }
 
@@ -792,21 +892,33 @@ func NewInterconectionCache(interconnection *Interconnection) cache.Interconnect
 }
 
 // SaveContextFB method will save context of integration message from facebook
-func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error {
-	//logrus.Info("WEBHOOK FACEBOOK: ", integration)
+func (m *Manager) SaveContextFB(context context.Context, integration *models.IntegrationsFacebook) error {
+	// datadog tracing
+	mainSpan, _ := tracer.StartSpanFromContext(context, "manager.SaveContextFB")
+	mainSpan.SetTag(ext.AnalyticsEvent, true)
+	mainSpan.SetTag("integrationsMessageFacebook", fmt.Sprintf("%#v", integration))
+	mainSpan.SetTag(events.Client, m.client)
+	defer mainSpan.Finish()
+
 	isSend := false
 	for _, entry := range integration.Message.Entry {
 		for _, message := range entry.Messaging {
 			userID := message.Recipient.ID
 			from := fromBot
 			if m.cacheMessage.IsRepeatedMessage(message.Message.Mid) {
+				mainSpan.SetTag(events.MessageRepeated, true)
 				continue
 			}
 			if integration.AuthorRole == fromUser {
-				isSend = m.salesforceComunicationFB(message)
+				isSend = m.salesforceComunicationFB(mainSpan, message)
 				userID = message.Sender.ID
 				from = fromUser
 			}
+
+			if isSend {
+				mainSpan.SetTag(events.MessageSentAgent, true)
+			}
+
 			if isSend || message.Message.Text == "" {
 				continue
 			}
@@ -818,32 +930,53 @@ func (m *Manager) SaveContextFB(integration *models.IntegrationsFacebook) error 
 				Text:      message.Message.Text,
 				Client:    m.client,
 			}
-			go m.saveContextInRedis(ctx)
+
+			mainSpan.SetTag(events.UserContext, fmt.Sprintf("%#v", ctx))
+			go m.saveContextInRedis(mainSpan, ctx)
 		}
 	}
 	return nil
 }
 
-func (m *Manager) salesforceComunicationFB(message models.Messaging) bool {
+func (m *Manager) salesforceComunicationFB(mainSpan tracer.Span, message models.Messaging) bool {
+	mainSpan.SetTag(events.Message, fmt.Sprintf("%#v", message))
 	interconnection, ok := m.validInterconnection(message.Sender.ID)
 	isInterconnectionActive := ok && interconnection.Status == Active
+	mainSpan.SetTag(events.ChatActive, isInterconnectionActive)
 	if isInterconnectionActive {
-		logrus.WithField("userID", interconnection.UserID).Info("Send Message of user with chat FB")
-		go m.sendMessageComunicationFB(interconnection, &message)
+		logrus.WithFields(logrus.Fields{
+			constants.TraceIdKey: mainSpan.Context().TraceID(),
+			constants.SpanIdKey:  mainSpan.Context().SpanID(),
+			events.UserID:        interconnection.UserID,
+			events.Message:       message,
+		}).Info("Send Message of user with chat FB")
+		mainSpan.SetTag(events.UserID, interconnection.UserID)
+		mainSpan.SetTag(events.Client, interconnection.Client)
+		go m.sendMessageComunicationFB(mainSpan, interconnection, &message)
 	}
 
 	return isInterconnectionActive
 }
 
-func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, message *models.Messaging) {
+func (m *Manager) sendMessageComunicationFB(mainSpan tracer.Span, interconnection *Interconnection, message *models.Messaging) {
+	logFields := logrus.Fields{
+		constants.TraceIdKey:   mainSpan.Context().TraceID(),
+		constants.SpanIdKey:    mainSpan.Context().SpanID(),
+		events.UserID:          interconnection.UserID,
+		events.Interconnection: interconnection,
+		"messageFacebook":      message,
+	}
 	switch {
 	case message.Message.Text != "":
 		if strings.Contains(constants.DevEnvironments, m.environment) {
 			for _, keyword := range m.keywordsRestart {
 				if strings.ToLower(message.Message.Text) == keyword {
 					err := m.SalesforceService.EndChat(interconnection.AffinityToken, interconnection.SessionKey)
+					mainSpan.SetTag("finishChat", true)
 					if err != nil {
-						logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("End Chat for restart key error")
+						mainSpan.SetTag(ext.Error, err)
+						mainSpan.SetTag("finishChat", false)
+						logrus.WithFields(logFields).WithError(err).Error("End Chat for restart key error")
 						return
 					}
 					interconnection.updateStatusRedis(string(Closed))
@@ -853,7 +986,7 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 				}
 			}
 		}
-		interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
+		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
 
 	case message.Message.Attachments != nil:
 		for _, attachment := range message.Message.Attachments {
@@ -864,12 +997,15 @@ func (m *Manager) sendMessageComunicationFB(interconnection *Interconnection, me
 					"",
 					interconnection.CaseID)
 				if err != nil {
-					logrus.WithFields(logrus.Fields{"interconnection": interconnection}).WithError(err).Error("InsertImageInCase error")
-					interconnection.integrationsChannel <- NewIntegrationsMessage(message.Sender.ID, Messages.UploadImageError, FacebookProvider)
+					mainSpan.SetTag(ext.Error, err)
+					mainSpan.SetTag(events.SendImage, false)
+					logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
+					interconnection.integrationsChannel <- NewIntegrationsMessage(mainSpan, message.Sender.ID, Messages.UploadImageError, FacebookProvider)
 					return
 				}
-				logrus.WithField("userID", interconnection.UserID).Info("FB Send Image to agent")
-				interconnection.salesforceChannel <- NewSfMessage(interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
+				logrus.WithFields(logFields).Info("FB Send Image to agent")
+				mainSpan.SetTag(events.SendImage, true)
+				interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
 			}
 		}
 	}
@@ -944,12 +1080,25 @@ func (m *Manager) RemoveWebhookInIntegrations(provider string) error {
 	}
 }
 
-func (m *Manager) saveContextInRedis(ctx *cache.Context) {
+func (m *Manager) saveContextInRedis(mainSpan tracer.Span, ctx *cache.Context) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan(fmt.Sprintf("%s.saveContextInRedis", events.UserID), tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.UserID, ctx.UserID)
+	mainSpan.SetTag(events.ContextSaved, true)
+	defer span.Finish()
+
 	ctx.Ttl = time.Now().Add(cache.Ttl)
+	mainSpan.SetTag(events.UserContext, fmt.Sprintf("%#v", ctx))
 	err := m.contextcache.StoreContextToSet(*ctx)
 	if err != nil {
+		mainSpan.SetTag(events.ContextSaved, false)
+		span.SetTag(ext.Error, err)
 		logrus.WithFields(logrus.Fields{
-			"context": ctx,
+			constants.TraceIdKey: span.Context().TraceID(),
+			constants.SpanIdKey:  span.Context().SpanID(),
+			events.Context:       ctx,
 		}).WithError(err).Error("Error store context in set")
 	}
 }

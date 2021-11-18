@@ -9,8 +9,8 @@ definitions:
         name: Test
         script:
           - .yalo/utils/test-go.sh
-        services: 
-          - redis 
+        services:
+          - redis
     - step: &push
         name: Push to Docker Hub
         script:
@@ -19,27 +19,28 @@ definitions:
         name: Push Release to Docker Hub
         script:
           - REPO=salesforce-integration BRANCH=release .yalo/utils/build.sh
-  services: 
-    redis: 
+  services:
+    redis:
       image: redis
 
 pipelines:
   default:
     - parallel:
-      - step: *test
-  branches: 
+        - step: *test
+        - step: *push
+  branches:
     develop:
       - parallel:
-        - step: *test
-        - step: *push
+          - step: *test
+          - step: *push
     master:
       - parallel:
-        - step: *test
-        - step: *push
+          - step: *test
+          - step: *push
     '{release/**,hotfix/**}':
       - parallel:
-        - step: *test
-        - step: *push_release        
+          - step: *test
+          - step: *push_release
   tags:
     '*.*.*':
       - step:

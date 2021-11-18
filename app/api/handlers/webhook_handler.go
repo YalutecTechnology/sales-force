@@ -3,7 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/constants"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
@@ -12,10 +16,21 @@ import (
 	"yalochat.com/salesforce-integration/base/models"
 )
 
-const insertError = "There was an error inserting integration message: %s"
+const insertError = "There was an error inserting integration message"
 
 // webhook to save messages from integrations API
 func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(r.Context(), "webhook.whatsapp")
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
+	logFields := logrus.Fields{
+		constants.TraceIdKey: span.Context().TraceID(),
+		constants.SpanIdKey:  span.Context().SpanID(),
+		events.Params:        params,
+	}
 	/*signature := r.Header.Get("x-yalochat-signature")
 	if signature == "" {
 		helpers.WriteFailedResponse(w, http.StatusUnauthorized, "x-yalochat-signature required, header invalid.")
@@ -26,28 +41,34 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		helpers.WriteFailedResponse(w, http.StatusUnauthorized, "x-yalochat-signature invalid, header invalid.")
 		return
 	}*/
-
 	var integrationsRequest models.IntegrationsRequest
 	if err := json.NewDecoder(r.Body).Decode(&integrationsRequest); err != nil {
-		logrus.WithError(err).Error("error decode body request")
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.InvalidPayload+" : "+err.Error())
+		errorMessage := helpers.ErrorMessage(helpers.InvalidPayload, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
+	logFields[events.Payload] = integrationsRequest
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", integrationsRequest))
 	if err := helpers.Govalidator().Struct(integrationsRequest); err != nil {
-		logrus.WithFields(logrus.Fields{
-			"request": integrationsRequest,
-		}).WithError(err).Error("error validation payload")
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.ValidatePayloadError+" : "+err.Error())
+		errorMessage := helpers.ErrorMessage(helpers.ValidatePayloadError, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
-	err := app.ManageManager.SaveContext(&integrationsRequest)
+	err := app.ManageManager.SaveContext(r.Context(), &integrationsRequest)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"request": integrationsRequest,
-		}).WithError(err).Error("error SaveContext")
-		helpers.WriteFailedResponse(w, http.StatusNotFound, fmt.Sprintf(insertError, err))
+		errorMessage := helpers.ErrorMessage(insertError, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
 		return
 	}
 
@@ -67,36 +88,53 @@ func (app *App) getContext(w http.ResponseWriter, r *http.Request, params httpro
 	helpers.WriteSuccessResponse(w, ctx)
 }
 
-// webhook to save messages from integrations API
+// webhookFB to save messages from integrations API
 func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	span, _ := tracer.StartSpanFromContext(r.Context(), "webhook.facebook")
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
+	logFields := logrus.Fields{
+		constants.TraceIdKey: span.Context().TraceID(),
+		constants.SpanIdKey:  span.Context().SpanID(),
+		events.Params:        params,
+	}
 	var integrationsRequest models.IntegrationsFacebook
 	if err := json.NewDecoder(r.Body).Decode(&integrationsRequest); err != nil {
-		logrus.WithError(err).Error("error decode body request")
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.InvalidPayload+" : "+err.Error())
+		errorMessage := helpers.ErrorMessage(helpers.InvalidPayload, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
+	logFields[events.Payload] = integrationsRequest
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", integrationsRequest))
 	if err := helpers.Govalidator().Struct(integrationsRequest); err != nil {
-		logrus.WithFields(logrus.Fields{
-			"request": integrationsRequest,
-		}).WithError(err).Error("error validation payload")
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.ValidatePayloadError+" : "+err.Error())
+		errorMessage := helpers.ErrorMessage(helpers.ValidatePayloadError, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
-	err := app.ManageManager.SaveContextFB(&integrationsRequest)
+	err := app.ManageManager.SaveContextFB(r.Context(), &integrationsRequest)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"request": integrationsRequest,
-		}).WithError(err).Error("error SaveContext")
-		helpers.WriteFailedResponse(w, http.StatusNotFound, fmt.Sprintf(insertError, err))
+		errorMessage := helpers.ErrorMessage(insertError, err)
+		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
 		return
 	}
 
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "insert success"})
 }
 
-//Register webhook to intagrations
+// registerWebhook Register webhook to intagrations
 func (app *App) registerWebhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	provider := params.ByName("provider")
 
@@ -113,7 +151,7 @@ func (app *App) registerWebhook(w http.ResponseWriter, r *http.Request, params h
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "Register webhook success with provider : " + provider})
 }
 
-//Remove webhook to intagrations
+// removeWebhook Remove webhook to intagrations
 func (app *App) removeWebhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	provider := params.ByName("provider")
 

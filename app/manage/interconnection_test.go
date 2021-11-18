@@ -2,8 +2,10 @@ package manage
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
 	"strings"
 	"testing"
@@ -278,7 +280,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -308,7 +311,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -340,7 +344,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -364,7 +369,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedMessage) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedMessage, logs)
@@ -383,7 +389,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -418,7 +425,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -439,7 +447,8 @@ func TestCheckEvent_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.checkEvent(&event)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)

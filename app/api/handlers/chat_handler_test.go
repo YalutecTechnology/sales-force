@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,7 +48,7 @@ func TestCreateChat(t *testing.T) {
 			Email:       "ochoapumas@gmail.com",
 			PhoneNumber: "55555555555",
 		}
-		managerMock.On("CreateChat", interconnection).Return(nil).Once()
+		managerMock.On("CreateChat", mock.Anything, interconnection).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
 		interconnectionBin, err := json.Marshal(interconnection)
@@ -142,7 +143,7 @@ func TestCreateChat(t *testing.T) {
 			Email:       "ochoapumas@gmail.com",
 			PhoneNumber: "55555555555",
 		}
-		managerMock.On("CreateChat", interconnection).Return(assert.AnError).Once()
+		managerMock.On("CreateChat", mock.Anything, interconnection).Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 
 		interconnectionBin, err := json.Marshal(interconnection)

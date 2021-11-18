@@ -2,8 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/constants"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/julienschmidt/httprouter"
 	"yalochat.com/salesforce-integration/app/manage"
@@ -23,20 +28,39 @@ type ChatPayload struct {
 
 // Connect and create chat between user and salesforce
 func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(r.Context(), "chats.connect")
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
+	logFields := logrus.Fields{
+		constants.TraceIdKey: span.Context().TraceID(),
+		constants.SpanIdKey:  span.Context().SpanID(),
+		events.Params:        params,
+	}
+
+	logrus.WithFields(logFields).Info("Create new chat")
 	var chatPayload = &ChatPayload{}
 	var errorMessage string
 	//unmarshalling payload
 	if err := json.NewDecoder(r.Body).Decode(&chatPayload); err != nil {
 		errorMessage = helpers.ErrorMessage(helpers.InvalidPayload, err)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
 		logrus.Error(errorMessage)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
 
+	logFields[events.Payload] = chatPayload
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", chatPayload))
 	//validating payload struct
 	if err := helpers.Govalidator().Struct(chatPayload); err != nil {
 		errorMessage = helpers.ErrorMessage(helpers.ValidatePayloadError, err)
-		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		logrus.WithFields(logFields).Error(errorMessage)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -52,9 +76,14 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		Email:       chatPayload.Email,
 		ExtraData:   chatPayload.ExtraData,
 	}
-	if err := app.ManageManager.CreateChat(interconnection); err != nil {
+
+	logFields[events.Interconnection] = interconnection
+	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
+	if err := app.ManageManager.CreateChat(r.Context(), interconnection); err != nil {
 		errorMessage = err.Error()
-		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
+		span.SetTag(ext.ErrorDetails, errorMessage)
+		logrus.WithFields(logFields).Error(errorMessage)
 		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
 		return
 	}

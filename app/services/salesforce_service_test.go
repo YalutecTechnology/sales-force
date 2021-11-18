@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -56,7 +57,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault)
 		salesforceService.SfcChatClient = mock
 
-		session, err := salesforceService.CreatChat(contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
+		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
 
 		assert.NoError(t, err)
 		assert.Equal(t, sessionExpected, session)
@@ -76,7 +77,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault)
 		salesforceService.SfcChatClient = mock
 
-		session, err := salesforceService.CreatChat(contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
+		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
 
 		assert.Error(t, err)
 		assert.Empty(t, session)
@@ -99,7 +100,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault)
 		salesforceService.SfcChatClient = mock
 
-		session, err := salesforceService.CreatChat(contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
+		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
 
 		assert.Error(t, err)
 		assert.Empty(t, session)
@@ -149,7 +150,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContactComposite", email, phoneNumber).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -162,7 +163,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 		mock.On("SearchContactComposite", email, phoneNumber).Return(contactExpected, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -184,7 +185,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		}
 		mock.On("CreateContact", contactRequest).Return(contactExpected.ID, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -210,7 +211,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		contactExpected.AccountID = "accountID"
 		mockSalesforce.On("CreateAccountComposite", mock.Anything).Return(accountFound, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
@@ -231,7 +232,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			Error:      assert.AnError,
 		}).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.Error(t, err)
 		assert.Empty(t, contact)
@@ -256,7 +257,7 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			Error:      assert.AnError,
 		}).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(contactName, email, phoneNumber)
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber)
 
 		assert.Error(t, err)
 		assert.Empty(t, contact)
@@ -275,7 +276,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 		mock.On("CreateCase", payload).Return(caseIDExpected, nil).Once()
 
 		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c", "status": "Status", "priority": "Priority"}
-		caseId, err := salesforceService.CreatCase("contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001", "status": "Novo", "priority": "low"})
+		caseId, err := salesforceService.CreatCase(context.Background(), "contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001", "status": "Novo", "priority": "low"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, caseIDExpected, caseId)
@@ -291,7 +292,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 		mock.On("CreateCase", payload).Return(caseIDExpected, nil).Once()
 
 		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c"}
-		caseId, err := salesforceService.CreatCase("contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001", "description": "description"})
+		caseId, err := salesforceService.CreatCase(context.Background(), "contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001", "description": "description"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, caseIDExpected, caseId)
@@ -310,7 +311,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 		}).Once()
 
 		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c"}
-		caseId, err := salesforceService.CreatCase("contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001"})
+		caseId, err := salesforceService.CreatCase(context.Background(), "contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001"})
 
 		assert.Error(t, err)
 		assert.Empty(t, caseId)
@@ -323,7 +324,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 		salesforceService.SfcClient = mock
 
 		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c"}
-		caseId, err := salesforceService.CreatCase("", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001"})
+		caseId, err := salesforceService.CreatCase(context.Background(), "", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001"})
 
 		assert.Error(t, err)
 		assert.Empty(t, caseId)
