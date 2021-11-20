@@ -136,16 +136,16 @@ func (in *Interconnection) handleLongPolling() {
 func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	switch event.Type {
 	case chat.ChatRequestFail:
-		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.ChatRequestFail)
+		logrus.WithField("userID", in.UserID).Infof("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
 		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.ChatRequestSuccess)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, "Esperando un agente", in.Provider)
-		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
+		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, Messages.WaitAgent, in.Provider)
+		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %v", Messages.QueuePosition, event.Message.QueuePosition), in.Provider)
+		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
 		logrus.WithField("userID", in.UserID).Infof("Event [%s]", event.Type)
 		in.ActiveChat()
@@ -155,8 +155,8 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 	case chat.QueueUpdate:
 		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.QueueUpdate)
 		/*if event.Message.QueuePosition > 0 {
-			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Posición en la cola: %v", event.Message.QueuePosition))
-			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("Tiempo de espera: %v seg", event.Message.EstimatedWaitTime), in.Provider)
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %v", Messages.QueuePosition, event.Message.QueuePosition), in.Provider)
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
 		}*/
 	case chat.ChatEnded:
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState[string(in.Provider)], in.BotrunnnerClient, 0, 0, in.StudioNG, in.isStudioNGFlow)
@@ -189,7 +189,7 @@ func (in *Interconnection) ActiveChat() {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
 	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context, in.UserID))
-	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf("Hola soy %s y necesito ayuda", in.Name), in.UserID))
+	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf(Messages.WelcomeTemplate, in.Name), in.UserID))
 }
 
 func convertInterconnectionCacheToInterconnection(interconnection cache.Interconnection) *Interconnection {

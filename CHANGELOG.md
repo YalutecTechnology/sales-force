@@ -1,6 +1,26 @@
 
+<a name="v0.1.8"></a>
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-11-11)
+
+### Feat
+
+* Move predefined messages to env var. We create an envar where we move the predefined messages to change them at any time depending on each client. Closes #CSF-217
+
+
+<a name="V0.1.7"></a>
+## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.6) (2021-11-16)
+
+### Chore
+
+* add ratelimiter to Manager in tests
+
+### Update
+
+* adding rate limiter to channel consumption
+
+
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-13)
+## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-16)
 
 ### Chore
 

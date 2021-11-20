@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	firstNameDefault           = "Contacto Bot - "
 	contentLocation            = "S"
 	shareType                  = "V"
 	visibility                 = "allUsers"
@@ -36,6 +35,7 @@ type SalesforceService struct {
 	AccountRecordTypeId     string
 	DefaultBirthDateAccount string
 	RecordTypeID            string
+	FirstNameContact        string
 }
 
 type SalesforceServiceInterface interface {
@@ -50,7 +50,7 @@ type SalesforceServiceInterface interface {
 	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID string) *SalesforceService {
+func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID, firsNameContact string) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient:          &loginClient,
 		SfcChatClient:           &chatClient,
@@ -59,6 +59,7 @@ func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcC
 		CustomFields:            customFields,
 		RecordTypeID:            recordTypeID,
 		DefaultBirthDateAccount: time.Now().Format(constants.DateFormatDateTime),
+		FirstNameContact:        firsNameContact,
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
@@ -162,14 +163,14 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 	}
 
 	contact = &models.SfcContact{
-		FirstName:   firstNameDefault,
+		FirstName:   s.FirstNameContact,
 		LastName:    name,
 		Email:       email,
 		MobilePhone: phoneNumber,
 	}
 
 	if s.AccountRecordTypeId != "" {
-		firstName := firstNameDefault
+		firstName := s.FirstNameContact
 		account, err := s.SfcClient.CreateAccountComposite(salesforce.AccountRequest{
 			FirstName:         &firstName,
 			LastName:          &name,
@@ -226,7 +227,7 @@ func (s *SalesforceService) CreatCase(contactID, description, subject, origin, o
 		}
 	}
 
-	description = description + subject
+	description = fmt.Sprintf("%s : %s", description, subject)
 	if value, ok := extraData["description"]; ok {
 		description = value.(string)
 	}

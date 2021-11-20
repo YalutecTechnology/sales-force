@@ -88,6 +88,7 @@ func main() {
 		CleanContextSchedule:       envs.CleanContextSchedule,
 		IntegrationsRateLimit:      envs.IntegrationChanRateLimit,
 		SalesforceRateLimit:        envs.SaleforceChanRateLimit,
+		Messages:                   envs.Messages,
 	}
 
 	if len(envs.RedisMaster) > 0 {
