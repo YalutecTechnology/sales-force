@@ -271,11 +271,11 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault)
 		salesforceService.SfcClient = mock
 
-		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "Caso creado por yalo : subject", "Origin": "whatsapp", "OwnerId": "ownerWAID", "Priority": "Medium", "RecordTypeId": "recordTypeID", "Status": "Nuevo", "Subject": "subject"}
+		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "Caso creado por yalo : subject", "Origin": "whatsapp", "OwnerId": "ownerWAID", "Priority": "low", "RecordTypeId": "recordTypeID", "Status": "Novo", "Subject": "subject"}
 		mock.On("CreateCase", payload).Return(caseIDExpected, nil).Once()
 
-		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c"}
-		caseId, err := salesforceService.CreatCase("contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001"})
+		salesforceService.CustomFields = map[string]string{"source_flow_bot": "CP__source_flow_bot__c", "status": "Status", "priority": "Priority"}
+		caseId, err := salesforceService.CreatCase("contactId", "Caso creado por yalo", "subject", "whatsapp", "ownerWAID", map[string]interface{}{"source_flow_bot": "SFB001", "status": "Novo", "priority": "low"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, caseIDExpected, caseId)

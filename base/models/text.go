@@ -15,6 +15,8 @@ type MessageTemplate struct {
 	UploadImageError   string `json:"uploadImageError"`
 	UploadImageSuccess string `json:"uploadImageSuccess"`
 	FirstNameContact   string `json:"firstNameContact"`
+	ClientLabel        string `json:"clientLabel"`
+	BotLabel           string `json:"botLabel"`
 }
 
 // Decode Decoder this function deserializes the struct by the envconfig Decoder interface implementation

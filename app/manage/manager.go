@@ -720,9 +720,9 @@ func (m *Manager) getContextByUserID(userID string) string {
 
 		ctx.Text = strings.TrimRight(ctx.Text, "\n")
 		if ctx.From == fromUser {
-			fmt.Fprintf(&builder, "Cliente [%s]:%s\n\n", date, ctx.Text)
+			fmt.Fprintf(&builder, "%s [%s]:%s\n\n", Messages.ClientLabel, date, ctx.Text)
 		} else {
-			fmt.Fprintf(&builder, "Bot [%s]:%s\n\n", date, ctx.Text)
+			fmt.Fprintf(&builder, "%s [%s]:%s\n\n", Messages.BotLabel, date, ctx.Text)
 		}
 	}
 
