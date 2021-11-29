@@ -1374,6 +1374,13 @@ func TestManager_SaveContext(t *testing.T) {
 
 func TestManager_getContextByUserID(t *testing.T) {
 	t.Run("ContextByUserID", func(t *testing.T) {
+		Messages = models.MessageTemplate{
+			BotLabel:    "Bot",
+			ClientLabel: "Cliente",
+		}
+		defer func() {
+			Messages = models.MessageTemplate{}
+		}()
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
 			{

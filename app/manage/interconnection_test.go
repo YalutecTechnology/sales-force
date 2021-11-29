@@ -269,6 +269,7 @@ func TestCheckEvent_test(t *testing.T) {
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 
 	t.Run("Chat request success event received", func(t *testing.T) {
+		Messages = models.MessageTemplate{WaitAgent: "Esperando Agente"}
 		expectedLog := chat.ChatRequestSuccess
 		event := chat.MessageObject{
 			Type:    chat.ChatRequestSuccess,
@@ -286,6 +287,39 @@ func TestCheckEvent_test(t *testing.T) {
 
 	t.Run("Chat Established event received", func(t *testing.T) {
 		Messages = models.MessageTemplate{WelcomeTemplate: "Hola soy %s y necesito ayuda"}
+		interconnection.Context = "Contexto"
+		expectedLog := chat.ChatEstablished
+		mock := new(SalesforceServiceInterface)
+		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
+			Return(true, nil).Once()
+		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
+			Return(false, assert.AnError).Once()
+
+		interconnection.SalesforceService = mock
+		event := chat.MessageObject{
+			Type: chat.ChatEstablished,
+			Message: chat.Message{
+				Name:                "Name Agent",
+				UserId:              "142451",
+				ChasitorIdleTimeout: map[string]interface{}{"isEnabled": false},
+				GeoLocation:         chat.GeoLocation{},
+			},
+		}
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.checkEvent(&event)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+
+		assert.Equal(t, Active, interconnection.Status)
+	})
+
+	t.Run("Chat Established event received without context and messageTemplate", func(t *testing.T) {
+		Messages = models.MessageTemplate{WaitAgent: "Esperando Agente"}
+		interconnection.Context = ""
 		expectedLog := chat.ChatEstablished
 		mock := new(SalesforceServiceInterface)
 		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).

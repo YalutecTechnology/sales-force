@@ -20,7 +20,7 @@ func TestMessageTemplate_Decode(t *testing.T) {
 			name: "Decode success",
 			sd:   &MessageTemplate{},
 			args: args{
-				value: `{"waitAgent":"Esperando un agente","welcomeTemplate":"Hola soy %s y necesito ayuda","context":"Contexto","DescriptionCase":"caso levantado por el Bot","uploadImageError":"Imagen no enviada","uploadImageSuccess":"**El usuario adjunto una imagen al caso**","queuePosition":"Posición en la cola","waitTime":"Tiempo de espera"}`,
+				value: `{"waitAgent":"Esperando un agente","welcomeTemplate":"Hola soy %s y necesito ayuda","context":"Contexto","DescriptionCase":"caso levantado por el Bot","uploadImageError":"Imagen no enviada","uploadImageSuccess":"**El usuario adjunto una imagen al caso**","queuePosition":"Posición en la cola","waitTime":"Tiempo de espera","clientLabel":"Cliente","botLabel":"Bot"}`,
 			},
 			wantErr: false,
 			want: &MessageTemplate{
@@ -32,6 +32,8 @@ func TestMessageTemplate_Decode(t *testing.T) {
 				DescriptionCase:    "caso levantado por el Bot",
 				UploadImageError:   "Imagen no enviada",
 				UploadImageSuccess: "**El usuario adjunto una imagen al caso**",
+				ClientLabel:        "Cliente",
+				BotLabel:           "Bot",
 			},
 		},
 		{

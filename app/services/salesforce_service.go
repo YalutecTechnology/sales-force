@@ -249,9 +249,14 @@ func (s *SalesforceService) CreatCase(contactID, description, subject, origin, o
 	payload["ContactId"] = caseRequest.ContactID
 	payload["Description"] = caseRequest.Description
 	payload["Origin"] = caseRequest.Origin
-	payload["Priority"] = caseRequest.Priority
-	payload["Status"] = caseRequest.Status
 	payload["Subject"] = caseRequest.Subject
+
+	if _, ok := payload["Priority"]; !ok {
+		payload["Priority"] = caseRequest.Priority
+	}
+	if _, ok := payload["Status"]; !ok {
+		payload["Status"] = caseRequest.Status
+	}
 
 	caseID, errorResponse := s.SfcClient.CreateCase(payload)
 

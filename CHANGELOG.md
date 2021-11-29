@@ -1,10 +1,14 @@
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-11-11)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-11-29)
 
 ### Feat
 
 * Move predefined messages to env var. We create an envar where we move the predefined messages to change them at any time depending on each client. Closes #CSF-217
+
+### Fix
+
+* **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
 
 
 <a name="V0.1.7"></a>

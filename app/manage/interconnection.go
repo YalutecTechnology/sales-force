@@ -143,7 +143,9 @@ func (in *Interconnection) checkEvent(event *chat.MessageObject) {
 		in.Status = Failed
 	case chat.ChatRequestSuccess:
 		logrus.WithField("userID", in.UserID).Infof("Event [%s]", chat.ChatRequestSuccess)
-		in.integrationsChannel <- NewIntegrationsMessage(in.UserID, Messages.WaitAgent, in.Provider)
+		if Messages.WaitAgent != "" {
+			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, Messages.WaitAgent, in.Provider)
+		}
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %v", Messages.QueuePosition, event.Message.QueuePosition), in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
@@ -188,8 +190,12 @@ func (in *Interconnection) handleStatus() {
 func (in *Interconnection) ActiveChat() {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
-	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context, in.UserID))
-	in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf(Messages.WelcomeTemplate, in.Name), in.UserID))
+	if in.Context != "" {
+		in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, in.Context, in.UserID))
+	}
+	if Messages.WelcomeTemplate != "" {
+		in.sendMessageToSalesforce(NewSfMessage(in.AffinityToken, in.SessionKey, fmt.Sprintf(Messages.WelcomeTemplate, in.Name), in.UserID))
+	}
 }
 
 func convertInterconnectionCacheToInterconnection(interconnection cache.Interconnection) *Interconnection {
