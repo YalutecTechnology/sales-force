@@ -1378,8 +1378,10 @@ func TestManager_getContextByUserID(t *testing.T) {
 			BotLabel:    "Bot",
 			ClientLabel: "Cliente",
 		}
+		Timezone = "America/Mexico_City"
 		defer func() {
 			Messages = models.MessageTemplate{}
+			Timezone = Timezone
 		}()
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
@@ -1454,6 +1456,53 @@ Bot [31-08-2021 05:04:00]:ok.
 
 Cliente [09-09-2021 10:45:37]:this a test
 second line
+
+`
+		assert.Equal(t, expected, ctxStr)
+	})
+
+	t.Run("Should set the correct timezone when getting the context", func(t *testing.T) {
+		Messages = models.MessageTemplate{
+			BotLabel:    "Bot",
+			ClientLabel: "Cliente",
+		}
+		Timezone = "America/Sao_Paulo"
+		defer func() {
+			Messages = models.MessageTemplate{}
+			Timezone = Timezone
+		}()
+		contextCache := new(ContextCacheMock)
+		ctx := []cache.Context{
+			{
+				UserID:    userID,
+				Client:    client,
+				Timestamp: 1631202337350,
+				Text:      `this a test second line`,
+				From:      fromUser,
+				Ttl:       time.Now().Add(2 * time.Minute),
+			},
+			{
+				UserID:    userID,
+				Client:    client,
+				Timestamp: 1630404000000,
+				Ttl:       time.Now().Add(2 * time.Minute),
+				Text:      "Hello",
+				From:      fromUser,
+			},
+		}
+
+		userID := "userID"
+		contextCache.On("RetrieveContextFromSet", client, userID).Return(ctx)
+
+		manager := &Manager{
+			client:       client,
+			contextcache: contextCache,
+		}
+
+		ctxStr := manager.getContextByUserID(userID)
+		expected := `Cliente [31-08-2021 07:00:00]:Hello
+
+Cliente [09-09-2021 12:45:37]:this a test second line
 
 `
 		assert.Equal(t, expected, ctxStr)

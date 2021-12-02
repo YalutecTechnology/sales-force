@@ -50,6 +50,7 @@ var (
 	salesforceRateLimit   float64
 	integrationsRateLimit float64
 	Messages              models.MessageTemplate
+	Timezone              string
 )
 
 const (
@@ -144,6 +145,7 @@ type ManagerOptions struct {
 	IntegrationsRateLimit      float64
 	SalesforceRateLimit        float64
 	Messages                   models.MessageTemplate
+	Timezone                   string
 }
 
 type ManagerI interface {
@@ -175,6 +177,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	CodePhoneRemove = config.SfcCodePhoneRemove
 	isStudioNG := false
 	Messages = config.Messages
+	Timezone = config.Timezone
 
 	salesforceRateLimit := rate.Limit(config.SalesforceRateLimit)
 	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(salesforceRateLimit)+1)
@@ -712,7 +715,7 @@ func (m *Manager) getContextByUserID(userID string) string {
 			continue
 		}
 
-		loc, _ := time.LoadLocation("America/Mexico_City")
+		loc, _ := time.LoadLocation(Timezone)
 
 		date := time.Unix(0, int64(ctx.Timestamp)*int64(time.Millisecond)).
 			In(loc).
