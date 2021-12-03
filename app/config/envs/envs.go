@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
 	"yalochat.com/salesforce-integration/base/models"
 )
 
@@ -71,6 +72,7 @@ type Envs struct {
 	IntegrationChanRateLimit   float64                `split_words:"true" default:"20"`
 	SaleforceChanRateLimit     float64                `split_words:"true" default:"20"`
 	Messages                   models.MessageTemplate `split_words:"true" required:"true" default:"{\"waitAgent\":\"Esperando un agente\",\"welcomeTemplate\":\"Hola soy %s y necesito ayuda\",\"context\":\"Contexto\",\"DescriptionCase\":\"Caso levantado por el Bot\",\"uploadImageError\":\"Imagen no enviada\",\"uploadImageSuccess\":\"**El usuario adjunto una imagen al caso**\",\"queuePosition\":\"Posici\u00F3n en la cola\",\"waitTime\":\"Tiempo de espera\",\"firstNameContact\":\"Contacto Bot - \",\"clientLabel\":\"Cliente\",\"botLabel\":\"Bot\"}"`
+	Timezone                   string                 `required:"true" default:"America/Mexico_City"`
 }
 type Provider struct {
 	ButtonID string `json:"button_id"`

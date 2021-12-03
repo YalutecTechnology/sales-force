@@ -89,6 +89,7 @@ func main() {
 		IntegrationsRateLimit:      envs.IntegrationChanRateLimit,
 		SalesforceRateLimit:        envs.SaleforceChanRateLimit,
 		Messages:                   envs.Messages,
+		Timezone:                   envs.Timezone,
 	}
 
 	if len(envs.RedisMaster) > 0 {
