@@ -130,7 +130,7 @@ This folder has all the support packages that will be used by the app folder.
 Here is the list of packages in the base folder with its explanation:
 
 Package  | Description  | Implementations or sub-packages
--------- | ------------ | -------------------------------- 
+-------- | ------------ | --------------------------------
 cache | Contains logic to retrieve and store mensages of context and interconnections on cache. | Implementations: Redis (ContextCache, InterconnectionCache) and [Ristretto Cache](https://github.com/dgraph-io/ristretto)
 clients | Contains the clients to send requests to Botrunner sent-to, Studiong sent-to, Integrations API, AgentLiveChat API and Saleforce API |
 constants | It will contain the common constants and errors that we use in the service|
@@ -187,6 +187,8 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_SFC_SOURCE_FLOW_FIELD`| Name of the parameter that defines the reason for the chat query, this value must be sent in the chat request within the extraData map. Required to redirect to the corresponding queue in Salesforce. | true   | ***source_flow_bot*** |
 | `SALESFORCE-INTEGRATION_SFC_BLOCKED_CHAT_FIELD`| Name of the parameter that tells us if we should validate the BlockedChatYalo attribute created by Salesforce to block a user. With this we activate reject a chat if the user was blocked in Salesforce for any reason and send it to the user status blocked in the bot. | true | ***false*** |
 | `SALESFORCE-INTEGRATION_SFC_CUSTOM_FIELDS_CASE`| Contains a value map with the customer's custom fields to create a case on your salesforce platform, you can see an example [here](https://www.notion.so/yalo/Envar-SfcSourceFlowBot-d5ea5a94fca34659996fbf1bf76e33db#a264a1c925b94e9e8a4bd23ac097a278). | false   |  |
+| `SALESFORCE-INTEGRATION_SFC_CUSTOM_FIELDS_CONTACT`| Contains a value map with the contact's custom fields to create a contact on your salesforce platform. | false   |  |
+| `SALESFORCE-INTEGRATION_TIMEZONE`| Contains a string value to define the timezone of the service. | false   | ***America/Mexico_City*** |
 | `SALESFORCE-INTEGRATION_SFC_CODE_PHONE_REMOVE`| Indicates the codes of the phones to be deleted if the phone number is greater than 10 digits. By default, the 521 and 52 corresponding to Mexico are eliminated, more codes can be added to this shipment, example: "521,52,54,57,1". | false   | ***521,52*** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_WA_CHANNEL`| Type of channel for sending messages to the WhatsApp bot . | false  | **outgoing_webhook** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_FB_CHANNEL`| Type of channel for sending messages to the Facebook bot . | false  | **passthrough** |
@@ -224,7 +226,7 @@ In order to test our changes in dev, you run your service in a development clust
 Your team has access to a development cluster, to which you can deploy the new service. If you followed the prerequisites installation in the [onboarding guide Part 1](https://www.notion.so/On-boarding-part-1-Setting-up-your-system-83b639f3ec3b4f5e8e322966960a4e1d), you will already have Skaffold, Visual Studio Code, and the Cloud Code extension for VS Code installed.
 
 The stack will be in the Yalo staging cluster, accessible via:
-```bash 
+```bash
 gcloud config configurations activate yalo-staging-env
 gcloud container clusters get-credentials staging
 kubectl cluster-info
@@ -232,13 +234,13 @@ kubectl cluster-info
 
 Log in to docker using this command:
 
-```bash 
+```bash
 gcloud auth configure-docker
 ```
 
 Now change the namespace to one that we use to use this project:
 
-```bash 
+```bash
 kubectl config set-context --current --namespace=${nameSpaceAssigned}
 ```
 
@@ -352,4 +354,3 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
 
 * Gerardo Ezquerra Martín - **cat@underdog.mx**
 * Armando Hernández Aguayo - **armando@yalochat.com**
-

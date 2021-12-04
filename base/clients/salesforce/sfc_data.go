@@ -166,7 +166,7 @@ type SaleforceInterface interface {
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
-	CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse)
+	CreateContact(payload interface{}) (string, *helpers.ErrorResponse)
 	CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse)
 	CreateAccountComposite(payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse)
 	Composite(compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse)
@@ -585,19 +585,12 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 }
 
 //CreateContact Create contact for Salesforce Requests
-func (cc *SalesforceClient) CreateContact(payload ContactRequest) (string, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) CreateContact(payload interface{}) (string, *helpers.ErrorResponse) {
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
 		"payload": payload,
 	}).Info("Payload received")
-
-	//validating ContactRequest Payload struct
-	if err := helpers.Govalidator().Struct(payload); err != nil {
-		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
-		logrus.Error(errorMessage)
-		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
-	}
 
 	//building request to send through proxy
 	requestBytes, _ := json.Marshal(payload)

@@ -20,6 +20,7 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+gotest.log
 
 /broker
 

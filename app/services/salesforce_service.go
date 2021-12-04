@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
@@ -33,7 +34,8 @@ type SalesforceService struct {
 	SfcChatClient           chat.SfcChatInterface
 	SfcClient               salesforce.SaleforceInterface
 	SourceFlowBot           envs.SfcSourceFlowBot
-	CustomFields            map[string]string
+	SfcCustomFieldsCase     map[string]string
+	SfcCustomFieldsContact  map[string]string
 	AccountRecordTypeId     string
 	DefaultBirthDateAccount string
 	RecordTypeID            string
@@ -42,7 +44,7 @@ type SalesforceService struct {
 
 type SalesforceServiceInterface interface {
 	CreatChat(context context.Context, contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
-	GetOrCreateContact(context context.Context, name, email, phoneNumber string) (*models.SfcContact, error)
+	GetOrCreateContact(context context.Context, name, email, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(context context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
@@ -52,19 +54,29 @@ type SalesforceServiceInterface interface {
 	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFields map[string]string, recordTypeID, firsNameContact string) *SalesforceService {
+func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFieldsCase map[string]string, recordTypeID, firsNameContact string, customFieldsContact map[string]string) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient:          &loginClient,
 		SfcChatClient:           &chatClient,
 		SfcClient:               &salesforceClient,
 		TokenPayload:            tokenPayload,
-		CustomFields:            customFields,
+		SfcCustomFieldsCase:     customFieldsCase,
+		SfcCustomFieldsContact:  customFieldsContact,
 		RecordTypeID:            recordTypeID,
 		DefaultBirthDateAccount: time.Now().Format(constants.DateFormatDateTime),
 		FirstNameContact:        firsNameContact,
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
+}
+
+func NewContactRequest(firstName, lastName, mobilePhone, email string) *salesforce.ContactRequest {
+	return &salesforce.ContactRequest{
+		FirstName:   firstName,
+		LastName:    lastName,
+		MobilePhone: mobilePhone,
+		Email:       email,
+	}
 }
 
 func NewCaseRequest(recordTypeID, contactID, subject, description, origin, ownerID string) *salesforce.CaseRequest {
@@ -166,7 +178,7 @@ func (s *SalesforceService) CreatChat(ctx context.Context, contactName, organiza
 	return session, nil
 }
 
-func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email, phoneNumber string) (*models.SfcContact, error) {
+func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error) {
 	// datadog tracing
 	span, _ := tracer.StartSpanFromContext(ctx, "salesforceService.GetOrCreateContact")
 	span.SetTag(ext.AnalyticsEvent, true)
@@ -219,13 +231,28 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 		return contact, nil
 	}
 
-	contactRequest := salesforce.ContactRequest{
-		FirstName:   contact.FirstName,
-		LastName:    contact.LastName,
-		MobilePhone: contact.MobilePhone,
-		Email:       contact.Email,
+	payload := make(map[string]interface{})
+	for key, value := range extraData {
+		field, ok := s.SfcCustomFieldsContact[key]
+		if ok {
+			payload[field] = value
+		}
 	}
-	contactID, err := s.SfcClient.CreateContact(contactRequest)
+
+	contactRequest := NewContactRequest(contact.FirstName, contact.LastName, contact.MobilePhone, contact.Email)
+	//validating ContactRequest Payload struct
+	if err := helpers.Govalidator().Struct(contactRequest); err != nil {
+		return nil, errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
+	}
+
+	payload["FirstName"] = contactRequest.FirstName
+	payload["LastName"] = contactRequest.LastName
+	payload["MobilePhone"] = contactRequest.MobilePhone
+	payload["Email"] = contactRequest.Email
+
+	span.SetTag("payloadContact", fmt.Sprintf("%#v", payload))
+
+	contactID, err := s.SfcClient.CreateContact(payload)
 	if err != nil {
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
@@ -258,7 +285,7 @@ func (s *SalesforceService) CreatCase(ctx context.Context, contactID, descriptio
 
 	payload := make(map[string]interface{})
 	for key, value := range extraData {
-		field, ok := s.CustomFields[key]
+		field, ok := s.SfcCustomFieldsCase[key]
 		if ok {
 			payload[field] = value
 		}

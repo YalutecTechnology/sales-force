@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"time"
+
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/helpers"
@@ -101,7 +102,7 @@ func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionK
 }
 
 // GetOrCreateContact provides a mock function with given fields: _a0, name, email, phoneNumber
-func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, name string, email string, phoneNumber string) (*models.SfcContact, error) {
+func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, name string, email string, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error) {
 	ret := _m.Called(_a0, name, email, phoneNumber)
 
 	var r0 *models.SfcContact
