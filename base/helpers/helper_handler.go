@@ -51,7 +51,7 @@ type SuccessResponse struct {
 	Message string
 }
 
-// Error Response for return a stutusCode and error
+// ErrorResponse for return a stutusCode and error
 type ErrorResponse struct {
 	StatusCode int
 	Error      error
@@ -258,7 +258,7 @@ func RandomString(size int) string {
 	return string(b)
 }
 
-// Return message error with format "[messageTitle] : [error.Error()]"
+// ErrorMessage Return message error with format "[messageTitle] : [error.Error()]"
 func ErrorMessage(messageTitle string, err error) string {
-	return fmt.Sprintf("%s : %s", messageTitle, err)
+	return fmt.Sprintf("%s : %s", messageTitle, err.Error())
 }

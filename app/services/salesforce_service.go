@@ -1,13 +1,15 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"time"
-
-	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/login"
@@ -39,11 +41,11 @@ type SalesforceService struct {
 }
 
 type SalesforceServiceInterface interface {
-	CreatChat(contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
-	GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error)
+	CreatChat(context context.Context, contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
+	GetOrCreateContact(context context.Context, name, email, phoneNumber string) (*models.SfcContact, error)
 	SendMessage(string, string, chat.MessagePayload) (bool, error)
 	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
-	CreatCase(contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
+	CreatCase(context context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 	RefreshToken()
@@ -78,9 +80,21 @@ func NewCaseRequest(recordTypeID, contactID, subject, description, origin, owner
 	}
 }
 
-func (s *SalesforceService) CreatChat(contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error) {
+func (s *SalesforceService) CreatChat(ctx context.Context, contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "salesforceService.CreatChat")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("contactName", contactName)
+	span.SetTag("organizationID", organizationID)
+	span.SetTag("deploymentID", deploymentID)
+	span.SetTag("buttonID", buttonID)
+	span.SetTag("caseID", caseID)
+	span.SetTag("contactId", contactID)
+	defer span.Finish()
+
 	session, err := s.SfcChatClient.CreateSession()
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return nil, err
 	}
 
@@ -146,19 +160,30 @@ func (s *SalesforceService) CreatChat(contactName, organizationID, deploymentID,
 
 	_, err = s.SfcChatClient.CreateChat(session.AffinityToken, session.Key, chatRequest)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return nil, err
 	}
 	return session, nil
 }
 
-func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) (*models.SfcContact, error) {
+func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email, phoneNumber string) (*models.SfcContact, error) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "salesforceService.GetOrCreateContact")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("email", email)
+	span.SetTag("phoneNumber", phoneNumber)
+	span.SetTag("name", name)
+	defer span.Finish()
+
 	contact, err := s.SfcClient.SearchContactComposite(email, phoneNumber)
 	if err != nil {
 		logrus.Errorf("Not found contact search by email or phoneNumber: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}
+		span.SetTag("contactFound", false)
 	} else {
+		span.SetTag("contactFound", true)
 		return contact, nil
 	}
 
@@ -184,11 +209,13 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 			if err.StatusCode == http.StatusUnauthorized {
 				s.RefreshToken()
 			}
+			span.SetTag(ext.Error, err.Error)
 			return nil, errors.New(helpers.ErrorMessage("not create account", err.Error))
 		}
 
 		contact.ID = account.PersonContactId
 		contact.AccountID = account.ID
+		span.SetTag("createAccount", true)
 		return contact, nil
 	}
 
@@ -203,6 +230,7 @@ func (s *SalesforceService) GetOrCreateContact(name, email, phoneNumber string) 
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}
+		span.SetTag(ext.Error, err.Error)
 		return nil, errors.New(helpers.ErrorMessage("not found or create contact", err.Error))
 	}
 	contact.ID = contactID
@@ -217,7 +245,16 @@ func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat
 	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
 }
 
-func (s *SalesforceService) CreatCase(contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
+func (s *SalesforceService) CreatCase(ctx context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "salesforceService.CreatCase")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("contactID", contactID)
+	span.SetTag("subject", subject)
+	span.SetTag("origin", origin)
+	span.SetTag("ownerID", ownerID)
+	span.SetTag("extraData", extraData)
+	defer span.Finish()
 
 	payload := make(map[string]interface{})
 	for key, value := range extraData {
@@ -235,6 +272,7 @@ func (s *SalesforceService) CreatCase(contactID, description, subject, origin, o
 	caseRequest := NewCaseRequest(s.RecordTypeID, contactID, subject, description, origin, ownerID)
 	//validating CaseRequest Payload struct
 	if err := helpers.Govalidator().Struct(caseRequest); err != nil {
+		span.SetTag(ext.Error, err)
 		return "", errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
 	}
 
@@ -257,13 +295,14 @@ func (s *SalesforceService) CreatCase(contactID, description, subject, origin, o
 	if _, ok := payload["Status"]; !ok {
 		payload["Status"] = caseRequest.Status
 	}
-
+	span.SetTag("payloadCase", fmt.Sprintf("%#v", payload))
 	caseID, errorResponse := s.SfcClient.CreateCase(payload)
 
 	if errorResponse != nil {
 		if errorResponse.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}
+		span.SetTag(ext.Error, errorResponse.Error)
 		return "", errorResponse.Error
 	}
 	return caseID, nil

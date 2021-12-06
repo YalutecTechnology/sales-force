@@ -1,10 +1,11 @@
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-11-29)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-11-30)
 
 ### Feat
 
 * Move predefined messages to env var. We create an envar where we move the predefined messages to change them at any time depending on each client. Closes #CSF-217
+* **Validation - Bug fixing:** Add datadog to the project. Add datadog to the project, to be able to detect incidents in the endpoints of creating chat and webhooks, also in the sending of messages to Salesforce API and Integrations API Closes #CSF-220
 
 ### Fix
 

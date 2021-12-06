@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,7 +38,7 @@ func TestApp_webhook(t *testing.T) {
 		binBody, err := json.Marshal(body)
 		assert.NoError(t, err)
 
-		managerMock.On("SaveContext", &body).Return(nil).Once()
+		managerMock.On("SaveContext", mock.Anything, &body).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
@@ -73,7 +74,7 @@ func TestApp_webhook(t *testing.T) {
 		binBody, err := json.Marshal(body)
 		assert.NoError(t, err)
 
-		managerMock.On("SaveContext", &body).Return(nil).Once()
+		managerMock.On("SaveContext", mock.Anything, &body).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
@@ -138,14 +139,14 @@ func TestApp_webhook(t *testing.T) {
 		binBody, err := json.Marshal(body)
 		assert.NoError(t, err)
 
-		managerMock.On("SaveContext", &body).Return(assert.AnError).Once()
+		managerMock.On("SaveContext", mock.Anything, &body).Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
 		req.Header.Add("x-yalochat-signature", "secret")
 		response := httptest.NewRecorder()
 		expectedLog := helpers.FailedResponse{
-			ErrorDescription: "There was an error inserting integration message: assert.AnError general error for testing",
+			ErrorDescription: "There was an error inserting integration message : assert.AnError general error for testing",
 		}
 		binexpectedLog, err := json.Marshal(expectedLog)
 		assert.NoError(t, err)
@@ -194,7 +195,7 @@ func TestWebhookFB(t *testing.T) {
 		}
 		interconectionBin, err := json.Marshal(interconnection)
 		assert.NoError(t, err)
-		managerMock.On("SaveContextFB", interconnection).Return(nil).Once()
+		managerMock.On("SaveContextFB", mock.Anything, interconnection).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
 		body := interconectionBin
@@ -309,7 +310,7 @@ func TestWebhookFB(t *testing.T) {
 		}
 		interconectionBin, err := json.Marshal(interconnection)
 		assert.NoError(t, err)
-		managerMock.On("SaveContextFB", interconnection).Return(assert.AnError).Once()
+		managerMock.On("SaveContextFB", mock.Anything, interconnection).Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 
 		body := interconectionBin
@@ -319,7 +320,7 @@ func TestWebhookFB(t *testing.T) {
 		handler.ServeHTTP(response, req)
 
 		expectedLog := helpers.FailedResponse{
-			ErrorDescription: "There was an error inserting integration message: assert.AnError general error for testing",
+			ErrorDescription: "There was an error inserting integration message : assert.AnError general error for testing",
 		}
 		binexpectedLog, err := json.Marshal(expectedLog)
 		assert.NoError(t, err)

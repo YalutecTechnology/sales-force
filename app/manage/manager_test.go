@@ -2,7 +2,9 @@ package manage
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strings"
 	"testing"
 	"time"
@@ -231,7 +233,8 @@ func TestManager_handleMessageToSalesforce(t *testing.T) {
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
 		go manager.handleMessageToSalesforce()
-		manager.salesforceChannel <- &Message{UserID: userID, AffinityToken: affinityToken, SessionKey: sessionKey, Text: "test"}
+		span, _ := tracer.SpanFromContext(context.Background())
+		manager.salesforceChannel <- &Message{MainSpan: span, UserID: userID, AffinityToken: affinityToken, SessionKey: sessionKey, Text: "test"}
 		time.Sleep(1 * time.Second)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
@@ -278,7 +281,8 @@ func TestManager_handleMessageToUsers(t *testing.T) {
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
 		go manager.handleMessageToUsers()
-		manager.integrationsChannel <- &Message{UserID: userID, Provider: FacebookProvider, Text: "test"}
+		span, _ := tracer.SpanFromContext(context.Background())
+		manager.integrationsChannel <- &Message{MainSpan: span, UserID: userID, Provider: FacebookProvider, Text: "test"}
 		time.Sleep(1 * time.Second)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
@@ -341,12 +345,14 @@ func TestManager_CreateChat(t *testing.T) {
 			MobilePhone: interconnection.PhoneNumber,
 		}
 		salesforceMock.On("GetOrCreateContact",
+			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
+			mock.Anything,
 			contact.ID,
 			Messages.DescriptionCase,
 			"subject",
@@ -356,6 +362,7 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(caseID, nil).Once()
 
 		salesforceMock.On("CreatChat",
+			mock.Anything,
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
@@ -409,7 +416,7 @@ func TestManager_CreateChat(t *testing.T) {
 			},
 		}
 
-		err := manager.CreateChat(interconnection)
+		err := manager.CreateChat(context.Background(), interconnection)
 		assert.NoError(t, err)
 		manager.EndChat(interconnection)
 	})
@@ -437,12 +444,14 @@ func TestManager_CreateChat(t *testing.T) {
 			MobilePhone: interconnection.PhoneNumber,
 		}
 		salesforceMock.On("GetOrCreateContact",
+			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
+			mock.Anything,
 			contact.ID,
 			Messages.DescriptionCase,
 			"subject",
@@ -452,6 +461,7 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(caseID, nil).Once()
 
 		salesforceMock.On("CreatChat",
+			mock.Anything,
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
@@ -506,7 +516,7 @@ func TestManager_CreateChat(t *testing.T) {
 			interconnectionMap: interconectionLocal,
 		}
 
-		err := manager.CreateChat(interconnection)
+		err := manager.CreateChat(context.Background(), interconnection)
 		assert.NoError(t, err)
 		manager.EndChat(interconnection)
 	})
@@ -542,12 +552,14 @@ func TestManager_CreateChat(t *testing.T) {
 			ID:          contactID,
 		}
 		salesforceMock.On("GetOrCreateContact",
+			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
 			interconnection.PhoneNumber).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
+			mock.Anything,
 			contact.ID,
 			Messages.DescriptionCase,
 			"",
@@ -557,6 +569,7 @@ func TestManager_CreateChat(t *testing.T) {
 			Return(caseID, nil).Once()
 
 		salesforceMock.On("CreatChat",
+			mock.Anything,
 			interconnection.Name,
 			SfcOrganizationID,
 			SfcDeploymentID,
@@ -596,7 +609,7 @@ func TestManager_CreateChat(t *testing.T) {
 			interconnectionMap:    interconectionLocal,
 		}
 
-		err := manager.CreateChat(interconnection)
+		err := manager.CreateChat(context.Background(), interconnection)
 		assert.NoError(t, err)
 		manager.EndChat(interconnection)
 	})
@@ -634,6 +647,7 @@ func TestManager_CreateChat(t *testing.T) {
 		botRunnerMock := new(BotRunnerInterface)
 
 		salesforceServiceMock.On("GetOrCreateContact",
+			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
 			interconnection.PhoneNumber).
@@ -651,7 +665,7 @@ func TestManager_CreateChat(t *testing.T) {
 			interconnectionsCache: interconnectionMock,
 			interconnectionMap:    interconectionLocal,
 		}
-		err := manager.CreateChat(interconnection)
+		err := manager.CreateChat(context.Background(), interconnection)
 		assert.Error(t, err)
 
 		if !strings.Contains(err.Error(), expectedLog) {
@@ -706,7 +720,7 @@ func TestManager_CreateChat(t *testing.T) {
 			},
 		}
 
-		err := manager.CreateChat(interconnection)
+		err := manager.CreateChat(context.Background(), interconnection)
 		assert.Error(t, err)
 		manager.EndChat(interconnection)
 	})
@@ -784,7 +798,7 @@ func TestManager_SaveContext(t *testing.T) {
 				MIMEType: "audio",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -813,7 +827,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Caption:  "caption",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -842,7 +856,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Caption:  "caption",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -871,7 +885,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Caption:  "caption",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -898,7 +912,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -926,7 +940,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -953,7 +967,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -980,7 +994,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1007,7 +1021,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.Error(t, err)
 	})
@@ -1034,7 +1048,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "text",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1092,7 +1106,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "message",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 		assert.NoError(t, err)
 	})
 
@@ -1167,7 +1181,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "ReStArt",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1243,7 +1257,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Body: "ReStArt",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1305,7 +1319,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Caption:  "caption",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1366,7 +1380,7 @@ func TestManager_SaveContext(t *testing.T) {
 				Caption:  "caption",
 			},
 		}
-		err := manager.SaveContext(integrations)
+		err := manager.SaveContext(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1670,7 +1684,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1719,7 +1733,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1764,7 +1778,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1813,7 +1827,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1890,7 +1904,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -1979,7 +1993,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -2079,7 +2093,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Provider:    "facebook",
 			MsgTracking: models.MsgTracking{},
 		}
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -2184,7 +2198,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			MsgTracking: models.MsgTracking{},
 		}
 
-		err := manager.SaveContextFB(integrations)
+		err := manager.SaveContextFB(context.Background(), integrations)
 
 		assert.NoError(t, err)
 	})
@@ -2485,7 +2499,9 @@ func TestManager_CleanPrefixPhoneNumber(t *testing.T) {
 }
 
 func TestManager_sendMessageToSalesforce(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
 	message := &Message{
+		MainSpan:      span,
 		Text:          "Hola test",
 		UserID:        userID,
 		SessionKey:    sessionKey,
@@ -2556,7 +2572,9 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 }
 
 func TestManager_sendMessageToUser(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
 	message := &Message{
+		MainSpan: span,
 		Text:     "Hola test",
 		UserID:   userID,
 		Provider: WhatsappProvider,
@@ -2697,7 +2715,8 @@ func TestManager_saveContextInRedis(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		manager.saveContextInRedis(&cache.Context{})
+		span, _ := tracer.SpanFromContext(context.Background())
+		manager.saveContextInRedis(span, &cache.Context{})
 		logs := buf.String()
 		if strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -2714,7 +2733,8 @@ func TestManager_saveContextInRedis(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		manager.saveContextInRedis(&cache.Context{})
+		span, _ := tracer.SpanFromContext(context.Background())
+		manager.saveContextInRedis(span, &cache.Context{})
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)

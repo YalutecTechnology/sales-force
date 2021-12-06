@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +19,12 @@ import (
 )
 
 var httpServer http.Server
+
+// defaultServiceName hols the default service name used when DD env variable is not set
+const defaultServiceName = "salesforce-integration"
+
+// ddServiceEnvVar is the env Var used by DD library to load service name
+const ddServiceEnvVar = "DD_SERVICE"
 
 func init() {
 	logrus.SetFormatter(&logrus.JSONFormatter{
@@ -34,6 +42,20 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("Error with the environment configuration")
 	}
+
+	// datadog tracer start
+	if len(os.Getenv(ddServiceEnvVar)) == 0 {
+		logrus.Info("DD_SERVICE envar not exists")
+		tracer.Start(tracer.WithService(defaultServiceName), tracer.WithAnalytics(true))
+	} else {
+		logrus.Info("DD_SERVICE envar exists")
+		tracer.Start(tracer.WithAnalytics(true))
+	}
+	defer func() {
+		tracer.Stop()
+		logrus.Info("Tracing stopped correctly")
+	}()
+
 	sentry.Init(sentry.ClientOptions{
 		Dsn:         envs.SentryDSN,
 		Environment: envs.Environment,
