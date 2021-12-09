@@ -153,7 +153,7 @@ func TestApp_webhook(t *testing.T) {
 
 		handler.ServeHTTP(response, req)
 
-		if response.Code != http.StatusNotFound {
+		if response.Code != http.StatusInternalServerError {
 			t.Errorf("Response should be %v, but it answer with %v ", http.StatusNotFound, response.Code)
 		}
 
@@ -325,7 +325,7 @@ func TestWebhookFB(t *testing.T) {
 		binexpectedLog, err := json.Marshal(expectedLog)
 		assert.NoError(t, err)
 
-		if response.Code != http.StatusNotFound {
+		if response.Code != http.StatusInternalServerError {
 			t.Errorf("Response should be %v, but it answer with %v ", http.StatusNotFound, response.Code)
 		}
 

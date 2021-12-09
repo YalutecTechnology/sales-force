@@ -2,8 +2,10 @@ package chat
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -17,7 +19,7 @@ import (
 
 func TestCreateSession(t *testing.T) {
 	sessionResponse := `{"key":"ec550263-354e-477c-b773-7747ebce3f5e!1629334776994!TrfoJ67wmtlYiENsWdaUBu0xZ7M=","id":"ec550263-354e-477c-b773-7747ebce3f5e","clientPollTimeout":40,"affinityToken":"878a1fa0"}`
-
+	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Get CreateSession Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := &SfcChatClient{Proxy: mock}
@@ -26,7 +28,7 @@ func TestCreateSession(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(sessionResponse))),
 		}, nil)
 
-		sessionResponse, err := salesforceClient.CreateSession()
+		sessionResponse, err := salesforceClient.CreateSession(span)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -35,6 +37,17 @@ func TestCreateSession(t *testing.T) {
 		if sessionResponse.Id == "" {
 			t.Fatalf(`Expected sesionId, but retrieved ""`)
 		}
+	})
+
+	t.Run("Get CreateSession with error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+
+		sessionResponse, err := salesforceClient.CreateSession(span)
+
+		assert.Error(t, err)
+		assert.Empty(t, sessionResponse)
 	})
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
@@ -46,7 +59,7 @@ func TestCreateSession(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("No version header found"))),
 		}, nil)
 
-		_, err := salesforceClient.CreateSession()
+		_, err := salesforceClient.CreateSession(span)
 
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
@@ -56,7 +69,7 @@ func TestCreateSession(t *testing.T) {
 }
 
 func TestCreateChat(t *testing.T) {
-
+	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Get CreateChat Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := &SfcChatClient{Proxy: mock}
@@ -66,7 +79,7 @@ func TestCreateChat(t *testing.T) {
 		}, nil)
 
 		chatRequest := NewChatRequest("organizationId", "deploymentId", "seassionId", "buttonId", "Eduardo")
-		ok, err := salesforceClient.CreateChat("affinityToken", "sessionKey", chatRequest)
+		ok, err := salesforceClient.CreateChat(span, "affinityToken", "sessionKey", chatRequest)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -80,7 +93,7 @@ func TestCreateChat(t *testing.T) {
 	t.Run("Should fail by invalid payload", func(t *testing.T) {
 		expectedError := helpers.InvalidPayload
 		salesforceClient := &SfcChatClient{Proxy: &proxy.Proxy{}}
-		_, err := salesforceClient.CreateChat("affinityToken", "sessionKey", ChatRequest{OrganizationId: "OrganizationID"})
+		_, err := salesforceClient.CreateChat(span, "affinityToken", "sessionKey", ChatRequest{OrganizationId: "OrganizationID"})
 
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
@@ -97,7 +110,7 @@ func TestCreateChat(t *testing.T) {
 		}, nil)
 
 		chatRequest := NewChatRequest("organizationId", "deploymentId", "seassionId", "buttonId", "Eduardo")
-		ok, err := salesforceClient.CreateChat("affinityToken", "sessionKey", chatRequest)
+		ok, err := salesforceClient.CreateChat(span, "affinityToken", "sessionKey", chatRequest)
 
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
@@ -115,7 +128,7 @@ func TestCreateChat(t *testing.T) {
 		mock.On("SendHTTPRequest").Return(&http.Response{}, fmt.Errorf("Error proxying a request"))
 
 		chatRequest := NewChatRequest("organizationId", "deploymentId", "seassionId", "buttonId", "Eduardo")
-		_, err := salesforceClient.CreateChat("affinityToken", "sessionKey", chatRequest)
+		_, err := salesforceClient.CreateChat(span, "affinityToken", "sessionKey", chatRequest)
 
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
@@ -125,6 +138,7 @@ func TestCreateChat(t *testing.T) {
 }
 
 func TestGetMessages(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
 	messagesResponse := `{"messages":[{"type":"ChatRequestSuccess","message":{"connectionTimeout":150000,"estimatedWaitTime":9,"sensitiveDataRules":[],"transcriptSaveEnabled":false,"url":"","queuePosition":1,"customDetails":[],"visitorId":"e5c7268d-ac63-40af-8d1c-d53879f8e637","geoLocation":{"organization":"Telmex","countryName":"Mexico","latitude":19.43,"countryCode":"MX","longitude":-99.13}}},{"type":"QueueUpdate","message":{"estimatedWaitTime":0,"position":0}},{"type":"ChatEstablished","message":{"name":"Everardo G","userId":"0053g000000usWa","items":[],"sneakPeekEnabled":false,"chasitorIdleTimeout":{"isEnabled":false}}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"Ok","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"Lo ayudio","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"que necesita","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"AgentTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}},{"type":"ChatMessage","message":{"text":"lo ayudo","name":"Everardo G","schedule":{"responseDelayMilliseconds":0},"agentId":"0053g000000usWa"}},{"type":"AgentNotTyping","message":{"name":"Everardo G","agentId":"5b39e61e-1c94-4bab-b07e-6318b8c8f484"}}],"sequence":17,"offset":1636522046}`
 
 	t.Run("Get Messages Successful", func(t *testing.T) {
@@ -135,7 +149,7 @@ func TestGetMessages(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(messagesResponse))),
 		}, nil)
 
-		messages, err := salesforceClient.GetMessages("affinityToken", "key")
+		messages, err := salesforceClient.GetMessages(span, "affinityToken", "key")
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -155,7 +169,7 @@ func TestGetMessages(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
 
-		_, err := salesforceClient.GetMessages("affinityToken", "key")
+		_, err := salesforceClient.GetMessages(span, "affinityToken", "key")
 
 		if err.StatusCode != http.StatusNoContent {
 			t.Fatalf("Expected Status not content, but retrieved %v", err.StatusCode)
@@ -173,6 +187,7 @@ func TestSendMessage(t *testing.T) {
 		affinityToken = "affinityToken"
 		sessionKey    = "sessionKey"
 	)
+	span, _ := tracer.SpanFromContext(context.Background())
 
 	t.Run("Send message Successfuly", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -186,7 +201,7 @@ func TestSendMessage(t *testing.T) {
 			Text: "A large text",
 		}
 
-		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+		response, err := sfChatClient.SendMessage(span, affinityToken, sessionKey, payload)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -204,7 +219,7 @@ func TestSendMessage(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
 		}, nil)
 		payload := MessagePayload{}
-		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+		response, err := sfChatClient.SendMessage(span, affinityToken, sessionKey, payload)
 
 		assert.Error(t, err)
 		assert.Empty(t, response)
@@ -218,7 +233,7 @@ func TestSendMessage(t *testing.T) {
 			Text: "A large text",
 		}
 
-		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+		response, err := sfChatClient.SendMessage(span, affinityToken, sessionKey, payload)
 
 		assert.Error(t, err)
 		assert.Empty(t, response)
@@ -235,7 +250,7 @@ func TestSendMessage(t *testing.T) {
 			Text: "A large text",
 		}
 
-		response, err := sfChatClient.SendMessage(affinityToken, sessionKey, payload)
+		response, err := sfChatClient.SendMessage(span, affinityToken, sessionKey, payload)
 
 		assert.Error(t, err)
 		assert.Empty(t, response)

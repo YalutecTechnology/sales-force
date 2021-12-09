@@ -71,12 +71,12 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle 204 not content", func(t *testing.T) {
 		expectedLog := "Not content events"
-		mock := new(SalesforceServiceInterface)
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
 		botrunnerMock := new(BotRunnerInterface)
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusNoContent,
 		}).Once()
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatRequestFail,
@@ -87,7 +87,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 
-		interconnection.SalesforceService = mock
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 		interconnection.BotrunnnerClient = botrunnerMock
 
 		var buf bytes.Buffer
@@ -101,12 +101,12 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle 204 not content studiong success", func(t *testing.T) {
 		expectedLog := "Not content events"
-		mock := new(SalesforceServiceInterface)
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
 		studioNGMock := new(StudioNGInterface)
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusNoContent,
 		}).Once()
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatEnded,
@@ -117,7 +117,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		studioNGMock.On("SendTo", successState, userID).
 			Return(nil).Once()
 
-		interconnection.SalesforceService = mock
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 		interconnection.BotrunnnerClient = nil
 		interconnection.isStudioNGFlow = true
 		interconnection.StudioNG = studioNGMock
@@ -133,12 +133,12 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle 204 not content studiong error client", func(t *testing.T) {
 		expectedLog := "Not content events"
-		mock := new(SalesforceServiceInterface)
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
 		studioNGMock := new(StudioNGInterface)
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusNoContent,
 		}).Once()
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatEnded,
@@ -149,7 +149,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		studioNGMock.On("SendTo", successState, userID).
 			Return(assert.AnError).Once()
 
-		interconnection.SalesforceService = mock
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 		interconnection.BotrunnnerClient = nil
 		interconnection.isStudioNGFlow = true
 		interconnection.StudioNG = studioNGMock
@@ -168,9 +168,9 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle Status Forbidden", func(t *testing.T) {
 		expectedLog := "StatusForbidden"
-		mock := new(SalesforceServiceInterface)
-		interconnection.SalesforceService = mock
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		interconnection.SalesforceService = mockSalesforceServiceInterface
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusForbidden,
 		}).Once()
 
@@ -193,10 +193,10 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle Status Service Unavailable", func(t *testing.T) {
 		expectedLog := "StatusServiceUnavailable"
-		mock := new(SalesforceServiceInterface)
-		interconnection.SalesforceService = mock
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusServiceUnavailable,
 		}).Once()
 
@@ -218,10 +218,10 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 	t.Run("Handle Other error", func(t *testing.T) {
 		expectedLog := "Exists error in long polling"
-		mock := new(SalesforceServiceInterface)
-		interconnection.SalesforceService = mock
+		SalesforceServiceInterface := new(SalesforceServiceInterface)
+		interconnection.SalesforceService = SalesforceServiceInterface
 
-		mock.On("GetMessages", affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		SalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusBadGateway,
 			Error:      assert.AnError,
 		}).Once()
@@ -292,13 +292,13 @@ func TestCheckEvent_test(t *testing.T) {
 		Messages = models.MessageTemplate{WelcomeTemplate: "Hola soy %s y necesito ayuda"}
 		interconnection.Context = "Contexto"
 		expectedLog := chat.ChatEstablished
-		mock := new(SalesforceServiceInterface)
-		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		mockSalesforceServiceInterface.On("SendMessage", mock.Anything, affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
 			Return(true, nil).Once()
-		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
+		mockSalesforceServiceInterface.On("SendMessage", mock.Anything, affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
 			Return(false, assert.AnError).Once()
 
-		interconnection.SalesforceService = mock
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 		event := chat.MessageObject{
 			Type: chat.ChatEstablished,
 			Message: chat.Message{
@@ -325,13 +325,13 @@ func TestCheckEvent_test(t *testing.T) {
 		Messages = models.MessageTemplate{WaitAgent: "Esperando Agente"}
 		interconnection.Context = ""
 		expectedLog := chat.ChatEstablished
-		mock := new(SalesforceServiceInterface)
-		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		mockSalesforceServiceInterface.On("SendMessage", mock.Anything, affinityToken, sessionKey, chat.MessagePayload{Text: interconnection.Context}).
 			Return(true, nil).Once()
-		mock.On("SendMessage", affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
+		mockSalesforceServiceInterface.On("SendMessage", mock.Anything, affinityToken, sessionKey, chat.MessagePayload{Text: fmt.Sprintf(Messages.WelcomeTemplate, interconnection.Name)}).
 			Return(false, assert.AnError).Once()
 
-		interconnection.SalesforceService = mock
+		interconnection.SalesforceService = mockSalesforceServiceInterface
 		event := chat.MessageObject{
 			Type: chat.ChatEstablished,
 			Message: chat.Message{

@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"net/http"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
 
@@ -50,20 +54,29 @@ func GetRequestToSendTo(botSlug, userId, state, message string) map[string]inter
 // SendTo attempt to forward a request to the given proxy. Some
 // business logic to filter is made here.
 func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
+	// datadog tracing
+	span := tracer.StartSpan("send_to")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", object))
+	defer span.Finish()
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, "/send-to"))
+
 	if _, ok := object["state"]; !ok {
 		logrus.WithFields(logrus.Fields{
 			"object": object,
 		}).Warn("Invalid state received")
-
-		return false, errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid state received"))
+		err := errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid state received"))
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	if _, ok := object["userId"]; !ok {
 		logrus.WithFields(logrus.Fields{
 			"object": object,
 		}).Warn("Invalid userId received")
-
-		return false, errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid userId received"))
+		err := errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid userId received"))
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	if _, ok := object["message"]; !ok {
@@ -71,7 +84,9 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 			"object": object,
 		}).Warn("Invalid message received")
 
-		return false, errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid message received"))
+		err := errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid message received"))
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	if _, ok := object["botSlug"]; !ok {
@@ -79,7 +94,9 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 			"object": object,
 		}).Warn("Invalid botSlug received")
 
-		return false, errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid botSlug received"))
+		err := errors.New(fmt.Sprintf("%s: %s", missingError, "Invalid botSlug received"))
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	botSlug := object["botSlug"]
@@ -100,17 +117,18 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
-		Method:    "POST",
+		Method:    http.MethodPost,
 		URI:       url,
 		HeaderMap: header,
 	}
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		logrus.WithFields(logrus.Fields{
 			"error": proxyError,
 		}).Error(forwardError)
-
+		span.SetTag(ext.Error, proxyError)
 		return false, errors.New(fmt.Sprintf("%s: %s", forwardError, proxyError.Error()))
 	}
 
@@ -121,7 +139,7 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 		logrus.WithFields(logrus.Fields{
 			"error": proxiedError,
 		}).Error(unmarshallError)
-
+		span.SetTag(ext.Error, proxiedError)
 		return false, errors.New(fmt.Sprintf("%s: %s", unmarshallError, proxiedError.Error()))
 	}
 
@@ -131,8 +149,9 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 		logrus.WithFields(logrus.Fields{
 			"error": proxiedResponse.StatusCode,
 		}).Error(statusError)
-
-		return false, errors.New(fmt.Sprintf("%s: %d", statusError, proxiedResponse.StatusCode))
+		err := errors.New(fmt.Sprintf("%s: %d", statusError, proxiedResponse.StatusCode))
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	bytesBody, _ := helpers.MarshalJSON(resultJSON)

@@ -21,7 +21,8 @@ const insertError = "There was an error inserting integration message"
 // webhook to save messages from integrations API
 func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	// datadog tracing
-	span, _ := tracer.StartSpanFromContext(r.Context(), "webhook.whatsapp")
+	span, _ := tracer.SpanFromContext(r.Context())
+	span.SetOperationName("receive_message_wa")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
 	defer span.Finish()
@@ -47,6 +48,7 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -58,6 +60,7 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -68,10 +71,12 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
-		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusInternalServerError)
+		helpers.WriteFailedResponse(w, http.StatusInternalServerError, errorMessage)
 		return
 	}
 
+	span.SetTag(ext.HTTPCode, http.StatusOK)
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "insert success"})
 }
 
@@ -90,7 +95,8 @@ func (app *App) getContext(w http.ResponseWriter, r *http.Request, params httpro
 
 // webhookFB to save messages from integrations API
 func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	span, _ := tracer.StartSpanFromContext(r.Context(), "webhook.facebook")
+	span, _ := tracer.SpanFromContext(r.Context())
+	span.SetOperationName("receive_message_fb")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
 	defer span.Finish()
@@ -106,6 +112,7 @@ func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprou
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -117,6 +124,7 @@ func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprou
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -127,10 +135,12 @@ func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprou
 		logrus.WithFields(logFields).WithError(err).Error(errorMessage)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
-		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusInternalServerError)
+		helpers.WriteFailedResponse(w, http.StatusInternalServerError, errorMessage)
 		return
 	}
 
+	span.SetTag(ext.HTTPCode, http.StatusOK)
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "insert success"})
 }
 

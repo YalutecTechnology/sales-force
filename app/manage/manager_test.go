@@ -80,7 +80,7 @@ func TestCreateManager(t *testing.T) {
 		rcs.StoreInterconnection(NewInterconectionCache(interconnection))
 
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("GetMessages",
+		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
@@ -223,7 +223,7 @@ func TestManager_handleMessageToSalesforce(t *testing.T) {
 	t.Run("Should receive message", func(t *testing.T) {
 		expectedLog := "Message to agent from user"
 		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
 
 		manager := Manager{
 			salesforceChannel:            make(chan *Message),
@@ -246,7 +246,7 @@ func TestManager_handleMessageToSalesforce(t *testing.T) {
 	t.Run("Should no receive message", func(t *testing.T) {
 		log := "Message to agent from user"
 		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything).Return(true, nil).Once()
 
 		manager := Manager{
 			salesforceChannel:            make(chan *Message),
@@ -349,7 +349,8 @@ func TestManager_CreateChat(t *testing.T) {
 			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -374,7 +375,7 @@ func TestManager_CreateChat(t *testing.T) {
 			Key:           sessionKey,
 		}, nil).Once()
 
-		salesforceMock.On("GetMessages",
+		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
@@ -448,7 +449,8 @@ func TestManager_CreateChat(t *testing.T) {
 			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -474,7 +476,7 @@ func TestManager_CreateChat(t *testing.T) {
 				Key:           sessionKey,
 			}, nil).Once()
 
-		salesforceMock.On("GetMessages",
+		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
@@ -556,7 +558,8 @@ func TestManager_CreateChat(t *testing.T) {
 			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
 			Return(contact, nil).Once()
 
 		salesforceMock.On("CreatCase",
@@ -581,7 +584,7 @@ func TestManager_CreateChat(t *testing.T) {
 			Key:           sessionKey,
 		}, nil).Once()
 
-		salesforceMock.On("GetMessages",
+		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
@@ -651,7 +654,8 @@ func TestManager_CreateChat(t *testing.T) {
 			mock.Anything,
 			interconnection.Name,
 			interconnection.Email,
-			interconnection.PhoneNumber).
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
 			Return(contact, nil).Once()
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": blockedUserState, "userId": userID}).
 			Return(true, nil).Once()
@@ -1058,7 +1062,7 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -1279,7 +1283,7 @@ func TestManager_SaveContext(t *testing.T) {
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
 			Return(nil).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -1402,7 +1406,7 @@ func TestManager_SaveContext(t *testing.T) {
 			"http://test.com", sessionID, "image/png", "caseID").
 			Return(nil).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -1908,7 +1912,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		salesforceMock := new(SalesforceServiceInterface)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 		cacheMessage := new(IMessageCache)
@@ -1987,7 +1991,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			"http://test.com", sessionID, "", "caseID").
 			Return(nil).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -2076,7 +2080,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey).
 			Return(nil).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -2181,7 +2185,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			"http://test.com", sessionID, "", "caseID").
 			Return(assert.AnError).Once()
 
-		salesforceMock.On("SendMessage",
+		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
@@ -2585,7 +2589,7 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 	t.Run("Should sent message", func(t *testing.T) {
 		expectedLog := "Send message to agent from salesforce"
 		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
 		manager := Manager{
 			SalesforceService: salesforceServiceMock,
 		}
@@ -2604,8 +2608,8 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 	t.Run("Should retry message one time", func(t *testing.T) {
 		expectedLog := "Error sendMessage to salesforce"
 		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
 		manager := Manager{
 			maxRetries:        1,
 			SalesforceService: salesforceServiceMock,
@@ -2624,10 +2628,10 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 	t.Run("Should retry message three times", func(t *testing.T) {
 		expectedLog := "Error sendMessage to salesforce, max retries"
 		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
-		salesforceServiceMock.On("SendMessage", message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
+		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
 		manager := Manager{
 			maxRetries:        3,
 			SalesforceService: salesforceServiceMock,

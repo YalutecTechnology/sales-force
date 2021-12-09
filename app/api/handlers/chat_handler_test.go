@@ -158,7 +158,7 @@ func TestCreateChat(t *testing.T) {
 		handler.ServeHTTP(response, req)
 		logrus.Infof("Response : %s", response.Body.String())
 
-		if response.Code != http.StatusNotFound {
+		if response.Code != http.StatusInternalServerError {
 			t.Errorf("Response should be %v, but it answer with %v ", http.StatusNotFound, response.Code)
 		}
 		assert.Equal(t,

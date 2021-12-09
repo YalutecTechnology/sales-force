@@ -5,6 +5,7 @@ package manage
 import (
 	"context"
 	mock "github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"time"
 
 	"yalochat.com/salesforce-integration/base/cache"
@@ -98,7 +99,7 @@ type BotRunnerInterface struct {
 	mock.Mock
 }
 
-// SendTo provides a mock function with given fields: object
+// SendTo provides a mock function with given fields: mainSpan, object
 func (_m *BotRunnerInterface) SendTo(object map[string]interface{}) (bool, error) {
 	ret := _m.Called(object)
 
@@ -182,13 +183,13 @@ func (_m *SalesforceServiceInterface) EndChat(affinityToken string, sessionKey s
 	return r0
 }
 
-// GetMessages provides a mock function with given fields: affinityToken, sessionKey
-func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
-	ret := _m.Called(affinityToken, sessionKey)
+// GetMessages provides a mock function with given fields: mainSpan, affinityToken, sessionKey
+func (_m *SalesforceServiceInterface) GetMessages(mainSpan ddtrace.Span, affinityToken string, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, affinityToken, sessionKey)
 
 	var r0 *chat.MessagesResponse
-	if rf, ok := ret.Get(0).(func(string, string) *chat.MessagesResponse); ok {
-		r0 = rf(affinityToken, sessionKey)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string) *chat.MessagesResponse); ok {
+		r0 = rf(mainSpan, affinityToken, sessionKey)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*chat.MessagesResponse)
@@ -196,8 +197,8 @@ func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionK
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(string, string) *helpers.ErrorResponse); ok {
-		r1 = rf(affinityToken, sessionKey)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, affinityToken, sessionKey)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -207,13 +208,13 @@ func (_m *SalesforceServiceInterface) GetMessages(affinityToken string, sessionK
 	return r0, r1
 }
 
-// GetOrCreateContact provides a mock function with given fields: _a0, name, email, phoneNumber
+// GetOrCreateContact provides a mock function with given fields: _a0, name, email, phoneNumber, extraData
 func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, name string, email string, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error) {
-	ret := _m.Called(_a0, name, email, phoneNumber)
+	ret := _m.Called(_a0, name, email, phoneNumber, extraData)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *models.SfcContact); ok {
-		r0 = rf(_a0, name, email, phoneNumber)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, map[string]interface{}) *models.SfcContact); ok {
+		r0 = rf(_a0, name, email, phoneNumber, extraData)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -221,8 +222,8 @@ func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, na
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = rf(_a0, name, email, phoneNumber)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, map[string]interface{}) error); ok {
+		r1 = rf(_a0, name, email, phoneNumber, extraData)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -274,20 +275,20 @@ func (_m *SalesforceServiceInterface) SearchContactComposite(email string, phone
 	return r0, r1
 }
 
-// SendMessage provides a mock function with given fields: _a0, _a1, _a2
-func (_m *SalesforceServiceInterface) SendMessage(_a0 string, _a1 string, _a2 chat.MessagePayload) (bool, error) {
-	ret := _m.Called(_a0, _a1, _a2)
+// SendMessage provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *SalesforceServiceInterface) SendMessage(_a0 ddtrace.Span, _a1 string, _a2 string, _a3 chat.MessagePayload) (bool, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(string, string, chat.MessagePayload) bool); ok {
-		r0 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string, chat.MessagePayload) bool); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, chat.MessagePayload) error); ok {
-		r1 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string, chat.MessagePayload) error); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -484,7 +485,7 @@ type StudioNGInterface struct {
 	mock.Mock
 }
 
-// SendTo provides a mock function with given fields: state, userID
+// SendTo provides a mock function with given fields: mainSpan, state, userID
 func (_m *StudioNGInterface) SendTo(state string, userID string) error {
 	ret := _m.Called(state, userID)
 

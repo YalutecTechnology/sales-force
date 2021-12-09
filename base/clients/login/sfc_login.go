@@ -3,7 +3,11 @@ package login
 import (
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"net/http"
 	"net/url"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -27,8 +31,16 @@ type SfcLoginInterface interface {
 	GetToken(TokenPayload) (string, error)
 }
 
-// Get Access Token for Salesforce Requests
+// GetToken Get Access Token for Salesforce Requests
 func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
+	// datadog tracing
+	span := tracer.StartSpan("get_token")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", tokenPayload))
+	defer span.Finish()
+	uri := "/services/oauth2/token"
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
+
 	var errorMessage string
 	if tokenPayload.GrantType == "" {
 		tokenPayload.GrantType = "password"
@@ -43,6 +55,7 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	if err := helpers.Govalidator().Struct(tokenPayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return "", errors.New(errorMessage)
 	}
 
@@ -59,15 +72,16 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 
 	newRequest := proxy.Request{
 		DataEncode: dataEncode,
-		Method:     "POST",
-		URI:        "/services/oauth2/token",
+		Method:     http.MethodPost,
+		URI:        uri,
 		HeaderMap:  header,
 	}
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -77,6 +91,7 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -85,18 +100,21 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
-		return "", errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return "", err
 	}
 
 	//check this one if this is a response success
 	/*logrus.WithFields(logrus.Fields{
 		"response": responseMap,
 	}).Info("Get accessToken sucessfully")*/
-	logrus.Info("Get accessToken sucessfully")
+	logrus.Info("Get accessToken successfully")
 
 	if _, ok := responseMap["access_token"]; ok {
 		return responseMap["access_token"].(string), nil
 	}
-
-	return "", errors.New("Could not get accessToken in response")
+	err := errors.New("could not get accessToken in response")
+	span.SetTag(ext.Error, err)
+	return "", err
 }

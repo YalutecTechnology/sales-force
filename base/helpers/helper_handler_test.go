@@ -355,7 +355,7 @@ func TestGetErrorResponse(t *testing.T) {
 			},
 			want: &ErrorResponse{
 				StatusCode: http.StatusNotFound,
-				Error:      errors.New("Error call with status : 404"),
+				Error:      errors.New("Error call with status-[404] : map[id:dasfasfasd]"),
 			},
 		},
 		{
@@ -400,7 +400,7 @@ func TestGetErrorResponseArrayMap(t *testing.T) {
 			},
 			want: &ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
-				Error:      errors.New("Error call with status : 500"),
+				Error:      errors.New("Error call with status-[500] : [1 2 3 4]"),
 			},
 		},
 
