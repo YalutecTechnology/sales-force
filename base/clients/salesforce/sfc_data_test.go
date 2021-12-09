@@ -25,7 +25,7 @@ var (
 	dateBirth    string = "2021-10-05T08:12:00"
 )
 
-func TestCaseClient_CreateContentVersion(t *testing.T) {
+func TestSfcData_CreateContentVersion(t *testing.T) {
 
 	t.Run("Create ContentVersion Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -107,7 +107,7 @@ func TestCaseClient_CreateContentVersion(t *testing.T) {
 	})
 }
 
-func TestCaseClient_SearchDocumentID(t *testing.T) {
+func TestSfcData_SearchDocumentID(t *testing.T) {
 
 	t.Run("SearchDocumentID Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -182,7 +182,7 @@ func TestCaseClient_SearchDocumentID(t *testing.T) {
 	})
 }
 
-func TestCaseClient_Search(t *testing.T) {
+func TestSfcData_Search(t *testing.T) {
 
 	t.Run("Search Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -253,7 +253,7 @@ func TestCaseClient_Search(t *testing.T) {
 	})
 }
 
-func TestCaseClient_SearchId(t *testing.T) {
+func TestSfcData_SearchId(t *testing.T) {
 
 	t.Run("SearchId Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -328,7 +328,7 @@ func TestCaseClient_SearchId(t *testing.T) {
 	})
 }
 
-func TestCaseClient_SearchContact(t *testing.T) {
+func TestSfcData_SearchContact(t *testing.T) {
 
 	t.Run("SearchContact Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -411,7 +411,7 @@ func TestCaseClient_SearchContact(t *testing.T) {
 	})
 }
 
-func TestCaseClient_SearchAccount(t *testing.T) {
+func TestSfcData_SearchAccount(t *testing.T) {
 
 	t.Run("SearchAccount Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -511,7 +511,7 @@ func TestCaseClient_SearchAccount(t *testing.T) {
 	})
 }
 
-func TestCaseClient_LinkDocumentToCase(t *testing.T) {
+func TestSfcData_LinkDocumentToCase(t *testing.T) {
 
 	t.Run("LinkDocumentToCase Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -593,7 +593,7 @@ func TestCaseClient_LinkDocumentToCase(t *testing.T) {
 	})
 }
 
-func TestCaseClient_CreateCase(t *testing.T) {
+func TestSfcData_CreateCase(t *testing.T) {
 
 	t.Run("Create case Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -641,28 +641,28 @@ func TestCaseClient_CreateCase(t *testing.T) {
 		assert.Empty(t, id)
 	})
 
-	// t.Run("Create case unmarsahal response", func(t *testing.T) {
-	// 	mock := &proxy.Mock{}
-	// 	salesforceClient := NewSalesforceRequester(caseURL,token)
-	// 	salesforceClient.Proxy = mock
-	// 	mock.On("SendHTTPRequest").Return(&http.Response{
-	// 		StatusCode: http.StatusOK,
-	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
-	// 	}, nil)
-	// 	payload := CaseRequest{
-	// 		ContactID:   "contact id",
-	// 		Status:      "New",
-	// 		Origin:      "Web",
-	// 		Subject:     "test",
-	// 		Priority:    "Medium",
-	// 		IsEscalated: false,
-	// 		Description: "context",
-	// 	}
-	// 	id, err := salesforceClient.CreateCase(payload)
+	t.Run("Create case Unmarshall response", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
+		}, nil)
+		payload := CaseRequest{
+			ContactID:   "contact id",
+			Status:      "New",
+			Origin:      "Web",
+			Subject:     "test",
+			Priority:    "Medium",
+			IsEscalated: false,
+			Description: "context",
+		}
+		id, err := salesforceClient.CreateCase(payload)
 
-	// 	assert.Error(t, err)
-	// 	assert.Empty(t, id)
-	// })
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
 
 	t.Run("Create case error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -688,7 +688,7 @@ func TestCaseClient_CreateCase(t *testing.T) {
 	})
 }
 
-func TestCaseClient_CreateContact(t *testing.T) {
+func TestSfcData_CreateContact(t *testing.T) {
 
 	t.Run("Create contact Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -713,26 +713,7 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		assert.Equal(t, "dasfasfasd", id)
 	})
 
-	t.Run("Create contact  error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
-		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
-		}, nil)
-		payload := ContactRequest{
-			FirstName:   "firstname",
-			LastName:    "lasrname",
-			MobilePhone: "11111111111",
-		}
-		id, err := salesforceClient.CreateContact(payload)
-
-		assert.Error(t, err.Error)
-		assert.Empty(t, id)
-	})
-
-	t.Run("Create contact  error SendHTTPRequest", func(t *testing.T) {
+	t.Run("Create contact error SendHTTPRequest", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
@@ -749,25 +730,26 @@ func TestCaseClient_CreateContact(t *testing.T) {
 		assert.Empty(t, id)
 	})
 
-	// t.Run("Create contact unmarsahal response", func(t *testing.T) {
-	// 	mock := &proxy.Mock{}
-	// 	salesforceClient := NewSalesforceRequester(caseURL,token)
-	// 	salesforceClient.Proxy = mock
-	// 	mock.On("SendHTTPRequest").Return(&http.Response{
-	// 		StatusCode: http.StatusOK,
-	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
-	// 	}, nil)
-	// 	payload := ContactRequest{
-	// 	FirstName: "firstname",
-	// 	LastName: "lasrname",
-	// 	MobilePhone: "11111111111",
-	// 	Email: "test@mail.com",
-	// }
-	// 	id, err := salesforceClient.CreateContact(payload)
+	t.Run("Create contact Unmarshal response", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
+		}, nil)
+		payload := ContactRequest{
+			FirstName:   "firstname",
+			LastName:    "lasrname",
+			MobilePhone: "11111111111",
+			Email:       "test@mail.com",
+		}
+		id, err := salesforceClient.CreateContact(payload)
 
-	// 	assert.Error(t, err)
-	// 	assert.Empty(t, id)
-	// })
+		assert.Error(t, err.Error)
+		assert.EqualError(t, err.Error, `Error unmarshalling the response from salesForce : invalid character 'e' looking for beginning of value`)
+		assert.Empty(t, id)
+	})
 
 	t.Run("Create contact error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -790,7 +772,7 @@ func TestCaseClient_CreateContact(t *testing.T) {
 	})
 }
 
-func TestCaseClient_CreateAccount(t *testing.T) {
+func TestSfcData_CreateAccount(t *testing.T) {
 
 	t.Run("Create account Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -864,7 +846,7 @@ func TestCaseClient_CreateAccount(t *testing.T) {
 	})
 }
 
-func TestCaseClient_Composite(t *testing.T) {
+func TestSfcData_Composite(t *testing.T) {
 
 	t.Run("Create Composite Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -972,7 +954,7 @@ func TestCaseClient_Composite(t *testing.T) {
 	})
 }
 
-func TestCaseClient_UpdateToken(t *testing.T) {
+func TestSfcData_UpdateToken(t *testing.T) {
 
 	t.Run("Update token Succesfull", func(t *testing.T) {
 		tokenExpected := "14525542211224"
@@ -983,7 +965,7 @@ func TestCaseClient_UpdateToken(t *testing.T) {
 	})
 }
 
-func TestCaseClient_SearchContactComposite(t *testing.T) {
+func TestSfcData_SearchContactComposite(t *testing.T) {
 
 	t.Run("SearchContactComposite Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -1085,7 +1067,7 @@ func TestCaseClient_SearchContactComposite(t *testing.T) {
 	})
 }
 
-func TestCaseClient_CreateAccountComposite(t *testing.T) {
+func TestSfcData_CreateAccountComposite(t *testing.T) {
 	t.Run("Create account Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
@@ -1238,55 +1220,55 @@ func TestCaseClient_CreateAccountComposite(t *testing.T) {
 		assert.Empty(t, contact)
 	})
 
-	// t.Run("Create account  error validation payload", func(t *testing.T) {
-	// 	mock := &proxy.Mock{}
-	// 	salesforceClient := NewSalesforceRequester(caseURL, token)
-	// 	salesforceClient.Proxy = mock
-	// 	mock.On("SendHTTPRequest").Return(&http.Response{
-	// 		StatusCode: http.StatusOK,
-	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
-	// 	}, nil)
-	// 	payload := AccountRequest{
-	// 		Name: &name,
-	// 	}
-	// 	id, err := salesforceClient.CreateAccount(payload)
+	t.Run("Create account  error validation payload", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := AccountRequest{
+			Name: &name,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
 
-	// 	assert.Error(t, err.Error)
-	// 	assert.Empty(t, id)
-	// })
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
 
-	// t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
-	// 	mock := &proxy.Mock{}
-	// 	salesforceClient := NewSalesforceRequester(caseURL, token)
-	// 	salesforceClient.Proxy = mock
-	// 	mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
-	// 	payload := AccountRequest{
-	// 		Name:  &name,
-	// 		Phone: &phoneNumber,
-	// 	}
-	// 	id, err := salesforceClient.CreateAccount(payload)
+	t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		payload := AccountRequest{
+			Name:  &name,
+			Phone: &phoneNumber,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
 
-	// 	assert.Error(t, err.Error)
-	// 	assert.Empty(t, id)
-	// })
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
 
-	// t.Run("Create account error status", func(t *testing.T) {
-	// 	mock := &proxy.Mock{}
-	// 	salesforceClient := NewSalesforceRequester("test", token)
-	// 	salesforceClient.Proxy = mock
-	// 	mock.On("SendHTTPRequest").Return(&http.Response{
-	// 		StatusCode: http.StatusInternalServerError,
-	// 		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
-	// 	}, nil)
-	// 	payload := AccountRequest{
-	// 		Name:  &name,
-	// 		Phone: &phoneNumber,
-	// 	}
-	// 	id, err := salesforceClient.CreateAccount(payload)
+	t.Run("Create account error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := AccountRequest{
+			Name:  &name,
+			Phone: &phoneNumber,
+		}
+		id, err := salesforceClient.CreateAccount(payload)
 
-	// 	assert.Error(t, err.Error)
-	// 	assert.Empty(t, id)
-	// })
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
 }
 
 func TestSalesforceClient_GetContentVersionURL(t *testing.T) {

@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/events"
 
 	"golang.org/x/time/rate"
@@ -120,6 +121,7 @@ type ManagerOptions struct {
 	SfcAccountRecordTypeID     string
 	SfcDefaultBirthDateAccount string
 	SfcCustomFieldsCase        map[string]string
+	SfcCustomFieldsContact     map[string]string
 	SfcCodePhoneRemove         []string
 	IntegrationsUrl            string
 	IntegrationsWAChannel      string
@@ -248,7 +250,9 @@ func CreateManager(config *ManagerOptions) *Manager {
 		tokenPayload,
 		config.SfcCustomFieldsCase,
 		SfcRecordTypeID,
-		Messages.FirstNameContact)
+		Messages.FirstNameContact,
+		config.SfcCustomFieldsContact,
+	)
 
 	if config.SpecSchedule != "" {
 		cronService := cron.NewCron(salesforceService, config.SpecSchedule, config.SfcUsername)
@@ -484,7 +488,7 @@ func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnecti
 
 	// We get the contact if it exists by your email or phone.
 	logrus.WithFields(logFields).Info("GetOrCreateContact")
-	contact, err := m.SalesforceService.GetOrCreateContact(ctx, interconnection.Name, interconnection.Email, interconnection.PhoneNumber)
+	contact, err := m.SalesforceService.GetOrCreateContact(ctx, interconnection.Name, interconnection.Email, interconnection.PhoneNumber, interconnection.ExtraData)
 	if err != nil {
 		logrus.WithFields(logFields).WithError(err).Error("error GetOrCreateContact")
 		span.SetTag(ext.Error, err)

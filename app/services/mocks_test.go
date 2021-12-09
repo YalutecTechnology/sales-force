@@ -250,18 +250,18 @@ func (_m *SaleforceInterface) CreateCase(payload interface{}) (string, *helpers.
 }
 
 // CreateContact provides a mock function with given fields: payload
-func (_m *SaleforceInterface) CreateContact(payload salesforce.ContactRequest) (string, *helpers.ErrorResponse) {
+func (_m *SaleforceInterface) CreateContact(payload interface{}) (string, *helpers.ErrorResponse) {
 	ret := _m.Called(payload)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(salesforce.ContactRequest) string); ok {
+	if rf, ok := ret.Get(0).(func(interface{}) string); ok {
 		r0 = rf(payload)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(salesforce.ContactRequest) *helpers.ErrorResponse); ok {
+	if rf, ok := ret.Get(1).(func(interface{}) *helpers.ErrorResponse); ok {
 		r1 = rf(payload)
 	} else {
 		if ret.Get(1) != nil {
