@@ -1,6 +1,6 @@
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-07)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..v0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -9,6 +9,8 @@
 
 ### Feat
 
+* Change the way that we define the image's title that was sent by the end-user
+* Add the capabitily to send custom fields when creating contacts Closes: DBR-1280
 * Add the capability to set the timezone of the instance Closes DBR-1282
 * Move predefined messages to env var. We create an envar where we move the predefined messages to change them at any time depending on each client. Closes #CSF-217
 * **Validation - Bug fixing:** Add datadog to the project. Add datadog to the project, to be able to detect incidents in the endpoints of creating chat and webhooks, also in the sending of messages to Salesforce API and Integrations API Closes #CSF-220
@@ -19,8 +21,8 @@
 * **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
 
 
-<a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.6) (2021-11-16)
+<a name="v0.1.7"></a>
+## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 
