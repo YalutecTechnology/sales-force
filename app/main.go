@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/go-redis/redis"
@@ -113,6 +114,7 @@ func main() {
 		SalesforceRateLimit:        envs.SaleforceChanRateLimit,
 		Messages:                   envs.Messages,
 		Timezone:                   envs.Timezone,
+		SendImageNameInMessage:     envs.SendImageNameInMessage,
 	}
 
 	if len(envs.RedisMaster) > 0 {

@@ -189,6 +189,7 @@ models | Contains base structures that we will use for this service.  |
 | `SALESFORCE-INTEGRATION_SFC_CUSTOM_FIELDS_CASE`| Contains a value map with the customer's custom fields to create a case on your salesforce platform, you can see an example [here](https://www.notion.so/yalo/Envar-SfcSourceFlowBot-d5ea5a94fca34659996fbf1bf76e33db#a264a1c925b94e9e8a4bd23ac097a278). | false   |  |
 | `SALESFORCE-INTEGRATION_SFC_CUSTOM_FIELDS_CONTACT`| Contains a value map with the contact's custom fields to create a contact on your salesforce platform. | false   |  |
 | `SALESFORCE-INTEGRATION_TIMEZONE`| Contains a string value to define the timezone of the service. | false   | ***America/Mexico_City*** |
+| `SALESFORCE-INTEGRATION_SEND_IMAGE_NAME_IN_MESSAGE`| Contains a boolean to define if the service should send the image's name in the chat, when the end-user upload an image. | false   | false |
 | `SALESFORCE-INTEGRATION_SFC_CODE_PHONE_REMOVE`| Indicates the codes of the phones to be deleted if the phone number is greater than 10 digits. By default, the 521 and 52 corresponding to Mexico are eliminated, more codes can be added to this shipment, example: "521,52,54,57,1". | false   | ***521,52*** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_WA_CHANNEL`| Type of channel for sending messages to the WhatsApp bot . | false  | **outgoing_webhook** |
 | `SALESFORCE-INTEGRATION_INTEGRATIONS_FB_CHANNEL`| Type of channel for sending messages to the Facebook bot . | false  | **passthrough** |

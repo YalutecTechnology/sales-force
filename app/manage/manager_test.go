@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
@@ -917,7 +918,7 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should save context  error StoreContextToSet", func(t *testing.T) {
+	t.Run("Should save context error StoreContextToSet", func(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
@@ -1058,7 +1059,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: "message"}).
+			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		channelSaleforce := make(chan *Message)
@@ -1263,16 +1264,23 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should send image to salesforce", func(t *testing.T) {
-		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida"}
-		defer interconnectionLocal.Clear()
+		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
+
+		SendImageNameInMessage = true
+		defer func() {
+			SendImageNameInMessage = SendImageNameInMessage
+			interconnectionLocal.Clear()
+		}()
+
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
+		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertImageInCase",
-			"http://test.com", sessionID, "image/png", "caseID").
+			"http://test.com/"+imageId, imageId, "image/png", "caseID").
 			Return(nil).Once()
 
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: Messages.UploadImageSuccess}).
+			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		cacheMessage := new(IMessageCache)
@@ -1314,9 +1322,9 @@ func TestManager_SaveContext(t *testing.T) {
 			Type:      imageType,
 			From:      userID,
 			Image: models.Media{
-				URL:      "http://test.com",
+				URL:      "http://test.com/" + imageId,
 				MIMEType: "image/png",
-				Caption:  "caption",
+				Caption:  "",
 			},
 		}
 		err := manager.SaveContext(context.Background(), integrations)
@@ -1329,7 +1337,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertImageInCase",
-			"http://test.com", sessionID, "image/png", "caseID").
+			"http://test.com", "caption", "image/png", "caseID").
 			Return(assert.AnError).Once()
 
 		cacheMessage := new(IMessageCache)
@@ -1378,6 +1386,68 @@ func TestManager_SaveContext(t *testing.T) {
 				URL:      "http://test.com",
 				MIMEType: "image/png",
 				Caption:  "caption",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send an image to salesforce, the image should have the session in the title", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertImageInCase",
+			"http://test.com", sessionID, "image/png", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			salesforceChannel:            make(chan *Message),
+			integrationsChannel:          make(chan *Message),
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+		}
+		go manager.handleInterconnection()
+		go manager.handleMessageToSalesforce()
+		go manager.handleMessageToUsers()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:              Active,
+			AffinityToken:       affinityToken,
+			SessionKey:          sessionKey,
+			SessionID:           sessionID,
+			UserID:              userID,
+			CaseID:              caseID,
+			salesforceChannel:   manager.salesforceChannel,
+			integrationsChannel: manager.integrationsChannel,
+			finishChannel:       manager.finishInterconnection,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      imageType,
+			From:      userID,
+			Image: models.Media{
+				URL:      "http://test.com",
+				MIMEType: "image/png",
+				Caption:  "",
 			},
 		}
 		err := manager.SaveContext(context.Background(), integrations)
@@ -1839,7 +1909,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		salesforceMock.On("SendMessage",
-			affinityToken, sessionKey, chat.MessagePayload{Text: "text"}).
+			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
@@ -1909,7 +1979,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should interaction  image from user", func(t *testing.T) {
+	t.Run("Should interaction image from user", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
@@ -2006,6 +2076,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey).
 			Return(nil).Once()
 
+		salesforceMock.On("SendMessage",
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
 		cacheMock := &cache.Interconnection{
 			UserID:     userID,
 			Client:     client,
@@ -2098,7 +2172,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should interaction  image from user error", func(t *testing.T) {
+	t.Run("Should interaction image from user error", func(t *testing.T) {
 		Messages = models.MessageTemplate{UploadImageError: "Error al subir imagen"}
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)

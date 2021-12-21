@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,17 +45,18 @@ var (
 	SfcCustomFieldsCase map[string]string
 	BotrunnerTimeout    int
 	//TODO: move a integration clients constructor
-	WAPhone               string
-	FBPhone               string
-	WebhookBaseUrl        string
-	WebhookWhatsapp       string
-	WebhookFacebook       string
-	StudioNGTimeout       int
-	CodePhoneRemove       []string
-	salesforceRateLimit   float64
-	integrationsRateLimit float64
-	Messages              models.MessageTemplate
-	Timezone              string
+	WAPhone                string
+	FBPhone                string
+	WebhookBaseUrl         string
+	WebhookWhatsapp        string
+	WebhookFacebook        string
+	StudioNGTimeout        int
+	CodePhoneRemove        []string
+	salesforceRateLimit    float64
+	integrationsRateLimit  float64
+	Messages               models.MessageTemplate
+	Timezone               string
+	SendImageNameInMessage bool
 )
 
 const (
@@ -151,6 +153,7 @@ type ManagerOptions struct {
 	SalesforceRateLimit        float64
 	Messages                   models.MessageTemplate
 	Timezone                   string
+	SendImageNameInMessage     bool
 }
 
 type ManagerI interface {
@@ -183,6 +186,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	isStudioNG := false
 	Messages = config.Messages
 	Timezone = config.Timezone
+	SendImageNameInMessage = config.SendImageNameInMessage
 
 	salesforceRateLimit := rate.Limit(config.SalesforceRateLimit)
 	salesforceRateLimiter := rate.NewLimiter(salesforceRateLimit, int(salesforceRateLimit)+1)
@@ -777,9 +781,11 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
 	case imageType:
+		imageName := defineImageName(interconnection, integration)
+
 		err := m.SalesforceService.InsertImageInCase(
 			integration.Image.URL,
-			interconnection.SessionID,
+			imageName,
 			integration.Image.MIMEType,
 			interconnection.CaseID)
 		if err != nil {
@@ -791,8 +797,29 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		}
 		logrus.WithFields(logFields).Info("Send Image to agent")
 		mainSpan.SetTag(events.SendImage, true)
-		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
+
+		textMessage := Messages.UploadImageSuccess
+		if SendImageNameInMessage {
+			textMessage += imageName
+		}
+
+		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, textMessage, interconnection.UserID)
 	}
+}
+
+func defineImageName(interconnection *Interconnection, integration *models.IntegrationsRequest) string {
+	maxLength := 255
+	if integration.Image.Caption != "" && len(integration.Image.Caption) <= maxLength {
+		return integration.Image.Caption
+	}
+
+	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+-.+-.+-.+)")
+	imageId := regexToFindImageId.FindStringSubmatch(integration.Image.URL)
+	if len(imageId) > 0 && imageId[1] != "" {
+		return imageId[1]
+	}
+
+	return interconnection.SessionID
 }
 
 func (m *Manager) validInterconnection(from string) (*Interconnection, bool) {
