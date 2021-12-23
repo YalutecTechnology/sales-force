@@ -209,7 +209,7 @@ func ErrorResponseMap(body io.ReadCloser, unmarshalError string, statusCode int)
 		logrus.Error(errorMessage)
 		return errors.New(errorMessage)
 	}
-	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	errorMessage := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, statusCode, responseMap)
 	logrus.WithFields(logrus.Fields{
 		"response": responseMap,
 	}).Error(errorMessage)
@@ -225,7 +225,7 @@ func GetErrorResponse(body io.ReadCloser, unmarshalError string, statusCode int)
 		logrus.Error(errorMessage)
 		return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
 	}
-	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	errorMessage := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, statusCode, responseMap)
 	logrus.WithFields(logrus.Fields{
 		"response": responseMap,
 	}).Error(errorMessage)
@@ -241,7 +241,7 @@ func GetErrorResponseArrayMap(body io.ReadCloser, unmarshalError string, statusC
 		logrus.Error(errorMessage)
 		return &ErrorResponse{Error: errors.New(errorMessage), StatusCode: statusCode}
 	}
-	errorMessage := fmt.Sprintf("%s : %d", constants.StatusError, statusCode)
+	errorMessage := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, statusCode, responseMap)
 	logrus.WithFields(logrus.Fields{
 		"response": responseMap,
 	}).Error(errorMessage)

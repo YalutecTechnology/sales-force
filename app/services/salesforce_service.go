@@ -45,8 +45,8 @@ type SalesforceService struct {
 type SalesforceServiceInterface interface {
 	CreatChat(context context.Context, contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
 	GetOrCreateContact(context context.Context, name, email, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error)
-	SendMessage(string, string, chat.MessagePayload) (bool, error)
-	GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
+	SendMessage(tracer.Span, string, string, chat.MessagePayload) (bool, error)
+	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(context context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertImageInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
@@ -104,7 +104,7 @@ func (s *SalesforceService) CreatChat(ctx context.Context, contactName, organiza
 	span.SetTag("contactId", contactID)
 	defer span.Finish()
 
-	session, err := s.SfcChatClient.CreateSession()
+	session, err := s.SfcChatClient.CreateSession(span)
 	if err != nil {
 		span.SetTag(ext.Error, err)
 		return nil, err
@@ -170,7 +170,7 @@ func (s *SalesforceService) CreatChat(ctx context.Context, contactName, organiza
 		chatRequest.PrechatEntities = append(chatRequest.PrechatEntities, contactPrechatEntitie)
 	}
 
-	_, err = s.SfcChatClient.CreateChat(session.AffinityToken, session.Key, chatRequest)
+	_, err = s.SfcChatClient.CreateChat(span, session.AffinityToken, session.Key, chatRequest)
 	if err != nil {
 		span.SetTag(ext.Error, err)
 		return nil, err
@@ -187,7 +187,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 	span.SetTag("name", name)
 	defer span.Finish()
 
-	contact, err := s.SfcClient.SearchContactComposite(email, phoneNumber)
+	contact, err := s.SfcClient.SearchContactComposite(span, email, phoneNumber)
 	if err != nil {
 		logrus.Errorf("Not found contact search by email or phoneNumber: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
 		if err.StatusCode == http.StatusUnauthorized {
@@ -208,7 +208,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 
 	if s.AccountRecordTypeId != "" {
 		firstName := s.FirstNameContact
-		account, err := s.SfcClient.CreateAccountComposite(salesforce.AccountRequest{
+		account, err := s.SfcClient.CreateAccountComposite(span, salesforce.AccountRequest{
 			FirstName:         &firstName,
 			LastName:          &name,
 			PersonEmail:       &email,
@@ -252,7 +252,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 
 	span.SetTag("payloadContact", fmt.Sprintf("%#v", payload))
 
-	contactID, err := s.SfcClient.CreateContact(payload)
+	contactID, err := s.SfcClient.CreateContact(span, payload)
 	if err != nil {
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
@@ -264,12 +264,12 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 	return contact, nil
 }
 
-func (s *SalesforceService) SendMessage(affinityToken, sessionKey string, message chat.MessagePayload) (bool, error) {
-	return s.SfcChatClient.SendMessage(affinityToken, sessionKey, message)
+func (s *SalesforceService) SendMessage(mainSpan tracer.Span, affinityToken, sessionKey string, message chat.MessagePayload) (bool, error) {
+	return s.SfcChatClient.SendMessage(mainSpan, affinityToken, sessionKey, message)
 }
 
-func (s *SalesforceService) GetMessages(affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
-	return s.SfcChatClient.GetMessages(affinityToken, sessionKey)
+func (s *SalesforceService) GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
+	return s.SfcChatClient.GetMessages(mainSpan, affinityToken, sessionKey)
 }
 
 func (s *SalesforceService) CreatCase(ctx context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {
@@ -323,7 +323,7 @@ func (s *SalesforceService) CreatCase(ctx context.Context, contactID, descriptio
 		payload["Status"] = caseRequest.Status
 	}
 	span.SetTag("payloadCase", fmt.Sprintf("%#v", payload))
-	caseID, errorResponse := s.SfcClient.CreateCase(payload)
+	caseID, errorResponse := s.SfcClient.CreateCase(span, payload)
 
 	if errorResponse != nil {
 		if errorResponse.StatusCode == http.StatusUnauthorized {
@@ -348,19 +348,27 @@ func (s *SalesforceService) RefreshToken() {
 }
 
 func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID string) error {
+	span := tracer.StartSpan("InsertImageInCase")
+	span.SetTag("caseId", caseID)
+	defer span.Finish()
+
 	resp, err := http.Get(uri)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("image not found")
+		err := fmt.Errorf("image not found")
+		span.SetTag(ext.Error, err)
+		return err
 	}
 
 	var body []byte
 	if mimeType == "" {
 		contentType, content, err := helpers.GetContentAndTypeByReader(resp.Body)
 		if err != nil {
+			span.SetTag(ext.Error, err)
 			return err
 		}
 
@@ -369,6 +377,7 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 	} else {
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
+			span.SetTag(ext.Error, err)
 			return err
 		}
 	}
@@ -407,8 +416,9 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 		},
 	}
 
-	_, errResponse := s.SfcClient.Composite(request)
+	_, errResponse := s.SfcClient.Composite(span, request)
 	if errResponse != nil {
+		span.SetTag(ext.Error, errResponse.Error)
 		return errors.New(helpers.ErrorMessage("not insert image", errResponse.Error))
 	}
 
@@ -420,5 +430,7 @@ func (s *SalesforceService) EndChat(affinityToken, sessionKey string) error {
 }
 
 func (s *SalesforceService) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
-	return s.SfcClient.SearchContactComposite(email, phoneNumber)
+	span := tracer.StartSpan("SearchContactComposite")
+	defer span.Finish()
+	return s.SfcClient.SearchContactComposite(span, email, phoneNumber)
 }

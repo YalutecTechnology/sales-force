@@ -4,6 +4,8 @@ package services
 
 import (
 	mock "github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
+
 	//http "net/http"
 
 	chat "yalochat.com/salesforce-integration/base/clients/chat"
@@ -32,20 +34,20 @@ func (_m *SfcChatInterface) ChatEnd(affinityToken string, sessionKey string) err
 	return r0
 }
 
-// CreateChat provides a mock function with given fields: _a0, _a1, _a2
-func (_m *SfcChatInterface) CreateChat(_a0 string, _a1 string, _a2 chat.ChatRequest) (bool, error) {
-	ret := _m.Called(_a0, _a1, _a2)
+// CreateChat provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *SfcChatInterface) CreateChat(_a0 ddtrace.Span, _a1 string, _a2 string, _a3 chat.ChatRequest) (bool, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(string, string, chat.ChatRequest) bool); ok {
-		r0 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string, chat.ChatRequest) bool); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, chat.ChatRequest) error); ok {
-		r1 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string, chat.ChatRequest) error); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -53,13 +55,13 @@ func (_m *SfcChatInterface) CreateChat(_a0 string, _a1 string, _a2 chat.ChatRequ
 	return r0, r1
 }
 
-// CreateSession provides a mock function with given fields:
-func (_m *SfcChatInterface) CreateSession() (*chat.SessionResponse, error) {
-	ret := _m.Called()
+// CreateSession provides a mock function with given fields: mainSpan
+func (_m *SfcChatInterface) CreateSession(mainSpan ddtrace.Span) (*chat.SessionResponse, error) {
+	ret := _m.Called(mainSpan)
 
 	var r0 *chat.SessionResponse
-	if rf, ok := ret.Get(0).(func() *chat.SessionResponse); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(ddtrace.Span) *chat.SessionResponse); ok {
+		r0 = rf(mainSpan)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*chat.SessionResponse)
@@ -67,8 +69,8 @@ func (_m *SfcChatInterface) CreateSession() (*chat.SessionResponse, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(ddtrace.Span) error); ok {
+		r1 = rf(mainSpan)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -76,13 +78,13 @@ func (_m *SfcChatInterface) CreateSession() (*chat.SessionResponse, error) {
 	return r0, r1
 }
 
-// GetMessages provides a mock function with given fields: affinityToken, sessionKey
-func (_m *SfcChatInterface) GetMessages(affinityToken string, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
-	ret := _m.Called(affinityToken, sessionKey)
+// GetMessages provides a mock function with given fields: mainSpan, affinityToken, sessionKey
+func (_m *SfcChatInterface) GetMessages(mainSpan ddtrace.Span, affinityToken string, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, affinityToken, sessionKey)
 
 	var r0 *chat.MessagesResponse
-	if rf, ok := ret.Get(0).(func(string, string) *chat.MessagesResponse); ok {
-		r0 = rf(affinityToken, sessionKey)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string) *chat.MessagesResponse); ok {
+		r0 = rf(mainSpan, affinityToken, sessionKey)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*chat.MessagesResponse)
@@ -90,8 +92,8 @@ func (_m *SfcChatInterface) GetMessages(affinityToken string, sessionKey string)
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(string, string) *helpers.ErrorResponse); ok {
-		r1 = rf(affinityToken, sessionKey)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, affinityToken, sessionKey)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -124,20 +126,20 @@ func (_m *SfcChatInterface) ReconnectSession(affinityToken string, sessionKey st
 	return r0, r1
 }
 
-// SendMessage provides a mock function with given fields: _a0, _a1, _a2
-func (_m *SfcChatInterface) SendMessage(_a0 string, _a1 string, _a2 chat.MessagePayload) (bool, error) {
-	ret := _m.Called(_a0, _a1, _a2)
+// SendMessage provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *SfcChatInterface) SendMessage(_a0 ddtrace.Span, _a1 string, _a2 string, _a3 chat.MessagePayload) (bool, error) {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(string, string, chat.MessagePayload) bool); ok {
-		r0 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string, chat.MessagePayload) bool); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, chat.MessagePayload) error); ok {
-		r1 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string, chat.MessagePayload) error); ok {
+		r1 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -155,20 +157,20 @@ type SaleforceInterface struct {
 	mock.Mock
 }
 
-// Composite provides a mock function with given fields: compositeRequest
-func (_m *SaleforceInterface) Composite(compositeRequest salesforce.CompositeRequest) (salesforce.CompositeResponses, *helpers.ErrorResponse) {
-	ret := _m.Called(compositeRequest)
+// Composite provides a mock function with given fields: mainSpan, compositeRequest
+func (_m *SaleforceInterface) Composite(mainSpan ddtrace.Span, compositeRequest salesforce.CompositeRequest) (salesforce.CompositeResponses, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, compositeRequest)
 
 	var r0 salesforce.CompositeResponses
-	if rf, ok := ret.Get(0).(func(salesforce.CompositeRequest) salesforce.CompositeResponses); ok {
-		r0 = rf(compositeRequest)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, salesforce.CompositeRequest) salesforce.CompositeResponses); ok {
+		r0 = rf(mainSpan, compositeRequest)
 	} else {
 		r0 = ret.Get(0).(salesforce.CompositeResponses)
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(salesforce.CompositeRequest) *helpers.ErrorResponse); ok {
-		r1 = rf(compositeRequest)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, salesforce.CompositeRequest) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, compositeRequest)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -201,13 +203,13 @@ func (_m *SaleforceInterface) CreateAccount(payload salesforce.AccountRequest) (
 	return r0, r1
 }
 
-// CreateAccountComposite provides a mock function with given fields: payload
-func (_m *SaleforceInterface) CreateAccountComposite(payload salesforce.AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
-	ret := _m.Called(payload)
+// CreateAccountComposite provides a mock function with given fields: mainSpan, payload
+func (_m *SaleforceInterface) CreateAccountComposite(mainSpan ddtrace.Span, payload salesforce.AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, payload)
 
 	var r0 *models.SfcAccount
-	if rf, ok := ret.Get(0).(func(salesforce.AccountRequest) *models.SfcAccount); ok {
-		r0 = rf(payload)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, salesforce.AccountRequest) *models.SfcAccount); ok {
+		r0 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcAccount)
@@ -215,8 +217,8 @@ func (_m *SaleforceInterface) CreateAccountComposite(payload salesforce.AccountR
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(salesforce.AccountRequest) *helpers.ErrorResponse); ok {
-		r1 = rf(payload)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, salesforce.AccountRequest) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -226,20 +228,20 @@ func (_m *SaleforceInterface) CreateAccountComposite(payload salesforce.AccountR
 	return r0, r1
 }
 
-// CreateCase provides a mock function with given fields: payload
-func (_m *SaleforceInterface) CreateCase(payload interface{}) (string, *helpers.ErrorResponse) {
-	ret := _m.Called(payload)
+// CreateCase provides a mock function with given fields: mainSpan, payload
+func (_m *SaleforceInterface) CreateCase(mainSpan ddtrace.Span, payload interface{}) (string, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, payload)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(interface{}) string); ok {
-		r0 = rf(payload)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, interface{}) string); ok {
+		r0 = rf(mainSpan, payload)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(interface{}) *helpers.ErrorResponse); ok {
-		r1 = rf(payload)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, interface{}) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -249,20 +251,20 @@ func (_m *SaleforceInterface) CreateCase(payload interface{}) (string, *helpers.
 	return r0, r1
 }
 
-// CreateContact provides a mock function with given fields: payload
-func (_m *SaleforceInterface) CreateContact(payload interface{}) (string, *helpers.ErrorResponse) {
-	ret := _m.Called(payload)
+// CreateContact provides a mock function with given fields: mainSpan, payload
+func (_m *SaleforceInterface) CreateContact(mainSpan ddtrace.Span, payload interface{}) (string, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, payload)
 
 	var r0 string
-	if rf, ok := ret.Get(0).(func(interface{}) string); ok {
-		r0 = rf(payload)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, interface{}) string); ok {
+		r0 = rf(mainSpan, payload)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(interface{}) *helpers.ErrorResponse); ok {
-		r1 = rf(payload)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, interface{}) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)
@@ -431,13 +433,13 @@ func (_m *SaleforceInterface) SearchContact(_a0 string) (*models.SfcContact, *he
 	return r0, r1
 }
 
-// SearchContactComposite provides a mock function with given fields: email, phoneNumber
-func (_m *SaleforceInterface) SearchContactComposite(email string, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
-	ret := _m.Called(email, phoneNumber)
+// SearchContactComposite provides a mock function with given fields: mainSpan, email, phoneNumber
+func (_m *SaleforceInterface) SearchContactComposite(mainSpan ddtrace.Span, email string, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, email, phoneNumber)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(string, string) *models.SfcContact); ok {
-		r0 = rf(email, phoneNumber)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string) *models.SfcContact); ok {
+		r0 = rf(mainSpan, email, phoneNumber)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -445,8 +447,8 @@ func (_m *SaleforceInterface) SearchContactComposite(email string, phoneNumber s
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(string, string) *helpers.ErrorResponse); ok {
-		r1 = rf(email, phoneNumber)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, email, phoneNumber)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)

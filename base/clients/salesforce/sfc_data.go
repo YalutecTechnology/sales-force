@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -132,7 +135,7 @@ type CompositeRequest struct {
 	CompositeRequest   []Composite `json:"compositeRequest" validate:"required"`
 }
 
-//CompositeRequest struct to request compose
+//Composite struct to request compose
 type Composite struct {
 	Method      string      `json:"method" validate:"required"`
 	URL         string      `json:"url" validate:"required"`
@@ -156,20 +159,20 @@ type HTTPHeaders struct {
 
 //SaleforceInterface handles all Saleforce's methods
 type SaleforceInterface interface {
-	CreateCase(payload interface{}) (string, *helpers.ErrorResponse)
+	CreateCase(mainSpan tracer.Span, payload interface{}) (string, *helpers.ErrorResponse)
 	Search(string) (*SearchResponse, *helpers.ErrorResponse)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, *helpers.ErrorResponse)
-	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
+	SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
 	SearchAccount(string) (*models.SfcAccount, *helpers.ErrorResponse)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
 	SearchDocumentID(string) (string, error)
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
-	CreateContact(payload interface{}) (string, *helpers.ErrorResponse)
+	CreateContact(mainSpan tracer.Span, payload interface{}) (string, *helpers.ErrorResponse)
 	CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse)
-	CreateAccountComposite(payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse)
-	Composite(compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse)
+	CreateAccountComposite(mainSpan tracer.Span, payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse)
+	Composite(mainSpan tracer.Span, compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse)
 	GetContentVersionURL() string
 	GetSearchURL(query string) string
 	GetDocumentLinkURL() string
@@ -178,12 +181,20 @@ type SaleforceInterface interface {
 
 //CreateContentVersion creates a new content version for a file
 func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVersionPayload) (string, error) {
+	// datadog tracing
+	span := tracer.StartSpan("create_content_version")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", contentVersionPayload))
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/sobjects/ContentVersion", cc.APIVersion)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	//validating ContentVersionPayload struct
 	if err := helpers.Govalidator().Struct(contentVersionPayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return "", errors.New(errorMessage)
 	}
 
@@ -197,14 +208,15 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/ContentVersion", cc.APIVersion),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -215,14 +227,17 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 		if readAndUnmarshalError != nil {
 			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
+			span.SetTag(ext.Error, readAndUnmarshalError)
 			return "", errors.New(errorMessage)
 		}
 
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s-[%d] : %#v", constants.StatusError, proxiedResponse.StatusCode, responseMap)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
-		return "", errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return "", err
 	}
 
 	var response SalesforceResponse
@@ -231,6 +246,7 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -243,13 +259,21 @@ func (cc *SalesforceClient) CreateContentVersion(contentVersionPayload ContentVe
 
 //Search for entities in salesforce
 func (cc *SalesforceClient) Search(query string) (*SearchResponse, *helpers.ErrorResponse) {
+	// datadog tracing
+	span := tracer.StartSpan("search")
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, query)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	//validating query param
 	if query == "" || len(query) < 1 {
 		errorMessage = fmt.Sprintf("%s : %s", constants.QueryParamError, helpers.MissingQueryParam)
 		logrus.Error(errorMessage)
-		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
+		errorResponse := &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
+		span.SetTag(ext.Error, errorResponse.Error)
+		return nil, errorResponse
 	}
 
 	header := make(map[string]string)
@@ -258,11 +282,11 @@ func (cc *SalesforceClient) Search(query string) (*SearchResponse, *helpers.Erro
 
 	newRequest := proxy.Request{
 		Method:    http.MethodGet,
-		URI:       fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, query),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
@@ -323,7 +347,7 @@ func (cc *SalesforceClient) SearchDocumentID(query string) (string, error) {
 	return response.Records[0].ContentDocumentID, nil
 }
 
-//Search the entity's identifier from Salesforce
+//SearchID the entity's identifier from Salesforce
 func (cc *SalesforceClient) SearchID(query string) (string, error) {
 	response, err := cc.Search(query)
 
@@ -373,7 +397,12 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 	return &contact, nil
 }
 
-func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("SearchContactComposite", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
 	blockedChat := ""
 	if cc.SfcBlockedChatField {
 		blockedChat = blockedChatYaloField
@@ -396,8 +425,9 @@ func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*
 		})
 	}
 
-	compositeResponses, err := cc.Composite(request)
+	compositeResponses, err := cc.Composite(span, request)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return nil, err
 	}
 
@@ -426,7 +456,9 @@ func (cc *SalesforceClient) SearchContactComposite(email, phoneNumber string) (*
 	if contact.ID == "" {
 		errorMessage := fmt.Sprintf("%s : %s", "contact not found", helpers.EmptyResponse)
 		logrus.Error(errorMessage)
-		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+		errorResponse := &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+		span.SetTag(ext.Error, errorResponse.Error)
+		return nil, errorResponse
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -467,6 +499,13 @@ func (cc *SalesforceClient) SearchAccount(query string) (*models.SfcAccount, *he
 
 //LinkDocumentToCase associates the file added with an valid case
 func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentPayload) (string, error) {
+	// datadog tracing
+	span := tracer.StartSpan("link_document_to_case")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(ext.Error, linkDocumentPayload)
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -477,6 +516,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 	if err := helpers.Govalidator().Struct(linkDocumentPayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return "", errors.New(errorMessage)
 	}
 
@@ -490,14 +530,15 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -508,6 +549,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 		if readAndUnmarshalError != nil {
 			errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 			logrus.Error(errorMessage)
+			span.SetTag(ext.Error, readAndUnmarshalError)
 			return "", errors.New(errorMessage)
 		}
 
@@ -515,6 +557,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
+		span.SetTag(ext.Error, errors.New(fmt.Sprintf("[%d] - %#v", proxiedResponse.StatusCode, responseMap)))
 		return "", errors.New(errorMessage)
 	}
 
@@ -524,6 +567,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", errors.New(errorMessage)
 	}
 
@@ -535,7 +579,13 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 }
 
 //CreateCase Create case for Salesforce Requests
-func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) CreateCase(mainSpan tracer.Span, payload interface{}) (string, *helpers.ErrorResponse) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("create_case", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("payload", payload)
+	defer span.Finish()
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -556,16 +606,20 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Case", cc.APIVersion),
 		HeaderMap: header,
 	}
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		errorResponse := helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, errorResponse.Error)
+		return "", errorResponse
 	}
 
 	var response SalesforceResponse
@@ -573,8 +627,8 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusCreated}
-
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -585,7 +639,15 @@ func (cc *SalesforceClient) CreateCase(payload interface{}) (string, *helpers.Er
 }
 
 //CreateContact Create contact for Salesforce Requests
-func (cc *SalesforceClient) CreateContact(payload interface{}) (string, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) CreateContact(mainSpan tracer.Span, payload interface{}) (string, *helpers.ErrorResponse) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("create_contact", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", payload))
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/sobjects/Contact", cc.APIVersion)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -602,19 +664,22 @@ func (cc *SalesforceClient) CreateContact(payload interface{}) (string, *helpers
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Contact", cc.APIVersion),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.GetErrorResponse(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		errorResponse := helpers.GetErrorResponse(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, errorResponse.Error)
+		return "", errorResponse
 	}
 
 	var response SalesforceResponse
@@ -622,6 +687,7 @@ func (cc *SalesforceClient) CreateContact(payload interface{}) (string, *helpers
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
 
 	}
@@ -635,6 +701,13 @@ func (cc *SalesforceClient) CreateContact(payload interface{}) (string, *helpers
 
 //CreateAccount Create account for Salesforce Requests
 func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse) {
+	// datadog tracing
+	span := tracer.StartSpan("create_account")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", payload))
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/sobjects/Account", cc.APIVersion)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -645,6 +718,7 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	if err := helpers.Govalidator().Struct(payload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
 	}
 
@@ -658,19 +732,22 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/sobjects/Account", cc.APIVersion),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: 0}
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return "", helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		errorResponse := helpers.GetErrorResponseArrayMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, errorResponse.Error)
+		return "", errorResponse
 	}
 
 	var response SalesforceResponse
@@ -678,6 +755,7 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return "", &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: proxiedResponse.StatusCode}
 	}
 
@@ -688,7 +766,11 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	return response.ID, nil
 }
 
-func (cc *SalesforceClient) CreateAccountComposite(payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) CreateAccountComposite(mainSpan tracer.Span, payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("CreateAccountComposite", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
 	request := CompositeRequest{
 		CompositeRequest: []Composite{
 			{
@@ -705,8 +787,9 @@ func (cc *SalesforceClient) CreateAccountComposite(payload AccountRequest) (*mod
 		},
 	}
 
-	compositeResponses, err := cc.Composite(request)
+	compositeResponses, err := cc.Composite(span, request)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return nil, err
 	}
 
@@ -718,7 +801,9 @@ func (cc *SalesforceClient) CreateAccountComposite(payload AccountRequest) (*mod
 	if response.TotalSize == 0 {
 		errorMessage := fmt.Sprintf("%s : %s", "account not found", helpers.EmptyResponse)
 		logrus.Error(errorMessage)
-		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+		errorResponse := &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
+		span.SetTag(ext.Error, errorResponse.Error)
+		return nil, errorResponse
 	}
 
 	personAccount := models.SfcAccount{
@@ -738,13 +823,22 @@ func (cc *SalesforceClient) CreateAccountComposite(payload AccountRequest) (*mod
 }
 
 //Composite create a composite request
-func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) Composite(mainSpan tracer.Span, compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("composite", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", compositeRequest))
+	defer span.Finish()
+	uri := fmt.Sprintf("/services/data/v%s.0/composite", cc.APIVersion)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
 	var errorMessage string
 
 	//validating CompositeRequest struct
 	if err := helpers.Govalidator().Struct(compositeRequest); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return CompositeResponses{}, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusBadRequest}
 	}
 
@@ -758,14 +852,15 @@ func (cc *SalesforceClient) Composite(compositeRequest CompositeRequest) (Compos
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/services/data/v%s.0/composite", cc.APIVersion),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return CompositeResponses{}, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
 	}
 
@@ -795,6 +890,7 @@ func (cc *SalesforceClient) GetContentVersionURL() string {
 func (cc *SalesforceClient) GetSearchURL(query string) string {
 	return fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, query)
 }
+
 func (cc *SalesforceClient) GetDocumentLinkURL() string {
 	return fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion)
 }

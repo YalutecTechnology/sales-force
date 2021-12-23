@@ -1,7 +1,11 @@
 package proxy
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"net/http"
 	"strings"
@@ -19,10 +23,32 @@ func TestForward(t *testing.T) {
 			URI:    "/search?q=hola",
 		}
 
-		_, error := proxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, error := proxyInstance.SendHTTPRequest(span, request)
 
 		if error != nil {
 			t.Errorf("It should finish with success")
+		}
+	})
+
+	t.Run("Valid forward with status 404", func(t *testing.T) {
+		request := &Request{
+			Body:   []byte(""),
+			Method: "GET",
+			URI:    "https://api.twitter.com/2/users/by/username/lalo8a",
+		}
+
+		expectedLog := "Response with status 404"
+		span, _ := tracer.SpanFromContext(context.Background())
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		_, error := proxyInstance.SendHTTPRequest(span, request)
+		if error != nil {
+			t.Errorf("It should finish with success")
+		}
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
 	})
 
@@ -36,7 +62,8 @@ func TestForward(t *testing.T) {
 			URI:    "/",
 		}
 
-		_, err := proxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, err := proxyInstance.SendHTTPRequest(span, request)
 
 		if err == nil {
 			t.Errorf("It should finish with error")
@@ -60,7 +87,8 @@ func TestForward(t *testing.T) {
 			HeaderMap: requestHeader,
 		}
 
-		_, error := proxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, error := proxyInstance.SendHTTPRequest(span, request)
 
 		if error != nil {
 			t.Errorf("It should finish with success")
@@ -72,7 +100,8 @@ func TestForward(t *testing.T) {
 			Body: []byte("Hola"),
 		}
 
-		_, err := proxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, err := proxyInstance.SendHTTPRequest(span, request)
 
 		if err == nil {
 			t.Errorf("It should finish with error")
@@ -88,7 +117,8 @@ func TestForward(t *testing.T) {
 			URI:    "/search?q=hola",
 		}
 
-		_, error := emptyProxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, error := emptyProxyInstance.SendHTTPRequest(span, request)
 
 		if error == nil {
 			t.Errorf("It should finish with error")
@@ -107,7 +137,8 @@ func TestForward(t *testing.T) {
 			URI:    "/-",
 		}
 
-		_, err := proxyInstance.SendHTTPRequest(request)
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, err := proxyInstance.SendHTTPRequest(span, request)
 
 		if err == nil {
 			t.Errorf("It should finish with error")

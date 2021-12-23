@@ -2,7 +2,9 @@ package salesforce
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -18,11 +20,11 @@ const (
 )
 
 var (
-	name         string = "name"
-	phoneNumber  string = "111111"
-	email        string = "email@example"
-	recordTypeID string = "reccordTypeId"
-	dateBirth    string = "2021-10-05T08:12:00"
+	name         = "name"
+	phoneNumber  = "111111"
+	email        = "email@example"
+	recordTypeID = "reccordTypeId"
+	dateBirth    = "2021-10-05T08:12:00"
 )
 
 func TestSfcData_CreateContentVersion(t *testing.T) {
@@ -85,13 +87,35 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 		assert.Empty(t, id)
 	})
 
-	t.Run("Create ContentVersion error status", func(t *testing.T) {
+	t.Run("Create ContentVersion error status and unmarshallError", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		payload := ContentVersionPayload{
+			Title:           "test image",
+			Description:     "A new image",
+			ContentLocation: "S",
+			PathOnClient:    "screnshoot.jpg",
+			VersionData:     "dfhgadfhadf23rubb23",
+		}
+		id, err := salesforceClient.CreateContentVersion(payload)
+
+		assert.Error(t, err)
+		assert.Equal(t, "Error unmarshalling the response from salesForce : json: cannot unmarshal object into Go value of type []map[string]interface {}", err.Error())
+		assert.Empty(t, id)
+	})
+
+	t.Run("Create ContentVersion error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
 		}, nil)
 		payload := ContentVersionPayload{
 			Title:           "test image",
@@ -239,13 +263,26 @@ func TestSfcData_Search(t *testing.T) {
 		assert.Empty(t, id)
 	})
 
-	t.Run("SearchDocumentID error status", func(t *testing.T) {
+	t.Run("SearchDocumentID error status whit unmasrhall error", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+		}, nil)
+		id, err := salesforceClient.Search("query")
+		assert.Error(t, err.Error)
+		assert.Empty(t, id)
+	})
+
+	t.Run("SearchDocumentID error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := NewSalesforceRequester("test", token)
+		salesforceClient.Proxy = mock
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
 		}, nil)
 		id, err := salesforceClient.Search("query")
 		assert.Error(t, err.Error)
@@ -612,7 +649,8 @@ func TestSfcData_CreateCase(t *testing.T) {
 			IsEscalated: false,
 			Description: "context",
 		}
-		id, err := salesforceClient.CreateCase(payload)
+		span, _ := tracer.SpanFromContext(context.Background())
+		id, err := salesforceClient.CreateCase(span, payload)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -635,7 +673,8 @@ func TestSfcData_CreateCase(t *testing.T) {
 			IsEscalated: false,
 			Description: "context",
 		}
-		id, err := salesforceClient.CreateCase(payload)
+		span, _ := tracer.SpanFromContext(context.Background())
+		id, err := salesforceClient.CreateCase(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
@@ -658,7 +697,8 @@ func TestSfcData_CreateCase(t *testing.T) {
 			IsEscalated: false,
 			Description: "context",
 		}
-		id, err := salesforceClient.CreateCase(payload)
+		span, _ := tracer.SpanFromContext(context.Background())
+		id, err := salesforceClient.CreateCase(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
@@ -681,7 +721,8 @@ func TestSfcData_CreateCase(t *testing.T) {
 			IsEscalated: false,
 			Description: "context",
 		}
-		id, err := salesforceClient.CreateCase(payload)
+		span, _ := tracer.SpanFromContext(context.Background())
+		id, err := salesforceClient.CreateCase(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
@@ -689,6 +730,7 @@ func TestSfcData_CreateCase(t *testing.T) {
 }
 
 func TestSfcData_CreateContact(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
 
 	t.Run("Create contact Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
@@ -704,7 +746,7 @@ func TestSfcData_CreateContact(t *testing.T) {
 			MobilePhone: "11111111111",
 			Email:       "test@mail.com",
 		}
-		id, err := salesforceClient.CreateContact(payload)
+		id, err := salesforceClient.CreateContact(span, payload)
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -724,7 +766,7 @@ func TestSfcData_CreateContact(t *testing.T) {
 			MobilePhone: "11111111111",
 			Email:       "test@mail.com",
 		}
-		id, err := salesforceClient.CreateContact(payload)
+		id, err := salesforceClient.CreateContact(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
@@ -744,7 +786,7 @@ func TestSfcData_CreateContact(t *testing.T) {
 			MobilePhone: "11111111111",
 			Email:       "test@mail.com",
 		}
-		id, err := salesforceClient.CreateContact(payload)
+		id, err := salesforceClient.CreateContact(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.EqualError(t, err.Error, `Error unmarshalling the response from salesForce : invalid character 'e' looking for beginning of value`)
@@ -765,7 +807,7 @@ func TestSfcData_CreateContact(t *testing.T) {
 			MobilePhone: "11111111111",
 			Email:       "test@mail.com",
 		}
-		id, err := salesforceClient.CreateContact(payload)
+		id, err := salesforceClient.CreateContact(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
@@ -818,8 +860,11 @@ func TestSfcData_CreateAccount(t *testing.T) {
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
 		payload := AccountRequest{
-			Name:  &name,
-			Phone: &phoneNumber,
+			FirstName:       &name,
+			PersonEmail:     &name,
+			LastName:        &phoneNumber,
+			RecordTypeID:    &recordTypeID,
+			PersonBirthDate: &dateBirth,
 		}
 		id, err := salesforceClient.CreateAccount(payload)
 
@@ -836,18 +881,22 @@ func TestSfcData_CreateAccount(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
 		payload := AccountRequest{
-			Name:  &name,
-			Phone: &phoneNumber,
+			FirstName:       &name,
+			PersonEmail:     &name,
+			LastName:        &phoneNumber,
+			RecordTypeID:    &recordTypeID,
+			PersonBirthDate: &dateBirth,
 		}
 		id, err := salesforceClient.CreateAccount(payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
 	})
+
 }
 
 func TestSfcData_Composite(t *testing.T) {
-
+	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Create Composite Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
@@ -889,7 +938,7 @@ func TestSfcData_Composite(t *testing.T) {
 				},
 			},
 		}
-		response, errResponse := salesforceClient.Composite(payload)
+		response, errResponse := salesforceClient.Composite(span, payload)
 
 		assert.Nil(t, errResponse)
 		assert.Equal(t, expected, response)
@@ -904,7 +953,7 @@ func TestSfcData_Composite(t *testing.T) {
 			AllOrNone:          true,
 			CollateSubrequests: true,
 		}
-		response, err := salesforceClient.Composite(payload)
+		response, err := salesforceClient.Composite(span, payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, response)
@@ -947,7 +996,7 @@ func TestSfcData_Composite(t *testing.T) {
 				},
 			},
 		}
-		response, errResponse := salesforceClient.Composite(payload)
+		response, errResponse := salesforceClient.Composite(span, payload)
 
 		assert.Error(t, errResponse.Error)
 		assert.Empty(t, response)
@@ -966,7 +1015,7 @@ func TestSfcData_UpdateToken(t *testing.T) {
 }
 
 func TestSfcData_SearchContactComposite(t *testing.T) {
-
+	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("SearchContactComposite Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
@@ -1016,7 +1065,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 			Blocked:     true,
 		}
 
-		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
 
 		assert.Nil(t, errResponse)
 		assert.Equal(t, contactExpected, contact)
@@ -1038,7 +1087,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil)
 
-		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
 
 		assert.NotNil(t, errResponse)
 		assert.Empty(t, contact)
@@ -1060,7 +1109,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil)
 
-		contact, errResponse := salesforceClient.SearchContactComposite(email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
 
 		assert.NotNil(t, errResponse)
 		assert.Empty(t, contact)
@@ -1068,6 +1117,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 }
 
 func TestSfcData_CreateAccountComposite(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Create account Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
@@ -1125,7 +1175,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 			PersonMobilePhone: phoneNumber,
 			PersonContactId:   "contactID",
 		}
-		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		contact, errResponse := salesforceClient.CreateAccountComposite(span, payload)
 		assert.Nil(t, errResponse)
 		assert.Equal(t, contactExpected, contact)
 	})
@@ -1170,7 +1220,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 			PersonBirthDate:   &dateBirth,
 		}
 
-		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		contact, errResponse := salesforceClient.CreateAccountComposite(span, payload)
 		assert.Error(t, errResponse.Error)
 		assert.Empty(t, contact)
 	})
@@ -1215,7 +1265,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 			PersonBirthDate:   &dateBirth,
 		}
 
-		contact, errResponse := salesforceClient.CreateAccountComposite(payload)
+		contact, errResponse := salesforceClient.CreateAccountComposite(span, payload)
 		assert.Error(t, errResponse.Error)
 		assert.Empty(t, contact)
 	})

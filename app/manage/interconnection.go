@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"errors"
 	"fmt"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -100,6 +101,7 @@ func NewSfMessage(mainSpan tracer.Span, affinityToken, key, text, userID string)
 func (in *Interconnection) handleLongPolling() {
 	// datadog tracing
 	mainSpan := tracer.StartSpan("interconnection.handleLongPolling")
+	mainSpan.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", "GET", "/chat/rest/System/Messages"))
 	mainSpan.SetTag(ext.AnalyticsEvent, true)
 	mainSpan.SetTag(events.Interconnection, fmt.Sprintf("%#v", in))
 	mainSpan.SetTag(events.UserID, in.UserID)
@@ -116,7 +118,7 @@ func (in *Interconnection) handleLongPolling() {
 	logrus.WithFields(logFields).Info("Starting long polling service from salesforce")
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
-		response, errorResponse := in.SalesforceService.GetMessages(in.AffinityToken, in.SessionKey)
+		response, errorResponse := in.SalesforceService.GetMessages(mainSpan, in.AffinityToken, in.SessionKey)
 
 		if errorResponse != nil {
 			switch errorResponse.StatusCode {
@@ -174,32 +176,29 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 	defer span.Finish()
 
 	logFields := logrus.Fields{
-		constants.TraceIdKey: mainSpan.Context().TraceID(),
-		constants.SpanIdKey:  mainSpan.Context().SpanID(),
+		constants.TraceIdKey: span.Context().TraceID(),
+		constants.SpanIdKey:  span.Context().SpanID(),
 		events.UserID:        in.UserID,
 	}
 
 	switch event.Type {
 	case chat.ChatRequestFail:
 		logrus.WithFields(logFields).Infof("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)
+		mainSpan.SetTag(ext.Error, errors.New(fmt.Sprintf("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)))
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
 		in.Status = Failed
-		mainSpan.SetTag("chatFailed", true)
-		mainSpan.SetTag("reason", event.Message.Reason)
 	case chat.ChatRequestSuccess:
 		logrus.WithFields(logFields).Infof("Event [%s]", chat.ChatRequestSuccess)
-		mainSpan.SetTag("chatSuccess", true)
 		if Messages.WaitAgent != "" {
-			in.integrationsChannel <- NewIntegrationsMessage(mainSpan, in.UserID, Messages.WaitAgent, in.Provider)
+			in.integrationsChannel <- NewIntegrationsMessage(span, in.UserID, Messages.WaitAgent, in.Provider)
 		}
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %v", Messages.QueuePosition, event.Message.QueuePosition), in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
 	case chat.ChatEstablished:
-		mainSpan.SetTag("chatEstablished", true)
 		logrus.WithFields(logFields).Infof("Event [%s]", event.Type)
-		in.ActiveChat(mainSpan)
+		in.ActiveChat(span)
 	case chat.ChatMessage:
 		logrus.WithFields(logFields).Infof("Message from salesforce : %s", event.Message.Text)
 		in.integrationsChannel <- NewIntegrationsMessage(mainSpan, in.UserID, event.Message.Text, in.Provider)
@@ -210,7 +209,6 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 			in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
 		}*/
 	case chat.ChatEnded:
-		mainSpan.SetTag("chatFinish", true)
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState[string(in.Provider)], in.BotrunnnerClient, 0, 0, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Closed))
 		in.runnigLongPolling = false
@@ -294,7 +292,7 @@ func (in *Interconnection) sendMessageToSalesforce(message *Message) {
 	span.SetTag(events.UserID, message.UserID)
 	span.SetTag(events.SendMessage, false)
 	defer span.Finish()
-	_, err := in.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+	_, err := in.SalesforceService.SendMessage(span, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 	if err != nil {
 		span.SetTag(ext.Error, err)
 		logrus.WithField(events.UserID, message.UserID).Error(helpers.ErrorMessage("Error sendMessage", err))

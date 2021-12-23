@@ -29,7 +29,8 @@ type ChatPayload struct {
 // Connect and create chat between user and salesforce
 func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	// datadog tracing
-	span, _ := tracer.StartSpanFromContext(r.Context(), "chats.connect")
+	span, _ := tracer.SpanFromContext(r.Context())
+	span.SetOperationName("create_chat")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
 	defer span.Finish()
@@ -48,6 +49,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		errorMessage = helpers.ErrorMessage(helpers.InvalidPayload, err)
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		logrus.Error(errorMessage)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
@@ -61,6 +63,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
 		logrus.WithFields(logFields).Error(errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusBadRequest)
 		helpers.WriteFailedResponse(w, http.StatusBadRequest, errorMessage)
 		return
 	}
@@ -84,10 +87,11 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		span.SetTag(ext.Error, err)
 		span.SetTag(ext.ErrorDetails, errorMessage)
 		logrus.WithFields(logFields).Error(errorMessage)
-		helpers.WriteFailedResponse(w, http.StatusNotFound, errorMessage)
+		span.SetTag(ext.HTTPCode, http.StatusInternalServerError)
+		helpers.WriteFailedResponse(w, http.StatusInternalServerError, errorMessage)
 		return
 	}
-
+	span.SetTag(ext.HTTPCode, http.StatusOK)
 	helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "Chat created succefully"})
 }
 

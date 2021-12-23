@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
 	"reflect"
 	"testing"
@@ -15,7 +17,8 @@ func TestMock(t *testing.T) {
 		mock.On("SendHTTPRequest").Return(expected, nil)
 		proxy = mock
 
-		response, err := proxy.SendHTTPRequest(&Request{})
+		span, _ := tracer.SpanFromContext(context.Background())
+		response, err := proxy.SendHTTPRequest(span, &Request{})
 
 		if err != nil {
 			t.Fatalf("expected nil error but got %v", err)
@@ -31,7 +34,8 @@ func TestMock(t *testing.T) {
 		mock.On("SendHTTPRequest").Return(&http.Response{}, expected)
 		proxy = mock
 
-		_, err := proxy.SendHTTPRequest(&Request{})
+		span, _ := tracer.SpanFromContext(context.Background())
+		_, err := proxy.SendHTTPRequest(span, &Request{})
 
 		if expected != err {
 			t.Fatalf("expected %v but got %v", expected, err)

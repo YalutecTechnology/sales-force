@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -133,10 +136,10 @@ type GeoLocation struct {
 }
 
 type SfcChatInterface interface {
-	CreateSession() (*SessionResponse, error)
-	CreateChat(string, string, ChatRequest) (bool, error)
-	GetMessages(affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse)
-	SendMessage(string, string, MessagePayload) (bool, error)
+	CreateSession(mainSpan tracer.Span) (*SessionResponse, error)
+	CreateChat(tracer.Span, string, string, ChatRequest) (bool, error)
+	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse)
+	SendMessage(tracer.Span, string, string, MessagePayload) (bool, error)
 	ChatEnd(affinityToken, sessionKey string) error
 	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
 	UpdateToken(accessToken string)
@@ -159,9 +162,14 @@ func NewChatRequest(organizationID, deployementID, sessionID, ButtonID, userName
 	}
 }
 
-//To create a new Live Agent session, you must call the SessionId request.
+//CreateSession To create a new Live Agent session, you must call the SessionId request.
 //SessionId : Establishes a new Live Agent session. The SessionId request is required as the first request to create every new Live Agent session.
-func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
+func (c *SfcChatClient) CreateSession(mainSpan tracer.Span) (*SessionResponse, error) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("create_session", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
 	var errorMessage string
 
 	//building request to send through proxy
@@ -174,11 +182,13 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 		URI:       "/chat/rest/System/SessionId",
 		HeaderMap: header,
 	}
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -188,7 +198,9 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 		bodyResponse := buf.String()
 		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return nil, err
 	}
 
 	var session SessionResponse
@@ -197,6 +209,7 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -207,9 +220,16 @@ func (c *SfcChatClient) CreateSession() (*SessionResponse, error) {
 	return &session, nil
 }
 
-// We’ll send a chat request. To make sure this works, you should log in as a Live Agent user and make yourself available.
+//CreateChat We’ll send a chat request. To make sure this works, you should log in as a Live Agent user and make yourself available.
 //Initiates a new chat visitor session. The ChasitorInit request is always required as the first POST request in a new chat session.
-func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request ChatRequest) (bool, error) {
+func (c *SfcChatClient) CreateChat(mainSpan tracer.Span, affinityToken, sessionKey string, request ChatRequest) (bool, error) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("create_chat", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", request))
+	defer span.Finish()
+
 	var errorMessage string
 	// This log should hide the secrets before sending to production
 	logrus.WithFields(logrus.Fields{
@@ -220,6 +240,7 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 	if err := helpers.Govalidator().Struct(request); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return false, errors.New(errorMessage)
 	}
 
@@ -232,11 +253,13 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 		http.MethodPost,
 		"/chat/rest/Chasitor/ChasitorInit",
 		requestBytes)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return false, errors.New(errorMessage)
 	}
 
@@ -247,7 +270,9 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 	if proxiedResponse.StatusCode != http.StatusOK {
 		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
 		logrus.Error(errorMessage)
-		return false, errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	//check this one if this is a response success
@@ -257,8 +282,13 @@ func (c *SfcChatClient) CreateChat(affinityToken, sessionKey string, request Cha
 	return true, nil
 }
 
-// Get messages from chat of salesforce.
-func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse) {
+// GetMessages Get messages from chat of salesforce.
+func (c *SfcChatClient) GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("get_messages", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
 	var errorMessage string
 
 	newRequest := c.getRequest(
@@ -267,11 +297,13 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 		http.MethodGet,
 		"/chat/rest/System/Messages",
 		nil)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
 	}
 
@@ -281,6 +313,7 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 		bodyResponse := buf.String()
 		errorMessage = fmt.Sprintf("[%d] - %s : %s", proxiedResponse.StatusCode, constants.StatusError, bodyResponse)
 		if proxiedResponse.StatusCode != http.StatusNoContent {
+			span.SetTag(ext.Error, errors.New(errorMessage))
 			logrus.Error(errorMessage)
 		}
 
@@ -293,6 +326,7 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage)}
 	}
 
@@ -304,7 +338,17 @@ func (c *SfcChatClient) GetMessages(affinityToken, sessionKey string) (*Messages
 }
 
 // SendMessage to send messages to the live agent user.
-func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload MessagePayload) (bool, error) {
+func (c *SfcChatClient) SendMessage(mainSpan tracer.Span, affinityToken, sessionKey string, payload MessagePayload) (bool, error) {
+	// datadog tracing
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("send_message", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", payload))
+	defer span.Finish()
+
+	uri := "/chat/rest/Chasitor/ChatMessage"
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
+
 	var errorMessage string
 	// This log should hide the secrets before sending to production
 	logrus.WithFields(logrus.Fields{
@@ -315,6 +359,7 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 	if err := helpers.Govalidator().Struct(payload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return false, errors.New(errorMessage)
 	}
 
@@ -325,27 +370,31 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 		affinityToken,
 		sessionKey,
 		http.MethodPost,
-		"/chat/rest/Chasitor/ChatMessage",
+		uri,
 		requestBytes)
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return false, errors.New(errorMessage)
 	}
 
 	response, err := stringResponse(proxiedResponse.Body)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return false, err
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s-[%d]: %s", constants.StatusError, proxiedResponse.StatusCode, response)
 		logrus.WithFields(logrus.Fields{
 			"response": response,
 		}).Error(errorMessage)
-		return false, errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	//check this one if this is a response success
@@ -357,6 +406,11 @@ func (c *SfcChatClient) SendMessage(affinityToken, sessionKey string, payload Me
 
 //ReconnectSession Reconnet session to the live agent user.
 func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error) {
+	// datadog tracing
+	span := tracer.StartSpan("reconnect_session")
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
 	var errorMessage string
 	logrus.WithFields(logrus.Fields{
 		"offset": offset,
@@ -366,7 +420,9 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 	if offset == "" {
 		errorMessage = fmt.Sprintf("%s ", constants.QueryParamError)
 		logrus.Error(errorMessage)
-		return nil, errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return nil, err
 	}
 
 	newRequest := c.getRequest(
@@ -375,16 +431,20 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 		http.MethodPost,
 		fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
 		nil)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return nil, errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		err := helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, err)
+		return nil, err
 	}
 
 	var session MessagesResponse
@@ -392,6 +452,7 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -404,6 +465,10 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 
 //ChatEnd end chat of salesforce.
 func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
+	// datadog tracing
+	span := tracer.StartSpan("chat_end")
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
 	var errorMessage string
 
 	newRequest := c.getRequest(
@@ -412,16 +477,19 @@ func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
 		http.MethodPost,
 		"/chat/rest/Chasitor/ChatEnd",
 		[]byte(bodyReason))
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
-	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return errors.New(errorMessage)
 	}
 
 	response, err := stringResponse(proxiedResponse.Body)
 	if err != nil {
+		span.SetTag(ext.Error, err)
 		return err
 	}
 
@@ -430,7 +498,9 @@ func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
 		logrus.WithFields(logrus.Fields{
 			"response": response,
 		}).Error(errorMessage)
-		return errors.New(errorMessage)
+		err := errors.New(errorMessage)
+		span.SetTag(ext.Error, err)
+		return err
 	}
 
 	logrus.WithFields(logrus.Fields{

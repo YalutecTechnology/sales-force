@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -129,8 +132,17 @@ type Media struct {
 	Caption string `json:"caption"`
 }
 
-// Register Webhook listenner chat integration (healthcheck)
+// WebhookRegister Register Webhook listenner chat integration (healthcheck)
 func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayload) (*HealthcheckResponse, error) {
+	// datadog tracing
+	span := tracer.StartSpan("register_webhook")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", HealthcheckPayload))
+	defer span.Finish()
+	botID, channel, token := cc.getDataFromProvider(HealthcheckPayload.Provider)
+	uri := fmt.Sprintf("/api/%s/bots/%s/healthcheck", channel, botID)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
+
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -141,6 +153,7 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 	if err := helpers.Govalidator().Struct(HealthcheckPayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -149,26 +162,27 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-
-	botID, channel, token := cc.getDataFromProvider(HealthcheckPayload.Provider)
 	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/healthcheck", channel, botID),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return nil, errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated {
-		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		err := helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, err)
+		return nil, err
 	}
 
 	var response HealthcheckResponse
@@ -177,6 +191,7 @@ func (cc *IntegrationsClient) WebhookRegister(HealthcheckPayload HealthcheckPayl
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -199,8 +214,17 @@ func (cc *IntegrationsClient) getDataFromProvider(provider string) (string, stri
 	return botID, channel, token
 }
 
-// Remove webhook from bot
+// WebhookRemove Remove webhook from bot
 func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPayload) (bool, error) {
+	// datadog tracing
+	span := tracer.StartSpan("remove_webhook")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", removeWebhookPayload))
+	defer span.Finish()
+	botID, channel, token := cc.getDataFromProvider(removeWebhookPayload.Provider)
+	uri := fmt.Sprintf("/api/%s/bots/%s/remove", channel, botID)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
+
 	var errorMessage string
 
 	logrus.WithFields(logrus.Fields{
@@ -211,6 +235,7 @@ func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPa
 	if err := helpers.Govalidator().Struct(removeWebhookPayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return false, errors.New(errorMessage)
 	}
 
@@ -219,26 +244,27 @@ func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPa
 
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-
-	botID, channel, token := cc.getDataFromProvider(removeWebhookPayload.Provider)
 	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/remove", channel, botID),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return false, errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != http.StatusNoContent {
-		return false, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		err := helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, err)
+		return false, err
 	}
 
 	logrus.WithFields(logrus.Fields{
@@ -248,8 +274,17 @@ func (cc *IntegrationsClient) WebhookRemove(removeWebhookPayload RemoveWebhookPa
 	return true, nil
 }
 
-// Send message to bot (Text, Image, Audio, Video, Document)
+// SendMessage Send message to bot (Text, Image, Audio, Video, Document)
 func (cc *IntegrationsClient) SendMessage(messagePayload interface{}, provider string) (*SendMessageResponse, error) {
+	// datadog tracing
+	span := tracer.StartSpan("send_message")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Payload, fmt.Sprintf("%#v", messagePayload))
+	defer span.Finish()
+	botID, channel, token := cc.getDataFromProvider(provider)
+	uri := fmt.Sprintf("/api/%s/bots/%s/messages", channel, botID)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))
+
 	var errorMessage string
 
 	// If not have Id set a random id
@@ -267,6 +302,7 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}, provider s
 	if err := helpers.Govalidator().Struct(messagePayload); err != nil {
 		errorMessage = fmt.Sprintf("%s : %s", helpers.InvalidPayload, err.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, err)
 		return nil, errors.New(errorMessage)
 	}
 
@@ -274,26 +310,27 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}, provider s
 	requestBytes, _ := json.Marshal(messagePayload)
 	header := make(map[string]string)
 	header["Content-Type"] = "application/json"
-
-	botID, channel, token := cc.getDataFromProvider(provider)
 	header["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 	newRequest := proxy.Request{
 		Body:      requestBytes,
 		Method:    http.MethodPost,
-		URI:       fmt.Sprintf("/api/%s/bots/%s/messages", channel, botID),
+		URI:       uri,
 		HeaderMap: header,
 	}
 
-	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(&newRequest)
+	proxiedResponse, proxyError := cc.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.ForwardError, proxyError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, proxyError)
 		return nil, errors.New(errorMessage)
 	}
 
 	if proxiedResponse.StatusCode != http.StatusCreated && proxiedResponse.StatusCode != http.StatusOK {
-		return nil, helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		err := helpers.ErrorResponseMap(proxiedResponse.Body, constants.StatusError, proxiedResponse.StatusCode)
+		span.SetTag(ext.Error, err)
+		return nil, err
 	}
 
 	var response SendMessageResponse
@@ -302,6 +339,7 @@ func (cc *IntegrationsClient) SendMessage(messagePayload interface{}, provider s
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
+		span.SetTag(ext.Error, readAndUnmarshalError)
 		return nil, errors.New(errorMessage)
 	}
 

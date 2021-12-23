@@ -1,6 +1,14 @@
 
+<a name="v0.1.9"></a>
+## [v0.1.9](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.9..v0.1.8) (2021-12-09)
+
+### Feat
+
+* **Validation - Bug fixing:** Add Consumed API Requests to Datadog. Add spans to requests made by salesforce API, botruuner, and integrations API http clients. Closes #CSF-224
+
+
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..v0.1.7) (2021-12-21)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -21,8 +29,8 @@
 * **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
 
 
-<a name="v0.1.7"></a>
-## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
+<a name="V0.1.7"></a>
+## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 

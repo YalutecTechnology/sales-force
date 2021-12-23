@@ -438,7 +438,7 @@ func (m *Manager) sendMessageToSalesforce(message *Message) {
 	defer span.Finish()
 	retries := 0
 	for {
-		_, err := m.SalesforceService.SendMessage(message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
+		_, err := m.SalesforceService.SendMessage(span, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text})
 		if err != nil {
 			span.SetTag(ext.Error, err)
 			logrus.WithField("userID", message.UserID).Error(helpers.ErrorMessage("Error sendMessage to salesforce", err))
@@ -466,19 +466,19 @@ func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnecti
 	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
 	defer span.Finish()
 
+	titleMessage := "could not create chat in salesforce"
+	interconnection.Client = m.client
+	span.SetTag(events.Client, interconnection.Client)
+
 	logFields := logrus.Fields{
 		constants.TraceIdKey: span.Context().TraceID(),
 		constants.SpanIdKey:  span.Context().SpanID(),
 		events.UserID:        interconnection.UserID,
 	}
 
-	titleMessage := "could not create chat in salesforce"
-	interconnection.Client = m.client
-	span.SetTag(events.Client, interconnection.Client)
-
 	// Validate that user does not have an active session
 	logrus.WithFields(logFields).Info("Validate UserID")
-	err := m.ValidateUserID(interconnection.UserID)
+	err := m.ValidateUserID(ctx, interconnection.UserID)
 	if err != nil {
 		logrus.WithFields(logFields).WithError(err).Error("error ValidateUserID")
 		span.SetTag(ext.Error, err)
@@ -603,19 +603,29 @@ func (m *Manager) FinishChat(userId string) error {
 	return nil
 }
 
-func (m *Manager) ValidateUserID(userID string) error {
+func (m *Manager) ValidateUserID(ctx context.Context, userID string) error {
+	// datadog tracing
+	span, _ := tracer.StartSpanFromContext(ctx, "manager.ValidateUserID")
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("userID", userID)
+	defer span.Finish()
+
 	sessionRedis, _ := m.interconnectionsCache.RetrieveInterconnection(cache.Interconnection{
 		UserID: userID,
 		Client: m.client,
 	})
 
 	if sessionRedis != nil && (sessionRedis.Status == string(Active) || sessionRedis.Status == string(OnHold)) {
-		return errors.New("session exists in redis with this userID")
+		err := errors.New("session exists in redis with this userID")
+		span.SetTag(ext.Error, err)
+		return err
 	}
 
 	// validate that it exists on the map
 	if _, ok := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userID)); ok {
-		return errors.New("session exists with this userID")
+		err := errors.New("session exists with this userID")
+		span.SetTag(ext.Error, err)
+		return err
 	}
 	return nil
 }

@@ -12,7 +12,6 @@ import (
 )
 
 func TestSendTo(t *testing.T) {
-
 	t.Run("Send Message Succesfull", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		botrunnerClient := &BotRunner{Proxy: mock}
