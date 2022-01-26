@@ -81,6 +81,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 	}
 
 	logFields[events.Interconnection] = interconnection
+	span.SetTag(events.UserID, interconnection.UserID)
 	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", interconnection))
 	if err := app.ManageManager.CreateChat(r.Context(), interconnection); err != nil {
 		errorMessage = err.Error()

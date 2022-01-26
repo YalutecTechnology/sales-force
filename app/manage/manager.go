@@ -496,6 +496,7 @@ func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnecti
 	if err != nil {
 		logrus.WithFields(logFields).WithError(err).Error("error GetOrCreateContact")
 		span.SetTag(ext.Error, err)
+		go ChangeToState(interconnection.UserID, interconnection.BotSlug, TimeoutState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
@@ -515,6 +516,7 @@ func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnecti
 	if err != nil {
 		span.SetTag(ext.Error, err)
 		logrus.WithFields(logFields).WithError(err).Error("error CreatCase")
+		go ChangeToState(interconnection.UserID, interconnection.BotSlug, TimeoutState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 	interconnection.CaseID = caseId
@@ -527,6 +529,7 @@ func (m *Manager) CreateChat(ctx context.Context, interconnection *Interconnecti
 	if err != nil {
 		logrus.WithFields(logFields).WithError(err).Error("error CreatChat")
 		span.SetTag(ext.Error, err)
+		go ChangeToState(interconnection.UserID, interconnection.BotSlug, TimeoutState[string(interconnection.Provider)], m.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, m.StudioNG, m.isStudioNGFlow)
 		return errors.New(helpers.ErrorMessage(titleMessage, err))
 	}
 
