@@ -1,9 +1,10 @@
 
-<a name="v1.0.0"></a>
-## [v1.0.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.0.0..v0.1.9) (2022-01-25)
+<a name="v1.1.0"></a>
+## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-01-26)
 
 ### Feat
 
+* **Improve Salesforce implementation:** Avoid status messages on webhooks. We avoid status messages that integrations channels send when the bot is configured to send them. Closes #UI-10
 * **Improve Salesforce implementation:** Handle errors on /chats/connect. Send a sentTo to the user when an error occurs when creating a chat with Salesforce. Closes #UI-2
 
 

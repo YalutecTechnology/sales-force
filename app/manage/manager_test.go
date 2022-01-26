@@ -1012,7 +1012,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "1631202334956",
-			Type:      audioType,
+			Type:      constants.AudioType,
 			From:      userID,
 			Audio: models.Media{
 				URL:      "uri",
@@ -1040,7 +1040,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "1631202334957",
-			Type:      voiceType,
+			Type:      constants.VoiceType,
 			From:      userID,
 			Voice: models.Media{
 				URL:      "uri",
@@ -1069,7 +1069,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      documentType,
+			Type:      constants.DocumentType,
 			To:        userID,
 			Document: models.Media{
 				URL:      "uri",
@@ -1098,7 +1098,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      imageType,
+			Type:      constants.ImageType,
 			From:      userID,
 			Image: models.Media{
 				URL:      "uri",
@@ -1127,7 +1127,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "text",
@@ -1155,7 +1155,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "text",
@@ -1182,7 +1182,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "text",
@@ -1321,7 +1321,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "message",
@@ -1396,7 +1396,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "ReStArt",
@@ -1472,7 +1472,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      textType,
+			Type:      constants.TextType,
 			From:      userID,
 			Text: models.Text{
 				Body: "ReStArt",
@@ -1539,7 +1539,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      imageType,
+			Type:      constants.ImageType,
 			From:      userID,
 			Image: models.Media{
 				URL:      "http://test.com/" + imageId,
@@ -1600,7 +1600,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      imageType,
+			Type:      constants.ImageType,
 			From:      userID,
 			Image: models.Media{
 				URL:      "http://test.com",
@@ -1662,7 +1662,7 @@ func TestManager_SaveContext(t *testing.T) {
 		integrations := &models.IntegrationsRequest{
 			ID:        messageID,
 			Timestamp: "123456789",
-			Type:      imageType,
+			Type:      constants.ImageType,
 			From:      userID,
 			Image: models.Media{
 				URL:      "http://test.com",
@@ -2268,7 +2268,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 											Payload: models.Payload{
 												URL: "http://test.com",
 											},
-											Type: imageType,
+											Type: constants.ImageType,
 										},
 									},
 								},
@@ -2476,7 +2476,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 											Payload: models.Payload{
 												URL: "http://test.com",
 											},
-											Type: imageType,
+											Type: constants.ImageType,
 										},
 									},
 								},

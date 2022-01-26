@@ -53,6 +53,13 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		return
 	}
 
+	if integrationsRequest.Type == constants.StatusType {
+		span.SetTag("statusMessage", true)
+		span.SetTag(ext.HTTPCode, http.StatusOK)
+		helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "status message skipped"})
+		return
+	}
+
 	logFields[events.Payload] = integrationsRequest
 	span.SetTag(events.Payload, fmt.Sprintf("%#v", integrationsRequest))
 	if err := helpers.Govalidator().Struct(integrationsRequest); err != nil {
