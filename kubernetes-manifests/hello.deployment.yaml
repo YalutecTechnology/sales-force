@@ -26,7 +26,14 @@ spec:
           value: "0.0.0.0"
         - name: SALESFORCE-INTEGRATION_PORT
           value: "8080"
+        livenessProbe:
+          httpGet:
+            path: /v1/welcome
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 60
         readinessProbe:
           tcpSocket:
             port: 8080
           initialDelaySeconds: 5
+          periodSeconds: 30
