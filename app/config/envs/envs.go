@@ -16,7 +16,6 @@ type Envs struct {
 	Port                 string            `required:"true" split_words:"true" default:"8080"`
 	SentryDSN            string            `default:"" split_words:"true"`
 	Environment          string            `default:"dev" split_words:"true"`
-	MainContextTimeOut   int16             `default:"10" split_words:"true"`
 	RedisAddress         string            `split_words:"true"`
 	RedisMaster          string            `split_words:"true"`
 	RedisSentinelAddress string            `split_words:"true"`
@@ -34,7 +33,7 @@ type Envs struct {
 	StudioNGUrl          string            `split_words:"true"`
 	StudioNGToken        string            `split_words:"true"`
 	StudioNGTimeout      int               `split_words:"true" default:"4"`
-	SfcClientId          string            `split_words:"true"`
+	SfcClientID          string            `split_words:"true"`
 	SfcClientSecret      string            `split_words:"true"`
 	SfcUsername          string            `split_words:"true"`
 	SfcPassword          string            `split_words:"true"`

@@ -7,6 +7,7 @@
 * **Improve Salesforce implementation:** Avoid status messages on webhooks. We avoid status messages that integrations channels send when the bot is configured to send them. Closes #UI-10
 * **Improve Salesforce implementation:** Handle errors on /chats/connect. Send a sentTo to the user when an error occurs when creating a chat with Salesforce. Closes #UI-2
 * **Integration-api:**  Implement liveness and readiness check. Implements a readiness and liveness check. The kubernetes config must be able to check if the service is alive and try to recover, in addition to check if once is alive also is ready to receive incoming traffic. Closes #UI-4
+* **Integration-envars:**  Add .env file as a example on the repo. Add .env example file to set envars. Closes #UI-5
 
 
 <a name="v0.1.9"></a>
