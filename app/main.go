@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -27,6 +29,9 @@ const defaultServiceName = "salesforce-integration"
 // ddServiceEnvVar is the env Var used by DD library to load service name
 const ddServiceEnvVar = "DD_SERVICE"
 
+// secondsToShutdown are the seconds to shutdown de app
+const secondsToShutdown = 3
+
 func init() {
 	logrus.SetFormatter(&logrus.JSONFormatter{
 		FieldMap: logrus.FieldMap{
@@ -37,6 +42,7 @@ func init() {
 }
 
 func main() {
+	go shutdownHandler()
 	logrus.Info("Initializing Integrations API application")
 	var envs envs.Envs
 	err := envconfig.Process("salesforce-integration", &envs)
@@ -151,4 +157,22 @@ func main() {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logrus.WithError(err).Fatal("Error salesforce-integration API HTTP server")
 	}
+}
+
+// shutdownHandler triggers application shutdown.
+
+func shutdownHandler() {
+	// signChan channel is used to transmit signal notifications.
+	signChan := make(chan os.Signal, 1)
+
+	// Catch and relay certain signal(s) to signChan channel.
+	signal.Notify(signChan, os.Interrupt, syscall.SIGTERM)
+
+	// Blocking until a signal is sent over signChan channel.
+	sig := <-signChan
+
+	logrus.Infof("Cleanup started with %s signal", sig)
+	time.Sleep(time.Duration(secondsToShutdown) * time.Second)
+	logrus.Infof("Shoutdown and Cleanup completed in %d seconds", secondsToShutdown)
+	os.Exit(1)
 }
