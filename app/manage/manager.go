@@ -60,11 +60,6 @@ var (
 )
 
 const (
-	audioType          = "audio"
-	voiceType          = "voice"
-	documentType       = "document"
-	imageType          = "image"
-	textType           = "text"
 	fromUser           = "user"
 	fromBot            = "bot"
 	defaultFieldCustom = "default"
@@ -713,21 +708,21 @@ func (m *Manager) SaveContext(context context.Context, integration *models.Integ
 	}
 
 	switch {
-	case integration.Type == textType:
+	case integration.Type == constants.TextType:
 		ctx.Text = integration.Text.Body
-	case integration.Type == imageType:
+	case integration.Type == constants.ImageType:
 		ctx.URL = integration.Image.URL
 		ctx.Caption = integration.Image.Caption
 		ctx.MIMEType = integration.Image.MIMEType
-	case integration.Type == voiceType:
+	case integration.Type == constants.VoiceType:
 		ctx.URL = integration.Voice.URL
 		ctx.Caption = integration.Voice.Caption
 		ctx.MIMEType = integration.Voice.MIMEType
-	case integration.Type == documentType:
+	case integration.Type == constants.DocumentType:
 		ctx.URL = integration.Document.URL
 		ctx.Caption = integration.Document.Caption
 		ctx.MIMEType = integration.Document.MIMEType
-	case integration.Type == audioType:
+	case integration.Type == constants.AudioType:
 		ctx.URL = integration.Audio.URL
 		ctx.MIMEType = integration.Audio.MIMEType
 	default:
@@ -771,7 +766,7 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		"messageWhatsapp":      integration,
 	}
 	switch integration.Type {
-	case textType:
+	case constants.TextType:
 		if strings.Contains(constants.DevEnvironments, m.environment) {
 			for _, keyword := range m.keywordsRestart {
 				if strings.ToLower(integration.Text.Body) == keyword {
@@ -793,7 +788,7 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 
 		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
 
-	case imageType:
+	case constants.ImageType:
 		imageName := defineImageName(interconnection, integration)
 
 		err := m.SalesforceService.InsertImageInCase(
@@ -1034,7 +1029,7 @@ func (m *Manager) sendMessageComunicationFB(mainSpan tracer.Span, interconnectio
 
 	case message.Message.Attachments != nil:
 		for _, attachment := range message.Message.Attachments {
-			if attachment.Type == imageType {
+			if attachment.Type == constants.ImageType {
 				err := m.SalesforceService.InsertImageInCase(
 					attachment.Payload.URL,
 					interconnection.SessionID,

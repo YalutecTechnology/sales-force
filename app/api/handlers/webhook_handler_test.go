@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"yalochat.com/salesforce-integration/base/constants"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -45,6 +46,37 @@ func TestApp_webhook(t *testing.T) {
 		req.Header.Add("x-yalochat-signature", "secret")
 		response := httptest.NewRecorder()
 		expectedLog := helpers.SuccessResponse{Message: "insert success"}
+		binexpectedLog, err := json.Marshal(expectedLog)
+		assert.NoError(t, err)
+
+		handler.ServeHTTP(response, req)
+
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+
+		if !strings.Contains(response.Body.String(), string(binexpectedLog)) {
+			t.Errorf("Response should be %v, but it answer with %v ", expectedLog, response.Body.String())
+		}
+
+	})
+
+	t.Run("Should skip status message ", func(t *testing.T) {
+		body := models.IntegrationsRequest{
+			ID:        "",
+			Timestamp: "1234556",
+			Type:      constants.StatusType,
+			From:      "5555555555",
+			To:        "",
+		}
+
+		binBody, err := json.Marshal(body)
+		assert.NoError(t, err)
+
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
+		req.Header.Add("x-yalochat-signature", "secret")
+		response := httptest.NewRecorder()
+		expectedLog := helpers.SuccessResponse{Message: "status message skipped"}
 		binexpectedLog, err := json.Marshal(expectedLog)
 		assert.NoError(t, err)
 
