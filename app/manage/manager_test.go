@@ -3,6 +3,7 @@ package manage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -618,7 +619,7 @@ func TestManager_CreateChat(t *testing.T) {
 		manager.EndChat(interconnection)
 	})
 
-	t.Run("Change to from-sf-blocked state succesfull", func(t *testing.T) {
+	t.Run("Change to from-sf-blocked state successful", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 		expectedLog := "could not create chat in salesforce: this contact is blocked"
 		interconnection := &Interconnection{
@@ -675,6 +676,221 @@ func TestManager_CreateChat(t *testing.T) {
 
 		if !strings.Contains(err.Error(), expectedLog) {
 			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedLog, err.Error())
+		}
+	})
+
+	t.Run("Change to timeout state successfully because getOrCreateContact failed", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		expectedLog := "could not create chat in salesforce : not create account"
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		TimeoutState = map[string]string{
+			provider:                 "from-sf-timeout",
+			string(FacebookProvider): "from-sf-timeout",
+		}
+
+		contact := &models.SfcContact{
+			FirstName:   interconnection.Name,
+			LastName:    interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+			Blocked:     false,
+		}
+
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		botRunnerMock := new(BotRunnerInterface)
+
+		salesforceServiceMock.On("GetOrCreateContact",
+			mock.Anything,
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
+			Return(contact, errors.New("not create account")).Once()
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+
+		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, nil).Once()
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceServiceMock,
+			BotrunnnerClient:      botRunnerMock,
+			interconnectionsCache: interconnectionMock,
+			interconnectionMap:    interconectionLocal,
+		}
+		err := manager.CreateChat(context.Background(), interconnection)
+		assert.Error(t, err)
+
+		if !strings.Contains(err.Error(), expectedLog) {
+			t.Fatalf("Error message should contain <%s>, but this was found <%s>", expectedLog, err.Error())
+		}
+	})
+
+	t.Run("Change to timeout state successfully because createCase failed", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		expectedLog := "could not create chat in salesforce : not create case on Salesforce"
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		TimeoutState = map[string]string{
+			provider:                 "from-sf-timeout",
+			string(FacebookProvider): "from-sf-timeout",
+		}
+
+		contact := &models.SfcContact{
+			FirstName:   interconnection.Name,
+			LastName:    interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+			Blocked:     false,
+		}
+
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		botRunnerMock := new(BotRunnerInterface)
+
+		salesforceServiceMock.On("GetOrCreateContact",
+			mock.Anything,
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
+			Return(contact, nil).Once()
+
+		salesforceServiceMock.On("CreatCase",
+			mock.Anything,
+			contact.ID,
+			Messages.DescriptionCase,
+			"",
+			string(interconnection.Provider),
+			"",
+			interconnection.ExtraData).
+			Return("", errors.New("could not create chat in salesforce : not create case on Salesforce")).Once()
+
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+
+		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, nil).Once()
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceServiceMock,
+			BotrunnnerClient:      botRunnerMock,
+			interconnectionsCache: interconnectionMock,
+			interconnectionMap:    interconectionLocal,
+		}
+		err := manager.CreateChat(context.Background(), interconnection)
+		assert.Error(t, err)
+
+		if !strings.Contains(err.Error(), expectedLog) {
+			t.Fatalf("Error message should contain <%s>, but this was found <%s>", expectedLog, err.Error())
+		}
+	})
+
+	t.Run("Change to timeout state successfully because createChat failed", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		expectedLog := "could not create chat in salesforce : not create chat on Salesforce"
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		TimeoutState = map[string]string{
+			provider:                 "from-sf-timeout",
+			string(FacebookProvider): "from-sf-timeout",
+		}
+
+		contact := &models.SfcContact{
+			ID:          contactID,
+			FirstName:   interconnection.Name,
+			LastName:    interconnection.Name,
+			Email:       interconnection.Email,
+			MobilePhone: interconnection.PhoneNumber,
+			Blocked:     false,
+		}
+
+		salesforceServiceMock := new(SalesforceServiceInterface)
+		botRunnerMock := new(BotRunnerInterface)
+
+		salesforceServiceMock.On("GetOrCreateContact",
+			mock.Anything,
+			interconnection.Name,
+			interconnection.Email,
+			interconnection.PhoneNumber,
+			interconnection.ExtraData).
+			Return(contact, nil).Once()
+
+		salesforceServiceMock.On("CreatCase",
+			mock.Anything,
+			contact.ID,
+			Messages.DescriptionCase,
+			"",
+			string(interconnection.Provider),
+			"",
+			interconnection.ExtraData).
+			Return(caseID, nil).Once()
+
+		salesforceServiceMock.On("CreatChat",
+			mock.Anything,
+			interconnection.Name,
+			SfcOrganizationID,
+			SfcDeploymentID,
+			"",
+			caseID,
+			contactID).Return(&chat.SessionResponse{
+			AffinityToken: affinityToken,
+			Key:           sessionKey,
+		}, errors.New("could not create chat in salesforce : not create chat on Salesforce")).Once()
+
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+
+		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, nil).Once()
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceServiceMock,
+			BotrunnnerClient:      botRunnerMock,
+			interconnectionsCache: interconnectionMock,
+			interconnectionMap:    interconectionLocal,
+		}
+		err := manager.CreateChat(context.Background(), interconnection)
+		assert.Error(t, err)
+
+		if !strings.Contains(err.Error(), expectedLog) {
+			t.Fatalf("Error message should contain <%s>, but this was found <%s>", expectedLog, err.Error())
 		}
 	})
 
