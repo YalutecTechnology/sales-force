@@ -15,7 +15,7 @@ COPY app app
 
 RUN apk add build-base
 
-RUN GOOS=linux GOARCH=amd64 go build -o /salesforce-integration app/main.go
+RUN GOOS=linux GOARCH=amd64 go build -tags musl -o /salesforce-integration app/main.go
 
 
 # Final image

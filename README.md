@@ -208,6 +208,16 @@ Here is the list of packages in the base folder with its explanation:
 | `SALESFORCE-INTEGRATION_STUDIO_NG_TIMEOUT`              | Number of seconds to wait to send a request to **Sent-to** to studiong.                                                                                                                                                                                                                                                                                            | false                                             | **4**                                                 |
 | `SALESFORCE-INTEGRATION_SPEC_SCHEDULE`                  | It is the time to configure the cron that allows making a request to the Salesforce API, so that our token does not expire due to inactivity. By default every 59 min. Note: remember that the inactivity time is 2 hours for the token to expire.                                                                                                                 | false                                             | **@every 59m**                                        |
 
+| `SALESFORCE-INTEGRATION_KAFKA_HOST`                     | Kafka host connection.                                                                                                                                                                                                                                                                         | true                                            |                                                       |
+| `SALESFORCE-INTEGRATION_KAFKA_PORT`                     | Kafka port connection.                                                                                                                                                                                                                                                                         | true                                            |                                                       |
+| `SALESFORCE-INTEGRATION_KAFKA_USER`                     | Kafka user connection.                                                                                                                                                                                                                                                                         | true                                            |                                                       |
+| `SALESFORCE-INTEGRATION_KAFKA_PASSWORD`                 | Kafka password connection.                                                                                                                                                                                                                                                                     | true                                            |                                                       |
+| `SALESFORCE-INTEGRATION_KAFKA_TOPIC`                 | Kafka Topic.                                                                                                                                                                                                                                                                     | true                                            |                                                       |
+
+**Note:** *The kafka group id is composed by {{SALESFORCE-INTEGRATION_APP_NAME}}-{{SALESFORCE-INTEGRATION_KAFKA_TOPIC}}*
+
+
+
 ## Running project ##
 
 We must clone the repository with the ***develop*** branch or the branch with which we must work a *feature* or *bugfix*
@@ -365,6 +375,16 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
           value: "{{page_id_fb_bot}}"
         - name: SALESFORCE-INTEGRATION_WEBHOOK_BASE_URL
           value: "{{deployment_url}}"
+        - name: SALESFORCE-INTEGRATION_KAFKA_HOST
+          value: "{{kafkaHost}}"
+        - name: SALESFORCE-INTEGRATION_KAFKA_PORT
+          value: "{{kafkaPort}}"
+        - name: SALESFORCE-INTEGRATION_KAFKA_USER
+          value: "{{kafkaUser}}"
+        - name: SALESFORCE-INTEGRATION_KAFKA_PASSWORD
+          value: "{{kafkaPassword}}"
+        - name: SALESFORCE-INTEGRATION_KAFKA_TOPIC
+          value: "{{kafkaTopic}}"
 ```
 
 **Note:** *To see the previous steps in more detail, we can see the following document* [On-boarding part 2: Publishing an application](https://www.notion.so/On-boarding-part-2-Publishing-an-application-eac08ad3eaad435cb242340fe1a2bb98#2ba8af0501964491a730bb979fcd2ced)

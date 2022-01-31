@@ -1,4 +1,12 @@
 
+<a name="v1.1.1"></a>
+## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-01-31)
+
+### Feat
+
+* **Integration-interconnection:** Implement kafka. Add Kafka to the project to avoid lost messages. Closes #UI-8.
+
+
 <a name="v1.1.0"></a>
 ## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
 
@@ -44,11 +52,7 @@
 
 
 <a name="v0.1.7"></a>
-## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..V0.1.7) (2021-11-16)
-
-
-<a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.6) (2021-11-16)
+## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 

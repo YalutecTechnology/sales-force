@@ -1,14 +1,18 @@
 package manage
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
-	"time"
 	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/events"
+	"yalochat.com/salesforce-integration/base/subscribers"
+	"yalochat.com/salesforce-integration/base/subscribers/kafka"
 
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/services"
@@ -51,8 +55,6 @@ type Interconnection struct {
 	CaseID               string                              `json:"caseId"`
 	Context              string                              `json:"-"`
 	ExtraData            map[string]interface{}              `json:"extraData"`
-	salesforceChannel    chan *Message                       `json:"-"`
-	integrationsChannel  chan *Message                       `json:"-"`
 	finishChannel        chan *Interconnection               `json:"-"`
 	BotrunnnerClient     botrunner.BotRunnerInterface        `json:"-"`
 	SalesforceService    services.SalesforceServiceInterface `json:"-"`
@@ -63,10 +65,25 @@ type Interconnection struct {
 	offset         int `json:"-"`
 	StudioNG       studiong.StudioNGInterface
 	isStudioNGFlow bool
+	kafkaProducer  subscribers.Producer
+	KafkaTopic     string
+}
+
+type InterconnectionMessageQueue struct {
+	ID        string       `json:"id"`
+	EventType string       `json:"event_type"`
+	Params    MessageQueue `json:"params"`
+	TraceID   string       `json:"trace_id"`
+}
+
+type MessageQueue struct {
+	Message `json:"message"`
+	Client  string `json:"client"`
 }
 
 // Message represents the messages that will be sent through the chat
 type Message struct {
+	ID            string      `json:"id"`
 	MainSpan      tracer.Span `json:"-"`
 	Text          string      `json:"text"`
 	ImageUrl      string      `json:"imageUrl"`
@@ -76,8 +93,9 @@ type Message struct {
 	Provider      Provider    `json:"provider"`
 }
 
-func NewIntegrationsMessage(mainSpan tracer.Span, userID, text string, provider Provider) *Message {
+func NewIntegrationsMessage(mainSpan tracer.Span, id, userID, text string, provider Provider) *Message {
 	return &Message{
+		ID:       id,
 		MainSpan: mainSpan,
 		UserID:   userID,
 		Text:     text,
@@ -119,7 +137,6 @@ func (in *Interconnection) handleLongPolling() {
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
 		response, errorResponse := in.SalesforceService.GetMessages(mainSpan, in.AffinityToken, in.SessionKey)
-
 		if errorResponse != nil {
 			switch errorResponse.StatusCode {
 			case http.StatusNoContent:
@@ -184,7 +201,7 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 	switch event.Type {
 	case chat.ChatRequestFail:
 		logrus.WithFields(logFields).Infof("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)
-		mainSpan.SetTag(ext.Error, errors.New(fmt.Sprintf("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)))
+		mainSpan.SetTag(ext.Error, fmt.Errorf("event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason))
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 		in.updateStatusRedis(string(Failed))
 		in.runnigLongPolling = false
@@ -192,7 +209,10 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 	case chat.ChatRequestSuccess:
 		logrus.WithFields(logFields).Infof("Event [%s]", chat.ChatRequestSuccess)
 		if Messages.WaitAgent != "" {
-			in.integrationsChannel <- NewIntegrationsMessage(span, in.UserID, Messages.WaitAgent, in.Provider)
+			in.sendMessageToQueue(span,
+				helpers.RandomString(36),
+				Messages.WaitAgent,
+				constants.SendMessageToUser)
 		}
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %v", Messages.QueuePosition, event.Message.QueuePosition), in.Provider)
 		//in.integrationsChannel <- NewIntegrationsMessage(in.UserID, fmt.Sprintf("%s : %vs", Messages.WaitTime, event.Message.EstimatedWaitTime), in.Provider)
@@ -201,7 +221,10 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 		in.ActiveChat(span)
 	case chat.ChatMessage:
 		logrus.WithFields(logFields).Infof("Message from salesforce : %s", event.Message.Text)
-		in.integrationsChannel <- NewIntegrationsMessage(mainSpan, in.UserID, event.Message.Text, in.Provider)
+		in.sendMessageToQueue(span,
+			helpers.RandomString(36),
+			event.Message.Text,
+			constants.SendMessageToUser)
 	case chat.QueueUpdate:
 		logrus.WithFields(logFields).Infof("Event [%s]", chat.QueueUpdate)
 		/*if event.Message.QueuePosition > 0 {
@@ -299,4 +322,52 @@ func (in *Interconnection) sendMessageToSalesforce(message *Message) {
 	}
 	span.SetTag(events.SendMessage, true)
 	logrus.Infof("Send message to agent from salesforce : %s", message.UserID)
+}
+
+func (in *Interconnection) sendMessageToQueue(mainSpan tracer.Span, messageID, text, eventType string) {
+	spanContext := events.GetSpanContextFromSpan(mainSpan)
+	span := tracer.StartSpan("send_message_to_queue", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.UserID, in.UserID)
+	span.SetTag(events.Client, in.Client)
+	span.SetTag(events.Message, text)
+	span.SetTag("messageId", messageID)
+	span.SetTag(events.EventType, eventType)
+	traceID := strconv.FormatUint(span.Context().TraceID(), 10)
+	defer span.Finish()
+
+	message := InterconnectionMessageQueue{
+		ID:        messageID,
+		EventType: eventType,
+		Params: MessageQueue{
+			Client: in.Client,
+			Message: Message{
+				Text:          text,
+				UserID:        in.UserID,
+				SessionKey:    in.SessionKey,
+				AffinityToken: in.AffinityToken,
+				Provider:      in.Provider,
+			},
+		},
+		TraceID: traceID,
+	}
+	messageBin, _ := json.Marshal(message)
+
+	messageKafka := kafka.KafkaMessageParams{
+		Topic: in.KafkaTopic,
+		Msg:   messageBin,
+		Key:   constants.DefaultKey,
+	}
+
+	span.SetTag(events.MessageKafka, message)
+
+	err := in.kafkaProducer.SendMessage(messageKafka)
+	if err != nil {
+		span.SetTag(ext.Error, err)
+		logrus.WithFields(logrus.Fields{
+			"user":            in.UserID,
+			"interconnection": in,
+		}).WithError(err).Error("error sendMessage to kafka'")
+
+	}
 }

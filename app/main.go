@@ -121,6 +121,11 @@ func main() {
 		Messages:                   envs.Messages,
 		Timezone:                   envs.Timezone,
 		SendImageNameInMessage:     envs.SendImageNameInMessage,
+		KafkaHost:                  envs.KafkaHost,
+		KafkaPort:                  envs.KafkaPort,
+		KafkaUser:                  envs.KafkaUser,
+		KafkaPassword:              envs.KafkaPassword,
+		KafkaTopic:                 envs.KafkaTopic,
 	}
 
 	if len(envs.RedisMaster) > 0 {
