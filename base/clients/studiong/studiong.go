@@ -40,6 +40,7 @@ func (cs *StudioNG) SendTo(state, userID string) error {
 	// datadog tracing
 	span := tracer.StartSpan("send_to")
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.UserID, userID)
 	defer span.Finish()
 	uri := fmt.Sprintf("v1/triggers/%s/webhook", state)
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))

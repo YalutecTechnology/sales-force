@@ -217,6 +217,8 @@ func (c *SfcChatClient) CreateSession(mainSpan tracer.Span) (*SessionResponse, e
 	logrus.WithFields(logrus.Fields{
 		"response": session,
 	}).Info("Get Session sucessfully")
+	span.SetTag("sessionID", session.Id)
+	span.SetTag("sessionKey", session.Key)
 	return &session, nil
 }
 
@@ -227,6 +229,7 @@ func (c *SfcChatClient) CreateChat(mainSpan tracer.Span, affinityToken, sessionK
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("create_chat", tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("sessionID", request.SessionId)
 	span.SetTag(events.Payload, fmt.Sprintf("%#v", request))
 	defer span.Finish()
 
@@ -287,6 +290,7 @@ func (c *SfcChatClient) GetMessages(mainSpan tracer.Span, affinityToken, session
 	// datadog tracing
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("get_messages", tracer.ChildOf(spanContext))
+	span.SetTag("sessionKey", sessionKey)
 	span.SetTag(ext.AnalyticsEvent, true)
 	defer span.Finish()
 	var errorMessage string
@@ -344,6 +348,8 @@ func (c *SfcChatClient) SendMessage(mainSpan tracer.Span, affinityToken, session
 	span := tracer.StartSpan("send_message", tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(events.Payload, fmt.Sprintf("%#v", payload))
+	span.SetTag("sessionKey", sessionKey)
+	span.SetTag("affinityToken", affinityToken)
 	defer span.Finish()
 
 	uri := "/chat/rest/Chasitor/ChatMessage"

@@ -633,6 +633,7 @@ func (m *Manager) AddInterconnection(ctx context.Context, interconnection *Inter
 	span, _ := tracer.StartSpanFromContext(ctx, "manager.AddInterconnection")
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(events.UserID, interconnection.UserID)
+	span.SetTag(events.Client, interconnection.Client)
 	defer span.Finish()
 
 	interconnection.SalesforceService = m.SalesforceService
@@ -1125,6 +1126,7 @@ func (m *Manager) saveContextInRedis(mainSpan tracer.Span, ctx *cache.Context) {
 	span := tracer.StartSpan(fmt.Sprintf("%s.saveContextInRedis", events.UserID), tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(events.UserID, ctx.UserID)
+	span.SetTag(events.Client, ctx.Client)
 	mainSpan.SetTag(events.ContextSaved, true)
 	defer span.Finish()
 
