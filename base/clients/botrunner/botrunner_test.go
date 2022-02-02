@@ -3,6 +3,7 @@ package botrunner
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -237,11 +238,11 @@ func TestSendTo(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := statusError
+		expectedError := fmt.Sprintf("%s-[%d] : %s", statusError, http.StatusInternalServerError, "map[error:Bad Request message:child \"userId\" fails because [\"userId\" must only contain alpha-numeric characters] statusCode:400 validation:map[keys:[userId] source:payload]]")
 		botrunnerClient := &BotRunner{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{\"error\":\"Bad Request\",\"message\":\"child \\\"userId\\\" fails because [\\\"userId\\\" must only contain alpha-numeric characters]\",\"statusCode\":400,\"validation\":{\"keys\":[\"userId\"],\"source\":\"payload\"}}"))),
 		}, nil)
 
 		requestBody := make(map[string]interface{})
@@ -256,9 +257,7 @@ func TestSendTo(t *testing.T) {
 			t.Fatalf("Expected error, but retrieved nil")
 		}
 
-		if !strings.Contains(err.Error(), expectedError) {
-			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
-		}
+		assert.Equal(t, expectedError, err.Error())
 
 		if ok {
 			t.Fatalf("Expected false, but retrieved true")

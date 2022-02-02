@@ -500,7 +500,7 @@ func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
 	}
 
 	if proxiedResponse.StatusCode != http.StatusOK {
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s-[%d] : %s", constants.StatusError, proxiedResponse.StatusCode, response)
 		logrus.WithFields(logrus.Fields{
 			"response": response,
 		}).Error(errorMessage)

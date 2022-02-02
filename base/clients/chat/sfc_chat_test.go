@@ -52,7 +52,7 @@ func TestCreateSession(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := constants.StatusError
+		expectedError := fmt.Sprintf("[%d] - %s : %s", http.StatusBadRequest, constants.StatusError, "No version header found")
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusBadRequest,
@@ -61,9 +61,7 @@ func TestCreateSession(t *testing.T) {
 
 		_, err := salesforceClient.CreateSession(span)
 
-		if !strings.Contains(err.Error(), expectedError) {
-			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
-		}
+		assert.Equal(t, expectedError, err.Error())
 	})
 
 }
@@ -102,7 +100,7 @@ func TestCreateChat(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := constants.StatusError
+		expectedError := fmt.Sprintf("[%d] - %s : %s", http.StatusForbidden, constants.StatusError, "Session required but was invalid or not found")
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusForbidden,
@@ -112,9 +110,7 @@ func TestCreateChat(t *testing.T) {
 		chatRequest := NewChatRequest("organizationId", "deploymentId", "seassionId", "buttonId", "Eduardo")
 		ok, err := salesforceClient.CreateChat(span, "affinityToken", "sessionKey", chatRequest)
 
-		if !strings.Contains(err.Error(), expectedError) {
-			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
-		}
+		assert.Equal(t, expectedError, err.Error())
 
 		if ok {
 			t.Fatalf(`Expected false, but retrieved true`)
@@ -162,7 +158,7 @@ func TestGetMessages(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := constants.StatusError
+		expectedError := fmt.Sprintf("[%d] - %s : %s", http.StatusNoContent, constants.StatusError, "{}")
 		salesforceClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusNoContent,
@@ -175,9 +171,7 @@ func TestGetMessages(t *testing.T) {
 			t.Fatalf("Expected Status not content, but retrieved %v", err.StatusCode)
 		}
 
-		if !strings.Contains(err.Error.Error(), expectedError) {
-			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error.Error())
-		}
+		assert.Equal(t, expectedError, err.Error.Error())
 	})
 
 }
@@ -242,9 +236,11 @@ func TestSendMessage(t *testing.T) {
 	t.Run("Send message error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		sfChatClient := &SfcChatClient{Proxy: mock}
+		expectedError := fmt.Sprintf("%s-[%d]: %s", constants.StatusError, http.StatusInternalServerError, "Send message error")
+
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`Send message error`))),
 		}, nil)
 		payload := MessagePayload{
 			Text: "A large text",
@@ -254,6 +250,7 @@ func TestSendMessage(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, response)
+		assert.Equal(t, expectedError, err.Error())
 	})
 }
 
@@ -359,15 +356,17 @@ func TestChatEnd(t *testing.T) {
 
 	t.Run("Chat end error status", func(t *testing.T) {
 		mock := &proxy.Mock{}
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "Chat end error")
 		sfChatClient := &SfcChatClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`OK`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`Chat end error`))),
 		}, nil)
 
 		err := sfChatClient.ChatEnd(affinityToken, sessionKey)
 
 		assert.Error(t, err)
+		assert.Equal(t, expectedError, err.Error())
 	})
 }
 

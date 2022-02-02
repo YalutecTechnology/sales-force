@@ -555,7 +555,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 			return "", errors.New(errorMessage)
 		}
 
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
+		errorMessage = fmt.Sprintf("%s-[%d] : %#v", constants.StatusError, proxiedResponse.StatusCode, responseMap)
 		logrus.WithFields(logrus.Fields{
 			"response": responseMap,
 		}).Error(errorMessage)
