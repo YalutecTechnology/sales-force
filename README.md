@@ -221,6 +221,24 @@ To run the tests of this project, we use the command:
 go test -coverprofile=coverage.txt -covermode=atomic ./...
 ```
 
+## Environment ##
+Example environments for local development and for staging can be found in the [config directory](https://bitbucket.org/yalochat/salesforce-integration/src/develop/configs/). To get a definition of all the keys, you can see the section "How do I get set up?"
+
+Copy the local example environment and load it into your shell
+``` sh
+cp configs/example.env .env
+export $(egrep -v '^#' .env | xargs)
+```
+and change the next line in **main.go**
+``` go
+err := envconfig.Process("salesforce-integration", &envs)
+
+to
+
+err := envconfig.Process("salesforce_integration", &envs)
+```
+
+
 ## Running the project in Dev ##
 In order to test our changes in dev, you run your service in a development cluster.
 
@@ -350,6 +368,11 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
 ```
 
 **Note:** *To see the previous steps in more detail, we can see the following document* [On-boarding part 2: Publishing an application](https://www.notion.so/On-boarding-part-2-Publishing-an-application-eac08ad3eaad435cb242340fe1a2bb98#2ba8af0501964491a730bb979fcd2ced)
+
+## References ##
+
+* [Runbook](https://www.notion.so/yalo/Salesforce-Integration-Runbook-3ad4711e6aaf4cf295114b0325b77d09)
+* [CheckList to upload to PROD](https://docs.google.com/spreadsheets/d/1R0ruqH-bWt9FG6-ET5Z7htBOPMYlQilwDMm_h4uzaZM/edit?usp=sharing)
 
 ## Who do I talk to? ##
 

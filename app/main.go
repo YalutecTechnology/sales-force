@@ -71,7 +71,7 @@ func main() {
 		BotrunnerTimeout:           envs.BotrunnerTimeout,
 		TimeoutState:               envs.TimeoutState,
 		SuccessState:               envs.SuccessState,
-		SfcClientID:                envs.SfcClientId,
+		SfcClientID:                envs.SfcClientID,
 		SfcClientSecret:            envs.SfcClientSecret,
 		SfcUsername:                envs.SfcUsername,
 		SfcPassword:                envs.SfcPassword,
