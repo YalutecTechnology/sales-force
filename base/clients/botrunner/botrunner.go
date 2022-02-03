@@ -7,6 +7,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
@@ -147,10 +148,9 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 	//do something with resultJSON
 
 	if proxiedResponse.StatusCode != 200 {
-		logrus.WithFields(logrus.Fields{
-			"error": proxiedResponse.StatusCode,
-		}).Error(statusError)
-		err := errors.New(fmt.Sprintf("%s: %d", statusError, proxiedResponse.StatusCode))
+		errorMessage := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, proxiedResponse.StatusCode, resultJSON)
+		logrus.Error(errorMessage)
+		err := errors.New(errorMessage)
 		span.SetTag(ext.Error, err)
 		return false, err
 	}

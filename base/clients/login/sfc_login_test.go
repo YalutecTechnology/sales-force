@@ -3,6 +3,7 @@ package login
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -117,11 +118,11 @@ func TestGetToken(t *testing.T) {
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
 		mock := &proxy.Mock{}
-		expectedError := constants.StatusError
+		expectedError := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, http.StatusBadRequest, "map[error:invalid_grant error_description:authentication failure]")
 		salesforceClient := &SfcLoginClient{Proxy: mock}
 		mock.On("SendHTTPRequest").Return(&http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
+			StatusCode: http.StatusBadRequest,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"error":"invalid_grant","error_description":"authentication failure"}`))),
 		}, nil)
 
 		tokenPayload := TokenPayload{
@@ -137,9 +138,7 @@ func TestGetToken(t *testing.T) {
 			t.Fatalf(`Expected "", but retrieved %s`, token)
 		}
 
-		if !strings.Contains(err.Error(), expectedError) {
-			t.Fatalf("Error message should contain %s, but this was found <%s>", expectedError, err.Error())
-		}
+		assert.Equal(t, expectedError, err.Error())
 	})
 
 }

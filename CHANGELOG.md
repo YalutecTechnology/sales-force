@@ -1,9 +1,10 @@
 
 <a name="v1.1.0"></a>
-## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-01-31)
+## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-01)
 
 ### Feat
 
+* **Improve Salesforce implementation:** Fix error message on Salesforce clients. Correctly sending the response sent by the salesforce API on the errors returned, including datadog traces. Closes #UI-19
 * **Improve Salesforce implementation:** Add userID and client on datadog traces Salesforce. Adding labels with values ​​such as sessionID, userID and client to more easily find errors in the traces. Closes #UI-18
 * **Improve Salesforce implementation:** Add SIGTERM. The service must be able to close connections correctly when a shutdown occurs or the app ends. Closes #UI-6
 * **Improve Salesforce implementation:** Avoid status messages on webhooks. We avoid status messages that integrations channels send when the bot is configured to send them. Closes #UI-10

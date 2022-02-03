@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"yalochat.com/salesforce-integration/base/constants"
 
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -113,9 +115,10 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, `[]map[string]interface {}{map[string]interface {}{"id":"Error create content version"}}`)
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"Error create content version"}]`))),
 		}, nil)
 		payload := ContentVersionPayload{
 			Title:           "test image",
@@ -128,6 +131,7 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, id)
+		assert.Equal(t, expectedError, err.Error())
 	})
 }
 
@@ -610,12 +614,13 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion error status", func(t *testing.T) {
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, `[]map[string]interface {}{map[string]interface {}{"id":"LinkDocument error"}}`)
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"LinkDocument error"}]`))),
 		}, nil)
 		payload := LinkDocumentPayload{
 			ContentDocumentID: "g00",
@@ -627,6 +632,7 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, id)
+		assert.Equal(t, expectedError, err.Error())
 	})
 }
 
@@ -705,12 +711,13 @@ func TestSfcData_CreateCase(t *testing.T) {
 	})
 
 	t.Run("Create case error status", func(t *testing.T) {
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "[map[id:Create case error status]]")
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"Create case error status"}]`))),
 		}, nil)
 		payload := CaseRequest{
 			ContactID:   "contact id",
@@ -726,6 +733,7 @@ func TestSfcData_CreateCase(t *testing.T) {
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
+		assert.Equal(t, expectedError, err.Error.Error())
 	})
 }
 
@@ -1094,25 +1102,21 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 	})
 
 	t.Run("SearchContactComposite request error", func(t *testing.T) {
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusNotFound, "[map[compositeResponse:[]]]")
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = mock
 
-		response := CompositeResponses{
-			CompositeResponse: []CompositeResponse{},
-		}
-
-		responseBin, err := json.Marshal(response)
-		assert.NoError(t, err)
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"compositeResponse":[]}]`))),
 		}, nil)
 
 		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
 
 		assert.NotNil(t, errResponse)
 		assert.Empty(t, contact)
+		assert.Equal(t, expectedError, errResponse.Error.Error())
 	})
 }
 
@@ -1303,21 +1307,27 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	})
 
 	t.Run("Create account error status", func(t *testing.T) {
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "[map[id:dasfasfasd]]")
+
 		mock := &proxy.Mock{}
 		salesforceClient := NewSalesforceRequester("test", token)
 		salesforceClient.Proxy = mock
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
 		}, nil)
 		payload := AccountRequest{
-			Name:  &name,
-			Phone: &phoneNumber,
+			FirstName:       &name,
+			LastName:        &name,
+			PersonEmail:     &email,
+			RecordTypeID:    &recordTypeID,
+			PersonBirthDate: &phoneNumber,
 		}
 		id, err := salesforceClient.CreateAccount(payload)
 
 		assert.Error(t, err.Error)
 		assert.Empty(t, id)
+		assert.Equal(t, expectedError, err.Error.Error())
 	})
 }
 

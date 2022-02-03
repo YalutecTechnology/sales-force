@@ -96,12 +96,11 @@ func (c *SfcLoginClient) GetToken(tokenPayload TokenPayload) (string, error) {
 	}
 
 	if proxiedResponse.StatusCode != 200 {
-		errorMessage = fmt.Sprintf("%s : %d", constants.StatusError, proxiedResponse.StatusCode)
-		logrus.WithFields(logrus.Fields{
-			"response": responseMap,
-		}).Error(errorMessage)
+		errorMessage := fmt.Sprintf("%s-[%d] : %v", constants.StatusError, proxiedResponse.StatusCode, responseMap)
+		logrus.Error(errorMessage)
 		err := errors.New(errorMessage)
 		span.SetTag(ext.Error, err)
+		span.SetTag(events.StatusSalesforce, proxiedResponse.StatusCode)
 		return "", err
 	}
 
