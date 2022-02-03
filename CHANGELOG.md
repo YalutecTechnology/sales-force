@@ -1,6 +1,6 @@
 
 <a name="v1.1.0"></a>
-## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-01)
+## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
 
 ### Feat
 
