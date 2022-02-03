@@ -350,6 +350,7 @@ func (s *SalesforceService) RefreshToken() {
 func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID string) error {
 	span := tracer.StartSpan("InsertImageInCase")
 	span.SetTag("caseId", caseID)
+	span.SetTag("title", title)
 	defer span.Finish()
 
 	resp, err := http.Get(uri)

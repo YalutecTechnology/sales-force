@@ -78,6 +78,7 @@ func (c *BotRunner) SendTo(object map[string]interface{}) (bool, error) {
 		span.SetTag(ext.Error, err)
 		return false, err
 	}
+	span.SetTag(events.UserID, object["userId"].(string))
 
 	if _, ok := object["message"]; !ok {
 		logrus.WithFields(logrus.Fields{

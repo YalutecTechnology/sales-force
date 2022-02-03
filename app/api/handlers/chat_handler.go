@@ -33,6 +33,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 	span.SetOperationName("create_chat")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Client, app.Client)
 	defer span.Finish()
 
 	logFields := logrus.Fields{

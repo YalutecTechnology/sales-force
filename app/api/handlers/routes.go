@@ -13,6 +13,7 @@ import (
 // App contains the resources related to the application
 type App struct {
 	ManageManager         manage.ManagerI
+	Client                string
 	YaloUsername          string
 	YaloPassword          string
 	SalesforceUsername    string
@@ -58,6 +59,7 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 
 	app := &App{
 		ManageManager:         manager,
+		Client:                managerOptions.Client,
 		YaloUsername:          apiConfig.YaloUsername,
 		YaloPassword:          hex.EncodeToString(yaloHash.Sum(nil)),
 		SalesforceUsername:    apiConfig.SalesforceUsername,

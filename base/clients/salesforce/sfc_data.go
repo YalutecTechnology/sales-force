@@ -401,6 +401,8 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("SearchContactComposite", tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("email", email)
+	span.SetTag("phoneNumber", phoneNumber)
 	defer span.Finish()
 
 	blockedChat := ""
@@ -502,7 +504,7 @@ func (cc *SalesforceClient) LinkDocumentToCase(linkDocumentPayload LinkDocumentP
 	// datadog tracing
 	span := tracer.StartSpan("link_document_to_case")
 	span.SetTag(ext.AnalyticsEvent, true)
-	span.SetTag(ext.Error, linkDocumentPayload)
+	span.SetTag(events.Payload, linkDocumentPayload)
 	defer span.Finish()
 	uri := fmt.Sprintf("/services/data/v%s.0/sobjects/ContentDocumentLink", cc.APIVersion)
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodPost, uri))

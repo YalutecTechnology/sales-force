@@ -25,6 +25,7 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 	span.SetOperationName("receive_message_wa")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Client, app.Client)
 	defer span.Finish()
 
 	logFields := logrus.Fields{
@@ -106,6 +107,7 @@ func (app *App) webhookFB(w http.ResponseWriter, r *http.Request, params httprou
 	span.SetOperationName("receive_message_fb")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag(events.Client, app.Client)
 	defer span.Finish()
 
 	logFields := logrus.Fields{
