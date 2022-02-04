@@ -2,6 +2,7 @@ package manage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -14,6 +15,8 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/events"
+	"yalochat.com/salesforce-integration/base/subscribers"
+	"yalochat.com/salesforce-integration/base/subscribers/kafka"
 
 	"golang.org/x/time/rate"
 
@@ -52,8 +55,6 @@ var (
 	WebhookFacebook        string
 	StudioNGTimeout        int
 	CodePhoneRemove        []string
-	salesforceRateLimit    float64
-	integrationsRateLimit  float64
 	Messages               models.MessageTemplate
 	Timezone               string
 	SendImageNameInMessage bool
@@ -73,8 +74,6 @@ type Manager struct {
 	SalesforceService            services.SalesforceServiceInterface
 	IntegrationsClient           integrations.IntegrationInterface
 	BotrunnnerClient             botrunner.BotRunnerInterface
-	salesforceChannel            chan *Message
-	integrationsChannel          chan *Message
 	finishInterconnection        chan *Interconnection
 	contextcache                 cache.ContextCache
 	interconnectionsCache        cache.InterconnectionCache
@@ -90,6 +89,8 @@ type Manager struct {
 	IntegrationChanRateLimiter   *rate.Limiter
 	SalesforceChanRequestLimit   int
 	SalesforceChanRequestLimiter *rate.Limiter
+	kafkaProducer                subscribers.Producer
+	KafkaTopic                   string
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -149,6 +150,11 @@ type ManagerOptions struct {
 	Messages                   models.MessageTemplate
 	Timezone                   string
 	SendImageNameInMessage     bool
+	KafkaHost                  string
+	KafkaPort                  string
+	KafkaUser                  string
+	KafkaPassword              string
+	KafkaTopic                 string
 }
 
 type ManagerI interface {
@@ -281,8 +287,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SalesforceService:            salesforceService,
 		interconnectionMap:           cacheLocal,
 		IntegrationsClient:           integrationsClient,
-		salesforceChannel:            make(chan *Message, int(config.SalesforceRateLimit)),
-		integrationsChannel:          make(chan *Message, int(config.IntegrationsRateLimit)),
 		finishInterconnection:        make(chan *Interconnection),
 		contextcache:                 contextCache,
 		interconnectionsCache:        interconnectionsCache,
@@ -297,6 +301,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		maxRetries:                   config.MaxRetries,
 		IntegrationChanRateLimiter:   integrationsRateLimiter,
 		SalesforceChanRequestLimiter: salesforceRateLimiter,
+		KafkaTopic:                   config.KafkaTopic,
 	}
 
 	// TODO: Add function restore interconnections
@@ -312,48 +317,36 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	go m.handleInterconnection()
-	go m.handleMessageToSalesforce()
-	go m.handleMessageToUsers()
+
+	if config.KafkaUser != "" {
+		producer := kafka.NewProducer(kafka.KafkaSettings{
+			Host:     config.KafkaHost,
+			Port:     config.KafkaPort,
+			User:     config.KafkaUser,
+			Password: config.KafkaPassword,
+		})
+
+		m.kafkaProducer = producer
+
+		consumer := kafka.NewConsumer(m, m.KafkaTopic, config.AppName, constants.Latest, kafka.KafkaSettings{
+			Host:     config.KafkaHost,
+			Port:     config.KafkaPort,
+			User:     config.KafkaUser,
+			Password: config.KafkaPassword,
+		})
+		go consumer.Start()
+	}
+
 	return m
 }
 
 // handleInterconnection This function terminates the interconnections.
 func (m *Manager) handleInterconnection() {
-	for {
-		select {
-		case interconection := <-m.finishInterconnection:
-			logrus.WithField("userID", interconection.UserID).Info("Finish interconnection")
-			m.EndChat(interconection)
-		default:
-
-		}
+	for interconection := range m.finishInterconnection {
+		logrus.WithField("userID", interconection.UserID).Info("Finish interconnection")
+		m.EndChat(interconection)
 	}
-}
 
-// handleMessageToSalesforce This function sends messages to salesforce agents.
-func (m *Manager) handleMessageToSalesforce() {
-	for {
-		m.SalesforceChanRequestLimiter.Wait(context.Background())
-		select {
-		case messageSf := <-m.salesforceChannel:
-			logrus.WithField("userID", messageSf.UserID).Info("Message to agent from user")
-			go m.sendMessageToSalesforce(messageSf)
-		default:
-
-		}
-	}
-}
-
-// handleMessageToUsers This function sends messages to users.
-func (m *Manager) handleMessageToUsers() {
-	for {
-		m.IntegrationChanRateLimiter.Wait(context.Background())
-		select {
-		case messageInt := <-m.integrationsChannel:
-			logrus.WithField("userID", messageInt.UserID).Info("Message to user from agent")
-			go m.sendMessageToUser(messageInt)
-		}
-	}
 }
 
 func (m *Manager) sendMessageToUser(message *Message) {
@@ -373,7 +366,7 @@ func (m *Manager) sendMessageToUser(message *Message) {
 		switch message.Provider {
 		case WhatsappProvider:
 			_, err := m.IntegrationsClient.SendMessage(integrations.SendTextPayload{
-				Id:     helpers.RandomString(36),
+				Id:     message.ID,
 				Type:   "text",
 				UserID: message.UserID,
 				Text:   integrations.TextMessage{Body: message.Text},
@@ -640,11 +633,11 @@ func (m *Manager) AddInterconnection(ctx context.Context, interconnection *Inter
 	interconnection.IntegrationsClient = m.IntegrationsClient
 	interconnection.BotrunnnerClient = m.BotrunnnerClient
 	interconnection.finishChannel = m.finishInterconnection
-	interconnection.integrationsChannel = m.integrationsChannel
-	interconnection.salesforceChannel = m.salesforceChannel
 	interconnection.interconnectionCache = m.interconnectionsCache
 	interconnection.StudioNG = m.StudioNG
 	interconnection.isStudioNGFlow = m.isStudioNGFlow
+	interconnection.kafkaProducer = m.kafkaProducer
+	interconnection.KafkaTopic = m.KafkaTopic
 
 	go m.storeInterconnectionInRedis(interconnection)
 
@@ -787,7 +780,10 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			}
 		}
 
-		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, integration.Text.Body, interconnection.UserID)
+		interconnection.sendMessageToQueue(mainSpan,
+			integration.ID,
+			integration.Text.Body,
+			constants.SendMessageToSalesforce)
 
 	case constants.ImageType:
 		imageName := defineImageName(interconnection, integration)
@@ -801,7 +797,11 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			mainSpan.SetTag(ext.Error, err)
 			mainSpan.SetTag(events.SendImage, false)
 			logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
-			interconnection.integrationsChannel <- NewIntegrationsMessage(mainSpan, integration.From, Messages.UploadImageError, WhatsappProvider)
+			interconnection.sendMessageToQueue(mainSpan,
+				integration.ID,
+				Messages.UploadImageError,
+				constants.SendMessageToUser)
+
 			return
 		}
 		logrus.WithFields(logFields).Info("Send Image to agent")
@@ -812,7 +812,10 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			textMessage += imageName
 		}
 
-		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, textMessage, interconnection.UserID)
+		interconnection.sendMessageToQueue(mainSpan,
+			integration.ID,
+			textMessage,
+			constants.SendMessageToSalesforce)
 	}
 }
 
@@ -1026,7 +1029,10 @@ func (m *Manager) sendMessageComunicationFB(mainSpan tracer.Span, interconnectio
 				}
 			}
 		}
-		interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, message.Message.Text, interconnection.UserID)
+		interconnection.sendMessageToQueue(mainSpan,
+			message.Sender.ID,
+			message.Message.Text,
+			constants.SendMessageToSalesforce)
 
 	case message.Message.Attachments != nil:
 		for _, attachment := range message.Message.Attachments {
@@ -1040,12 +1046,18 @@ func (m *Manager) sendMessageComunicationFB(mainSpan tracer.Span, interconnectio
 					mainSpan.SetTag(ext.Error, err)
 					mainSpan.SetTag(events.SendImage, false)
 					logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
-					interconnection.integrationsChannel <- NewIntegrationsMessage(mainSpan, message.Sender.ID, Messages.UploadImageError, FacebookProvider)
+					interconnection.sendMessageToQueue(mainSpan,
+						message.Sender.ID,
+						Messages.UploadImageError,
+						constants.SendMessageToUser)
 					return
 				}
 				logrus.WithFields(logFields).Info("FB Send Image to agent")
 				mainSpan.SetTag(events.SendImage, true)
-				interconnection.salesforceChannel <- NewSfMessage(mainSpan, interconnection.AffinityToken, interconnection.SessionKey, Messages.UploadImageSuccess, interconnection.UserID)
+				interconnection.sendMessageToQueue(mainSpan,
+					message.Sender.ID,
+					Messages.UploadImageSuccess,
+					constants.SendMessageToSalesforce)
 			}
 		}
 	}
@@ -1142,4 +1154,49 @@ func (m *Manager) saveContextInRedis(mainSpan tracer.Span, ctx *cache.Context) {
 			events.Context:       ctx,
 		}).WithError(err).Error("Error store context in set")
 	}
+}
+
+func (m *Manager) Process(ctx context.Context, msg []byte) error {
+	readSpan, _ := tracer.StartSpanFromContext(ctx, "read_kafka")
+	readSpan.SetTag(ext.AnalyticsEvent, true)
+	defer readSpan.Finish()
+
+	message := InterconnectionMessageQueue{}
+	if err := json.Unmarshal(msg, &message); err != nil {
+		readSpan.SetTag(ext.Error, err)
+		errorMessage := fmt.Sprintf("could not marshal message: %s", err.Error())
+		logrus.Error(errorMessage)
+		return errors.New(errorMessage)
+	}
+	spanContext := events.GetSpanContextFromtraceId(message.TraceID)
+	span := tracer.StartSpan("process_kafka", tracer.ChildOf(spanContext))
+	span.SetTag(ext.AnalyticsEvent, true)
+	defer span.Finish()
+
+	span.SetTag(events.Interconnection, fmt.Sprintf("%#v", message.Params))
+	span.SetTag(events.Topic, m.KafkaTopic)
+	span.SetTag(events.EventType, message.EventType)
+	span.SetTag(events.UserID, message.Params.UserID)
+	span.SetTag(events.Client, message.Params.Client)
+
+	switch message.EventType {
+	case constants.SendMessageToSalesforce:
+		m.SalesforceChanRequestLimiter.Wait(ctx)
+
+		go m.sendMessageToSalesforce(NewSfMessage(span,
+			message.Params.AffinityToken,
+			message.Params.SessionKey,
+			message.Params.Text,
+			message.Params.UserID))
+
+	case constants.SendMessageToUser:
+		m.IntegrationChanRateLimiter.Wait(ctx)
+
+		go m.sendMessageToUser(NewIntegrationsMessage(span,
+			message.ID,
+			message.Params.UserID,
+			message.Params.Text,
+			message.Params.Provider))
+	}
+	return nil
 }

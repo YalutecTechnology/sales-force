@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/mock"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/models"
 
 	"github.com/go-redis/redis"
@@ -63,8 +64,6 @@ func TestHandleLongPolling_test(t *testing.T) {
 		Status:               OnHold,
 		Provider:             provider,
 		finishChannel:        manager.finishInterconnection,
-		integrationsChannel:  manager.integrationsChannel,
-		salesforceChannel:    manager.salesforceChannel,
 		interconnectionCache: manager.interconnectionsCache,
 	}
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
@@ -264,8 +263,6 @@ func TestCheckEvent_test(t *testing.T) {
 		Status:               OnHold,
 		Provider:             provider,
 		finishChannel:        manager.finishInterconnection,
-		integrationsChannel:  manager.integrationsChannel,
-		salesforceChannel:    manager.salesforceChannel,
 		interconnectionCache: manager.interconnectionsCache,
 	}
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
@@ -277,6 +274,32 @@ func TestCheckEvent_test(t *testing.T) {
 			Type:    chat.ChatRequestSuccess,
 			Message: chat.Message{},
 		}
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Times(5)
+		interconnection.kafkaProducer = producerMock
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		span, _ := tracer.SpanFromContext(context.Background())
+		interconnection.checkEvent(span, &event)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Chat request success event received error SendMessage", func(t *testing.T) {
+		Messages = models.MessageTemplate{WaitAgent: "Esperando Agente"}
+		expectedLog := chat.ChatRequestSuccess
+		event := chat.MessageObject{
+			Type:    chat.ChatRequestSuccess,
+			Message: chat.Message{},
+		}
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(assert.AnError).Times(5)
+		interconnection.kafkaProducer = producerMock
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)

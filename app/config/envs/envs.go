@@ -74,6 +74,11 @@ type Envs struct {
 	Messages                   models.MessageTemplate `split_words:"true" required:"true" default:"{\"waitAgent\":\"Esperando un agente\",\"welcomeTemplate\":\"Hola soy %s y necesito ayuda\",\"context\":\"Contexto\",\"DescriptionCase\":\"Caso levantado por el Bot\",\"uploadImageError\":\"Imagen no enviada\",\"uploadImageSuccess\":\"**El usuario adjunto una imagen al caso**\",\"queuePosition\":\"Posici\u00F3n en la cola\",\"waitTime\":\"Tiempo de espera\",\"firstNameContact\":\"Contacto Bot - \",\"clientLabel\":\"Cliente\",\"botLabel\":\"Bot\"}"`
 	Timezone                   string                 `required:"true" default:"America/Mexico_City"`
 	SendImageNameInMessage     bool                   `split_words:"true" default:"false"`
+	KafkaHost                  string                 `required:"true" split_words:"true"`
+	KafkaPort                  string                 `required:"true" split_words:"true"`
+	KafkaUser                  string                 `required:"true" split_words:"true"`
+	KafkaPassword              string                 `required:"true" split_words:"true"`
+	KafkaTopic                 string                 `required:"true" split_words:"true"`
 }
 
 type Provider struct {

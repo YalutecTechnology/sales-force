@@ -3,8 +3,10 @@ package manage
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -96,6 +98,7 @@ func TestCreateManager(t *testing.T) {
 			StudioNG:                     nil,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                nil,
 		}
 		config := &ManagerOptions{
 			AppName:                    "salesforce-integration",
@@ -109,6 +112,8 @@ func TestCreateManager(t *testing.T) {
 			IntegrationsRateLimit:      20,
 			SalesforceRateLimit:        20,
 			Messages:                   models.MessageTemplate{WelcomeTemplate: "Hola soy Lalo", WaitAgent: "Esperando Agente"},
+			KafkaUser:                  "user",
+			KafkaPassword:              "password",
 		}
 
 		actual := CreateManager(config)
@@ -117,9 +122,8 @@ func TestCreateManager(t *testing.T) {
 		actual.BotrunnnerClient = nil
 		actual.StudioNG = nil
 		actual.cacheMessage = nil
+		actual.kafkaProducer = nil
 		expected.SalesforceService = salesforceMock
-		expected.integrationsChannel = actual.integrationsChannel
-		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
 		expected.contextcache = actual.contextcache
 		expected.interconnectionsCache = actual.interconnectionsCache
@@ -165,8 +169,6 @@ func TestCreateManager(t *testing.T) {
 		actual.StudioNG = nil
 		actual.cacheMessage = nil
 		expected.SalesforceService = actual.SalesforceService
-		expected.integrationsChannel = actual.integrationsChannel
-		expected.salesforceChannel = actual.salesforceChannel
 		expected.finishInterconnection = actual.finishInterconnection
 		expected.contextcache = actual.contextcache
 		expected.interconnectionsCache = actual.interconnectionsCache
@@ -210,102 +212,6 @@ func TestManager_handleInterconnection(t *testing.T) {
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
 		go manager.handleInterconnection()
-		time.Sleep(500 * time.Millisecond)
-		logs := buf.String()
-		if strings.Contains(logs, log) {
-			t.Fatalf("Logs should contain <%s>, but this was found <%s>", log, logs)
-		}
-	})
-
-}
-
-func TestManager_handleMessageToSalesforce(t *testing.T) {
-
-	t.Run("Should receive message", func(t *testing.T) {
-		expectedLog := "Message to agent from user"
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil).Once()
-
-		manager := Manager{
-			salesforceChannel:            make(chan *Message),
-			SalesforceService:            salesforceServiceMock,
-			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
-			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
-		}
-		var buf bytes.Buffer
-		logrus.SetOutput(&buf)
-		go manager.handleMessageToSalesforce()
-		span, _ := tracer.SpanFromContext(context.Background())
-		manager.salesforceChannel <- &Message{MainSpan: span, UserID: userID, AffinityToken: affinityToken, SessionKey: sessionKey, Text: "test"}
-		time.Sleep(1 * time.Second)
-		logs := buf.String()
-		if !strings.Contains(logs, expectedLog) {
-			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
-		}
-	})
-
-	t.Run("Should no receive message", func(t *testing.T) {
-		log := "Message to agent from user"
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		salesforceServiceMock.On("SendMessage", mock.Anything, mock.Anything).Return(true, nil).Once()
-
-		manager := Manager{
-			salesforceChannel:            make(chan *Message),
-			SalesforceService:            salesforceServiceMock,
-			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
-			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
-		}
-		var buf bytes.Buffer
-		logrus.SetOutput(&buf)
-		go manager.handleMessageToSalesforce()
-		time.Sleep(500 * time.Millisecond)
-		logs := buf.String()
-		if strings.Contains(logs, log) {
-			t.Fatalf("Logs should contain <%s>, but this was found <%s>", log, logs)
-		}
-	})
-
-}
-
-func TestManager_handleMessageToUsers(t *testing.T) {
-
-	t.Run("Should receive message", func(t *testing.T) {
-		expectedLog := "Message to user from agent"
-		integrationsIMock := new(IntegrationInterface)
-		integrationsIMock.On("SendMessage", mock.Anything, mock.Anything).Return(&integrations.SendMessageResponse{}, nil).Once()
-
-		manager := Manager{
-			integrationsChannel:          make(chan *Message),
-			IntegrationsClient:           integrationsIMock,
-			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
-			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
-		}
-		var buf bytes.Buffer
-		logrus.SetOutput(&buf)
-		go manager.handleMessageToUsers()
-		span, _ := tracer.SpanFromContext(context.Background())
-		manager.integrationsChannel <- &Message{MainSpan: span, UserID: userID, Provider: FacebookProvider, Text: "test"}
-		time.Sleep(1 * time.Second)
-		logs := buf.String()
-		if !strings.Contains(logs, expectedLog) {
-			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
-		}
-	})
-
-	t.Run("Should no receive message", func(t *testing.T) {
-		log := "Message to user from agent"
-		integrationsIMock := new(IntegrationInterface)
-		integrationsIMock.On("SendMessage", mock.Anything, mock.Anything).Return(&integrations.SendMessageResponse{}, nil).Once()
-
-		manager := Manager{
-			integrationsChannel:          make(chan *Message),
-			IntegrationsClient:           integrationsIMock,
-			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
-			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
-		}
-		var buf bytes.Buffer
-		logrus.SetOutput(&buf)
-		go manager.handleMessageToUsers()
 		time.Sleep(500 * time.Millisecond)
 		logs := buf.String()
 		if strings.Contains(logs, log) {
@@ -1282,37 +1188,88 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		channelSaleforce := make(chan *Message)
-		channelIntegrations := make(chan *Message)
 		channelFinish := make(chan *Interconnection)
 
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			environment:                  "dev",
 			contextcache:                 contextCache,
-			salesforceChannel:            channelSaleforce,
-			integrationsChannel:          channelIntegrations,
 			finishInterconnection:        channelFinish,
 			SalesforceService:            salesforceMock,
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			SessionID:           sessionID,
-			UserID:              userID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.TextType,
+			From:      userID,
+			Text: models.Text{
+				Body: "message",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send message to salesforce error sendMessage kafka", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		channelFinish := make(chan *Interconnection)
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(assert.AnError).Once()
+
+		manager := &Manager{
+			environment:                  "dev",
+			contextcache:                 contextCache,
+			finishInterconnection:        channelFinish,
+			SalesforceService:            salesforceMock,
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -1363,8 +1320,6 @@ func TestManager_SaveContext(t *testing.T) {
 		manager := &Manager{
 			contextcache:                 contextCache,
 			client:                       client,
-			salesforceChannel:            make(chan *Message),
-			integrationsChannel:          make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
@@ -1374,8 +1329,6 @@ func TestManager_SaveContext(t *testing.T) {
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:               Active,
@@ -1384,8 +1337,6 @@ func TestManager_SaveContext(t *testing.T) {
 			SessionID:            sessionID,
 			UserID:               userID,
 			Client:               client,
-			salesforceChannel:    manager.salesforceChannel,
-			integrationsChannel:  manager.integrationsChannel,
 			finishChannel:        manager.finishInterconnection,
 			interconnectionCache: interconnectionCacheMock,
 		}, time.Second)
@@ -1439,8 +1390,6 @@ func TestManager_SaveContext(t *testing.T) {
 		manager := &Manager{
 			contextcache:                 contextCache,
 			client:                       client,
-			salesforceChannel:            make(chan *Message),
-			integrationsChannel:          make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
@@ -1450,8 +1399,6 @@ func TestManager_SaveContext(t *testing.T) {
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Status:               Active,
@@ -1460,8 +1407,6 @@ func TestManager_SaveContext(t *testing.T) {
 			SessionID:            sessionID,
 			UserID:               userID,
 			Client:               client,
-			salesforceChannel:    manager.salesforceChannel,
-			integrationsChannel:  manager.integrationsChannel,
 			finishChannel:        manager.finishInterconnection,
 			interconnectionCache: interconnectionCacheMock,
 		}, time.Second)
@@ -1488,7 +1433,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 		SendImageNameInMessage = true
 		defer func() {
-			SendImageNameInMessage = SendImageNameInMessage
+			SendImageNameInMessage = false
 			interconnectionLocal.Clear()
 		}()
 
@@ -1506,31 +1451,30 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			contextcache:                 contextCache,
-			salesforceChannel:            make(chan *Message),
-			integrationsChannel:          make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			SessionID:           sessionID,
-			UserID:              userID,
-			CaseID:              caseID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -1566,10 +1510,11 @@ func TestManager_SaveContext(t *testing.T) {
 		integrationsIMock := new(IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			contextcache:                 contextCache,
-			salesforceChannel:            make(chan *Message),
-			integrationsChannel:          make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
@@ -1577,21 +1522,19 @@ func TestManager_SaveContext(t *testing.T) {
 			IntegrationsClient:           integrationsIMock,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			SessionID:           sessionID,
-			UserID:              userID,
-			CaseID:              caseID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -1629,31 +1572,30 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			contextcache:                 contextCache,
-			salesforceChannel:            make(chan *Message),
-			integrationsChannel:          make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			SessionID:           sessionID,
-			UserID:              userID,
-			CaseID:              caseID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -1674,6 +1616,7 @@ func TestManager_SaveContext(t *testing.T) {
 
 		assert.NoError(t, err)
 	})
+
 }
 
 func TestManager_getContextByUserID(t *testing.T) {
@@ -1685,7 +1628,7 @@ func TestManager_getContextByUserID(t *testing.T) {
 		Timezone = "America/Mexico_City"
 		defer func() {
 			Messages = models.MessageTemplate{}
-			Timezone = Timezone
+			Timezone = ""
 		}()
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
@@ -1773,7 +1716,7 @@ second line
 		Timezone = "America/Sao_Paulo"
 		defer func() {
 			Messages = models.MessageTemplate{}
-			Timezone = Timezone
+			Timezone = ""
 		}()
 		contextCache := new(ContextCacheMock)
 		ctx := []cache.Context{
@@ -2134,30 +2077,29 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			client:                       client,
 			contextcache:                 contextCache,
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
-			salesforceChannel:            make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
-			integrationsChannel:          make(chan *Message),
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -2214,32 +2156,31 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			contextcache:                 contextCache,
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
-			salesforceChannel:            make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
-			integrationsChannel:          make(chan *Message),
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			CaseID:              caseID,
-			SessionID:           sessionID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
-			SalesforceService:   salesforceMock,
+			Status:            Active,
+			AffinityToken:     affinityToken,
+			SessionKey:        sessionKey,
+			CaseID:            caseID,
+			SessionID:         sessionID,
+			finishChannel:     manager.finishInterconnection,
+			SalesforceService: salesforceMock,
+			kafkaProducer:     producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -2326,17 +2267,13 @@ func TestManager_SaveContextFB(t *testing.T) {
 			contextcache:                 contextCache,
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
-			salesforceChannel:            make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
-			integrationsChannel:          make(chan *Message),
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
 		}
 
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
 			Client:               client,
@@ -2346,8 +2283,6 @@ func TestManager_SaveContextFB(t *testing.T) {
 			CaseID:               caseID,
 			UserID:               userID,
 			SessionID:            sessionID,
-			salesforceChannel:    manager.salesforceChannel,
-			integrationsChannel:  manager.integrationsChannel,
 			finishChannel:        manager.finishInterconnection,
 			SalesforceService:    salesforceMock,
 			interconnectionCache: interconnectionCacheMock,
@@ -2420,34 +2355,33 @@ func TestManager_SaveContextFB(t *testing.T) {
 		cacheMessage := new(IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
 		manager := &Manager{
 			contextcache:                 contextCache,
 			SalesforceService:            salesforceMock,
 			keywordsRestart:              []string{"restart", "test"},
-			salesforceChannel:            make(chan *Message),
 			finishInterconnection:        make(chan *Interconnection),
-			integrationsChannel:          make(chan *Message),
 			IntegrationsClient:           integrationsIMock,
 			cacheMessage:                 cacheMessage,
 			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
 			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
 		}
 		go manager.handleInterconnection()
-		go manager.handleMessageToSalesforce()
-		go manager.handleMessageToUsers()
 
 		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
-			Status:              Active,
-			AffinityToken:       affinityToken,
-			SessionKey:          sessionKey,
-			CaseID:              caseID,
-			SessionID:           sessionID,
-			UserID:              userID,
-			salesforceChannel:   manager.salesforceChannel,
-			integrationsChannel: manager.integrationsChannel,
-			finishChannel:       manager.finishInterconnection,
-			SalesforceService:   salesforceMock,
-			IntegrationsClient:  integrationsIMock,
+			Status:             Active,
+			AffinityToken:      affinityToken,
+			SessionKey:         sessionKey,
+			CaseID:             caseID,
+			SessionID:          sessionID,
+			UserID:             userID,
+			finishChannel:      manager.finishInterconnection,
+			SalesforceService:  salesforceMock,
+			IntegrationsClient: integrationsIMock,
+			kafkaProducer:      producerMock,
 		}, time.Second)
 		interconnectionLocal.Wait()
 
@@ -2496,7 +2430,6 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 		assert.NoError(t, err)
 	})
-
 }
 
 func TestManager_RegisterWebhook(t *testing.T) {
@@ -3034,4 +2967,145 @@ func TestManager_saveContextInRedis(t *testing.T) {
 			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
 	})
+}
+
+func TestManager_Process(t *testing.T) {
+	span, _ := tracer.SpanFromContext(context.Background())
+	traceID := strconv.FormatUint(span.Context().TraceID(), 10)
+	interconectionLocal := cache.New()
+	t.Run("Should send message to salesforce", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		message := InterconnectionMessageQueue{
+			EventType: constants.SendMessageToSalesforce,
+			ID:        "id",
+			Params: MessageQueue{
+				Client: client,
+				Message: Message{
+					Text:          "text",
+					UserID:        userID,
+					AffinityToken: affinityToken,
+					SessionKey:    sessionKey,
+				},
+			},
+			TraceID: traceID,
+		}
+
+		messageBin, err := json.Marshal(message)
+		assert.NoError(t, err)
+
+		interconnectionMock := new(InterconnectionCache)
+
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		manager := Manager{
+			SalesforceService:            salesforceMock,
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			interconnectionMap:           interconectionLocal,
+			interconnectionsCache:        interconnectionMock,
+		}
+
+		err = manager.Process(context.Background(), messageBin)
+		assert.NoError(t, err)
+
+	})
+
+	t.Run("Should send message to user", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		message := InterconnectionMessageQueue{
+			EventType: constants.SendMessageToUser,
+			ID:        "id",
+			Params: MessageQueue{
+				Client: client,
+				Message: Message{
+					Text:          "text",
+					UserID:        userID,
+					AffinityToken: affinityToken,
+					SessionKey:    sessionKey,
+					Provider:      WhatsappProvider,
+				},
+			},
+			TraceID: traceID,
+		}
+
+		messageBin, err := json.Marshal(message)
+		assert.NoError(t, err)
+
+		interconnectionMock := new(InterconnectionCache)
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := Manager{
+			IntegrationsClient:         integrationsIMock,
+			IntegrationChanRateLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			interconnectionMap:         interconectionLocal,
+			interconnectionsCache:      interconnectionMock,
+		}
+
+		err = manager.Process(context.Background(), messageBin)
+		assert.NoError(t, err)
+
+	})
+
+	t.Run("Should send message to user", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		message := InterconnectionMessageQueue{
+			EventType: constants.SendMessageToUser,
+			ID:        "id",
+			Params: MessageQueue{
+				Client: client,
+				Message: Message{
+					Text:          "text",
+					UserID:        userID,
+					AffinityToken: affinityToken,
+					SessionKey:    sessionKey,
+					Provider:      WhatsappProvider,
+				},
+			},
+			TraceID: traceID,
+		}
+
+		messageBin, err := json.Marshal(message)
+		assert.NoError(t, err)
+
+		interconnectionMock := new(InterconnectionCache)
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := Manager{
+			IntegrationsClient:         integrationsIMock,
+			IntegrationChanRateLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			interconnectionMap:         interconectionLocal,
+			interconnectionsCache:      interconnectionMock,
+		}
+
+		err = manager.Process(context.Background(), messageBin)
+		assert.NoError(t, err)
+
+	})
+
+	t.Run("Should send message with error unmarshal", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
+		interconnectionMock := new(InterconnectionCache)
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		manager := Manager{
+			IntegrationsClient:         integrationsIMock,
+			IntegrationChanRateLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			interconnectionMap:         interconectionLocal,
+			interconnectionsCache:      interconnectionMock,
+		}
+
+		err := manager.Process(context.Background(), []byte("error"))
+		assert.Error(t, err)
+
+	})
+	<-time.After(time.Second)
 }

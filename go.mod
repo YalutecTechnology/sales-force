@@ -6,6 +6,7 @@ require (
 	github.com/Bose/minisentinel v0.0.0-20200130220412-917c5a9223bb
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/alicebob/miniredis/v2 v2.15.1
+	github.com/confluentinc/confluent-kafka-go v1.7.0
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gabriel-vasile/mimetype v1.3.1
