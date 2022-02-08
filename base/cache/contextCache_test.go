@@ -22,6 +22,8 @@ func TestRedisCache_StoreContext(t *testing.T) {
 	}
 	rcs, _ := NewRedisCache(opts)
 
+	cache := NewContextCache(rcs)
+
 	t.Run("Should store a context without errors", func(t *testing.T) {
 		context := Context{
 			UserID:    "55555555555",
@@ -34,7 +36,7 @@ func TestRedisCache_StoreContext(t *testing.T) {
 			From:      "user",
 		}
 
-		err := rcs.StoreContext(context)
+		err := cache.StoreContext(context)
 
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
@@ -55,6 +57,8 @@ func TestRedisCache_RetrieveContext(t *testing.T) {
 		SessionsTTL: ttl,
 	}
 	rcs, _ := NewRedisCache(opts)
+
+	cache := NewContextCache(rcs)
 
 	defer rcs.client.FlushAll()
 
@@ -87,11 +91,11 @@ func TestRedisCache_RetrieveContext(t *testing.T) {
 			Text:      "message",
 			From:      "user",
 		}
-		rcs.StoreContext(context)
-		rcs.StoreContext(context2)
-		rcs.StoreContext(context3)
+		cache.StoreContext(context)
+		cache.StoreContext(context2)
+		cache.StoreContext(context3)
 
-		arrays := rcs.RetrieveContext(context.UserID)
+		arrays := cache.RetrieveContext(context.UserID)
 
 		assert.Equal(t, &[]Context{context2, context3, context}, &arrays)
 	})
@@ -104,7 +108,9 @@ func TestRedisCache_RetrieveContext(t *testing.T) {
 			client: c,
 		}
 
-		arrays := rcs.RetrieveContext("55555555555")
+		cache := NewContextCache(rcs)
+
+		arrays := cache.RetrieveContext("55555555555")
 
 		assert.Empty(t, &arrays)
 	})
@@ -123,6 +129,8 @@ func TestRedisCache_StoreContextToSet(t *testing.T) {
 		SessionsTTL: ttl,
 	}
 	rcs, _ := NewRedisCache(opts)
+
+	cache := NewContextCache(rcs)
 
 	t.Run("Should store a context to set without errors", func(t *testing.T) {
 		context := Context{
@@ -147,13 +155,13 @@ func TestRedisCache_StoreContextToSet(t *testing.T) {
 			From:      "user",
 		}
 
-		err := rcs.StoreContextToSet(context)
+		err := cache.StoreContextToSet(context)
 
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
 		}
 
-		err = rcs.StoreContextToSet(context2)
+		err = cache.StoreContextToSet(context2)
 
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
@@ -174,6 +182,8 @@ func TestRedisCache_RetrieveContextFromSet(t *testing.T) {
 		SessionsTTL: ttl,
 	}
 	rcs, _ := NewRedisCache(opts)
+
+	cache := NewContextCache(rcs)
 
 	defer rcs.client.FlushAll()
 
@@ -208,11 +218,11 @@ func TestRedisCache_RetrieveContextFromSet(t *testing.T) {
 			Text:      "message",
 			From:      "user",
 		}
-		rcs.StoreContextToSet(context)
-		rcs.StoreContextToSet(context2)
-		rcs.StoreContextToSet(context3)
+		cache.StoreContextToSet(context)
+		cache.StoreContextToSet(context2)
+		cache.StoreContextToSet(context3)
 
-		arrays := rcs.RetrieveContextFromSet(context.Client, context.UserID)
+		arrays := cache.RetrieveContextFromSet(context.Client, context.UserID)
 
 		assert.Equal(t, 3, len(arrays))
 		assert.Equal(t, &[]Context{context2, context3, context}, &arrays)
@@ -225,8 +235,9 @@ func TestRedisCache_RetrieveContextFromSet(t *testing.T) {
 		rcs := &RedisCache{
 			client: c,
 		}
+		cache := NewContextCache(rcs)
 
-		arrays := rcs.RetrieveContextFromSet("client", "55555555555")
+		arrays := cache.RetrieveContextFromSet("client", "55555555555")
 
 		assert.Empty(t, &arrays)
 	})
@@ -245,6 +256,8 @@ func TestRedisCache_CleanContextToDate(t *testing.T) {
 		SessionsTTL: ttl,
 	}
 	rcs, _ := NewRedisCache(opts)
+
+	cache := NewContextCache(rcs)
 
 	t.Run("Should delete a context set without errors", func(t *testing.T) {
 		context := Context{
@@ -271,11 +284,11 @@ func TestRedisCache_CleanContextToDate(t *testing.T) {
 			Ttl:       time.Now().Add(2 * time.Minute * -1),
 		}
 
-		rcs.StoreContextToSet(context)
-		rcs.StoreContextToSet(context2)
-		err := rcs.CleanContextToDate(context.Client, time.Now())
+		cache.StoreContextToSet(context)
+		cache.StoreContextToSet(context2)
+		err := cache.CleanContextToDate(context.Client, time.Now())
 		assert.NoError(t, err)
-		elements := rcs.RetrieveContextFromSet(context.Client, context.UserID)
+		elements := cache.RetrieveContextFromSet(context.Client, context.UserID)
 		assert.Empty(t, elements)
 	})
 
@@ -287,7 +300,8 @@ func TestRedisCache_CleanContextToDate(t *testing.T) {
 			client: c,
 		}
 
-		err := rcs.CleanContextToDate("client", time.Now())
+		cache := NewContextCache(rcs)
+		err := cache.CleanContextToDate("client", time.Now())
 		assert.Error(t, err)
 	})
 }

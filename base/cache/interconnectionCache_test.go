@@ -23,6 +23,8 @@ func TestStoreInterconnection(t *testing.T) {
 	}
 	rcs, _ := NewRedisCache(opts)
 
+	cache := NewInterconnectionCache(rcs)
+
 	t.Run("Should store a interconnection without errors", func(t *testing.T) {
 		interconnection := Interconnection{
 			BotID:         "botID",
@@ -43,7 +45,7 @@ func TestStoreInterconnection(t *testing.T) {
 			},
 		}
 
-		err := rcs.StoreInterconnection(interconnection)
+		err := cache.StoreInterconnection(interconnection)
 
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
@@ -65,6 +67,8 @@ func TestRetrieveInterconnection(t *testing.T) {
 	}
 	rcs, _ := NewRedisCache(opts)
 
+	cache := NewInterconnectionCache(rcs)
+
 	t.Run("Should retrieve a interconnection without errors", func(t *testing.T) {
 		interconnectionExpected := Interconnection{
 			BotID:         "botID",
@@ -84,9 +88,9 @@ func TestRetrieveInterconnection(t *testing.T) {
 				"data": "data",
 			},
 		}
-		rcs.StoreInterconnection(interconnectionExpected)
+		cache.StoreInterconnection(interconnectionExpected)
 
-		actual, err := rcs.RetrieveInterconnection(Interconnection{
+		actual, err := cache.RetrieveInterconnection(Interconnection{
 			SessionID: interconnectionExpected.SessionID,
 			UserID:    interconnectionExpected.UserID,
 		})
@@ -102,7 +106,7 @@ func TestRetrieveInterconnection(t *testing.T) {
 	t.Run("Should fail to retrieve a not stored interconnection", func(t *testing.T) {
 		expectedError := "redis: nil"
 
-		_, err := rcs.RetrieveInterconnection(Interconnection{
+		_, err := cache.RetrieveInterconnection(Interconnection{
 			BotSlug: "aCode",
 			BotID:   "botID",
 		})
@@ -126,6 +130,8 @@ func TestRetrieveInterconnections(t *testing.T) {
 		SessionsTTL: ttl,
 	}
 	rcs, _ := NewRedisCache(opts)
+
+	cache := NewInterconnectionCache(rcs)
 
 	t.Run("Should retrieve interconnection without errors", func(t *testing.T) {
 		interconnection := Interconnection{
@@ -166,15 +172,15 @@ func TestRetrieveInterconnections(t *testing.T) {
 				"data": "data",
 			},
 		}
-		rcs.StoreInterconnection(interconnection)
-		rcs.StoreInterconnection(interconnection2)
+		cache.StoreInterconnection(interconnection)
+		cache.StoreInterconnection(interconnection2)
 
-		arrays := rcs.RetrieveAllInterconnections("client")
+		arrays := cache.RetrieveAllInterconnections("client")
 
 		if len(*arrays) != 2 {
 			t.Fatalf("This was expected [2], but this was retrieved [%#v]", len(*arrays))
 		}
-		rcs.DeleteAll()
+		cache.cache.DeleteAll()
 	})
 
 	t.Run("Should retrieve interconnection without errors", func(t *testing.T) {
@@ -184,8 +190,9 @@ func TestRetrieveInterconnections(t *testing.T) {
 		rcs := &RedisCache{
 			client: c,
 		}
+		cache := NewInterconnectionCache(rcs)
 
-		arrays := rcs.RetrieveAllInterconnections("client")
+		arrays := cache.RetrieveAllInterconnections("client")
 
 		assert.Nil(t, arrays)
 	})
@@ -205,6 +212,8 @@ func TestDeleteAllInterconnections(t *testing.T) {
 	}
 	rcs, _ := NewRedisCache(opts)
 
+	cache := NewInterconnectionCache(rcs)
+
 	interconnectionExpected := Interconnection{
 		BotID:         "botID2",
 		BotSlug:       "m2-seller-2",
@@ -223,10 +232,10 @@ func TestDeleteAllInterconnections(t *testing.T) {
 			"data": "data",
 		},
 	}
-	rcs.StoreInterconnection(interconnectionExpected)
+	cache.StoreInterconnection(interconnectionExpected)
 
 	t.Run("Should delete all interconnections succesfully", func(t *testing.T) {
-		err := rcs.DeleteAllInterconnections()
+		err := cache.DeleteAllInterconnections()
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
 		}
@@ -234,7 +243,7 @@ func TestDeleteAllInterconnections(t *testing.T) {
 
 	t.Run("Should fail when delete all interconnections", func(t *testing.T) {
 		rcs.client.Close()
-		err := rcs.DeleteAllInterconnections()
+		err := cache.DeleteAllInterconnections()
 		expectedErr := "redis: client is closed"
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be <%v>, but this was retrieved <%v>", expectedErr, err)
@@ -256,6 +265,8 @@ func TestDeleteInterconnection(t *testing.T) {
 	}
 	rcs, _ := NewRedisCache(opts)
 
+	cache := NewInterconnectionCache(rcs)
+
 	interconnectionsExpected := Interconnection{
 		BotID:         "botID2",
 		BotSlug:       "m2-seller-2",
@@ -274,14 +285,14 @@ func TestDeleteInterconnection(t *testing.T) {
 			"data": "data",
 		},
 	}
-	rcs.StoreInterconnection(interconnectionsExpected)
+	cache.StoreInterconnection(interconnectionsExpected)
 
 	t.Run("Should delete interconnection succesfully", func(t *testing.T) {
 		interconnectionToDelete := Interconnection{
 			SessionID: interconnectionsExpected.SessionID,
 			UserID:    interconnectionsExpected.UserID,
 		}
-		_, err := rcs.DeleteInterconnection(interconnectionToDelete)
+		_, err := cache.DeleteInterconnection(interconnectionToDelete)
 		if err != nil {
 			t.Fatalf("Error should be nil, but this was retrieved %v", err)
 		}
@@ -292,7 +303,7 @@ func TestDeleteInterconnection(t *testing.T) {
 			Client: "client",
 			UserID: "userId",
 		}
-		_, err := rcs.DeleteInterconnection(interconnectionToDelete)
+		_, err := cache.DeleteInterconnection(interconnectionToDelete)
 		expectedErr := "Could not delete interconnection with key: client:userId:interconnection from Redis"
 		if err.Error() != expectedErr {
 			t.Fatalf("Error should be <%v>, but this was retrieved <%v>", expectedErr, err)

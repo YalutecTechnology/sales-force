@@ -75,8 +75,8 @@ type Manager struct {
 	IntegrationsClient           integrations.IntegrationInterface
 	BotrunnnerClient             botrunner.BotRunnerInterface
 	finishInterconnection        chan *Interconnection
-	contextcache                 cache.ContextCache
-	interconnectionsCache        cache.InterconnectionCache
+	contextcache                 cache.IContextCache
+	interconnectionsCache        cache.IInterconnectionCache
 	environment                  string
 	keywordsRestart              []string
 	cacheMessage                 cache.IMessageCache
@@ -195,16 +195,17 @@ func CreateManager(config *ManagerOptions) *Manager {
 	integrationsRateLimit := rate.Limit(config.IntegrationsRateLimit)
 	integrationsRateLimiter := rate.NewLimiter(integrationsRateLimit, int(integrationsRateLimit)+1)
 
-	contextCache, err := cache.NewRedisCache(&config.RedisOptions)
-
+	redisCache, err := cache.NewRedisCache(&config.RedisOptions)
 	if err != nil {
 		logrus.WithError(err).Error("Error initializing Context Redis Manager")
 	}
 
-	interconnectionsCache, err := cache.NewRedisCache(&config.RedisOptions)
+	var contextCache *cache.ContextCache
+	var interconnectionsCache *cache.InterconnectionCache
 
-	if err != nil {
-		logrus.WithError(err).Error("Error initializing Interconnection Redis Manager")
+	if redisCache != nil {
+		contextCache = cache.NewContextCache(redisCache)
+		interconnectionsCache = cache.NewInterconnectionCache(redisCache)
 	}
 
 	sfcLoginClient := &login.SfcLoginClient{

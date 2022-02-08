@@ -27,8 +27,16 @@ type Context struct {
 	Ttl       time.Time `json:"ttl,omitempty"`
 }
 
-// ContextCache interface that holds method to retrieve context chat from redis cache
-type ContextCache interface {
+type ContextCache struct {
+	cache *RedisCache
+}
+
+func NewContextCache(cache *RedisCache) *ContextCache {
+	return &ContextCache{cache: cache}
+}
+
+// IContextCache interface that holds method to retrieve context chat from redis cache
+type IContextCache interface {
 	StoreContext(Context) error
 	RetrieveContext(userID string) []Context
 	StoreContextToSet(Context) error
@@ -47,22 +55,22 @@ func assembleContextSetKey(context Context) string {
 }
 
 // StoreContext saves a context on Cache
-func (rc *RedisCache) StoreContext(context Context) error {
+func (rc *ContextCache) StoreContext(context Context) error {
 	data, _ := json.Marshal(context)
-	return rc.StoreData(assembleContextKey(context), data, Ttl)
+	return rc.cache.StoreData(assembleContextKey(context), data, Ttl)
 }
 
 // RetrieveContext returns a context from the Cache
-func (rc *RedisCache) RetrieveContext(userID string) []Context {
+func (rc *ContextCache) RetrieveContext(userID string) []Context {
 	var redisContextArray []Context
-	keys, err := rc.GetAllKeysWithScanByMatch(fmt.Sprintf("context:user_id:%s:timestamp:*", userID), countScan)
+	keys, err := rc.cache.GetAllKeysWithScanByMatch(fmt.Sprintf("context:user_id:%s:timestamp:*", userID), countScan)
 	if err != nil {
 		logrus.WithError(err).Error("Redis 'RetrieveAllInterconnections'")
 		return nil
 	}
 	for _, key := range keys {
 		var redisContext Context
-		data, _ := rc.RetrieveData(key)
+		data, _ := rc.cache.RetrieveData(key)
 		json.Unmarshal([]byte(data), &redisContext)
 		redisContextArray = append(redisContextArray, redisContext)
 	}
@@ -71,15 +79,15 @@ func (rc *RedisCache) RetrieveContext(userID string) []Context {
 }
 
 // StoreContextToSet saves a context on set Cache
-func (rc *RedisCache) StoreContextToSet(context Context) error {
+func (rc *ContextCache) StoreContextToSet(context Context) error {
 	data, _ := json.Marshal(context)
-	return rc.StoreDataToSet(assembleContextSetKey(context), data)
+	return rc.cache.StoreDataToSet(assembleContextSetKey(context), data)
 }
 
 // RetrieveContextFromSet returns a context array from the Cache of user
-func (rc *RedisCache) RetrieveContextFromSet(client, userID string) []Context {
+func (rc *ContextCache) RetrieveContextFromSet(client, userID string) []Context {
 	var redisContextArray []Context
-	dataList, _ := rc.RetrieveDataFromSet(assembleContextSetKey(Context{UserID: userID, Client: client}))
+	dataList, _ := rc.cache.RetrieveDataFromSet(assembleContextSetKey(Context{UserID: userID, Client: client}))
 	for _, data := range dataList {
 		var redisContext Context
 		json.Unmarshal([]byte(data), &redisContext)
@@ -89,20 +97,20 @@ func (rc *RedisCache) RetrieveContextFromSet(client, userID string) []Context {
 }
 
 // CleanContextToDate clean context
-func (rc *RedisCache) CleanContextToDate(client string, dateTime time.Time) error {
-	keys, err := rc.GetAllKeysWithScanByMatch(fmt.Sprintf("%s:*:context", client), countScan)
+func (rc *ContextCache) CleanContextToDate(client string, dateTime time.Time) error {
+	keys, err := rc.cache.GetAllKeysWithScanByMatch(fmt.Sprintf("%s:*:context", client), countScan)
 	if err != nil {
 		logrus.WithError(err).Error("Redis 'CleanContext'")
 		return err
 	}
 
 	for _, key := range keys {
-		dataList, _ := rc.RetrieveDataFromSet(key)
+		dataList, _ := rc.cache.RetrieveDataFromSet(key)
 		for _, data := range dataList {
 			var redisContext Context
 			json.Unmarshal([]byte(data), &redisContext)
 			if redisContext.Ttl.Before(dateTime) {
-				_, err = rc.client.SRem(key, data).Result()
+				_, err = rc.cache.client.SRem(key, data).Result()
 				if err != nil {
 					logrus.Errorf("Could not delete member of set : %s", err.Error())
 				}

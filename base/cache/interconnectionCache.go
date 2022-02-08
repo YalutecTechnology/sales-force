@@ -35,8 +35,16 @@ type Interconnection struct {
 	ExtraData     map[string]interface{} `json:"extraData"`
 }
 
-// InterconnectionCache interface that holds method to retrieve interconnections sessions from redis cache
-type InterconnectionCache interface {
+type InterconnectionCache struct {
+	cache *RedisCache
+}
+
+func NewInterconnectionCache(cache *RedisCache) *InterconnectionCache {
+	return &InterconnectionCache{cache: cache}
+}
+
+// IInterconnectionCache interface that holds method to retrieve interconnections sessions from redis cache
+type IInterconnectionCache interface {
 	StoreInterconnection(Interconnection) error
 	RetrieveInterconnection(Interconnection) (*Interconnection, error)
 	DeleteAllInterconnections() error
@@ -50,16 +58,16 @@ func assembleKey(interconnection Interconnection) string {
 }
 
 // StoreInterconnection saves a interconnection on Cache
-func (rc *RedisCache) StoreInterconnection(interconnection Interconnection) error {
+func (rc *InterconnectionCache) StoreInterconnection(interconnection Interconnection) error {
 	data, _ := json.Marshal(interconnection)
-	return rc.StoreData(assembleKey(interconnection), data, Ttl)
+	return rc.cache.StoreData(assembleKey(interconnection), data, Ttl)
 }
 
 // RetrieveInterconnection returns a interconnection from the Cache
-func (rc *RedisCache) RetrieveInterconnection(interconnection Interconnection) (*Interconnection, error) {
+func (rc *InterconnectionCache) RetrieveInterconnection(interconnection Interconnection) (*Interconnection, error) {
 
 	var redisInterconnection Interconnection
-	data, err := rc.RetrieveData(assembleKey(interconnection))
+	data, err := rc.cache.RetrieveData(assembleKey(interconnection))
 	if err != nil {
 		return nil, err
 	}
@@ -68,16 +76,16 @@ func (rc *RedisCache) RetrieveInterconnection(interconnection Interconnection) (
 }
 
 // RetrieveAllInterconnections returns interconnections array from the Cache
-func (rc *RedisCache) RetrieveAllInterconnections(client string) *[]Interconnection {
+func (rc *InterconnectionCache) RetrieveAllInterconnections(client string) *[]Interconnection {
 	var redisInterconnectionsArray []Interconnection
-	keys, err := rc.GetAllKeysWithScanByMatch(fmt.Sprintf("%s:*:interconnection", client), countScan)
+	keys, err := rc.cache.GetAllKeysWithScanByMatch(fmt.Sprintf("%s:*:interconnection", client), countScan)
 	if err != nil {
 		logrus.WithError(err).Error("Redis 'RetrieveAllInterconnections'")
 		return nil
 	}
 	for _, key := range keys {
 		var redisInterconnections Interconnection
-		data, _ := rc.RetrieveData(key)
+		data, _ := rc.cache.RetrieveData(key)
 		json.Unmarshal([]byte(data), &redisInterconnections)
 		redisInterconnectionsArray = append(redisInterconnectionsArray, redisInterconnections)
 	}
@@ -85,14 +93,14 @@ func (rc *RedisCache) RetrieveAllInterconnections(client string) *[]Interconnect
 }
 
 // DeleteAllInterconnections delete all Interconnections from Cache
-func (rc *RedisCache) DeleteAllInterconnections() error {
-	return rc.DeleteAll()
+func (rc *InterconnectionCache) DeleteAllInterconnections() error {
+	return rc.cache.DeleteAll()
 }
 
 // DeleteInterconnection delete a Interconnection from Cache
-func (rc *RedisCache) DeleteInterconnection(interconnection Interconnection) (bool, error) {
+func (rc *InterconnectionCache) DeleteInterconnection(interconnection Interconnection) (bool, error) {
 	interconnectionRedisKey := assembleKey(interconnection)
-	data := rc.client.Del(interconnectionRedisKey)
+	data := rc.cache.client.Del(interconnectionRedisKey)
 	if data.Val() != 1 {
 		return false, fmt.Errorf(fmt.Sprintf(deleteRedisError, interconnectionRedisKey))
 	}

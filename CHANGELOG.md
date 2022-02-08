@@ -1,9 +1,10 @@
 
 <a name="v1.1.1"></a>
-## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-01-31)
+## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-08)
 
 ### Feat
 
+* **Integration-interconnection:** Redis singleton connection Salesforce. Change CreateManager to Redis singleton connection. Closes #UI-23.
 * **Integration-interconnection:** Implement kafka. Add Kafka to the project to avoid lost messages. Closes #UI-8.
 
 
