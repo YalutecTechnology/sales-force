@@ -80,7 +80,10 @@ func TestCreateManager(t *testing.T) {
 			SessionsTTL: time.Second,
 		}
 		rcs, _ := cache.NewRedisCache(configRedis)
-		rcs.StoreInterconnection(NewInterconectionCache(interconnection))
+
+		cache := cache.NewInterconnectionCache(rcs)
+
+		cache.StoreInterconnection(NewInterconectionCache(interconnection))
 
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("GetMessages", mock.Anything,
@@ -139,8 +142,9 @@ func TestCreateManager(t *testing.T) {
 
 	t.Run("Should retrieve a simple manager instance", func(t *testing.T) {
 		expected := &Manager{
-			client:                       client,
-			clientName:                   "salesforce-integration",
+			client:     client,
+			clientName: "salesforce-integration",
+
 			SalesforceService:            nil,
 			IntegrationsClient:           nil,
 			BotrunnnerClient:             nil,
@@ -161,6 +165,7 @@ func TestCreateManager(t *testing.T) {
 			IntegrationsRateLimit:      20,
 			SalesforceRateLimit:        20,
 			Messages:                   models.MessageTemplate{WelcomeTemplate: "Hola soy Lalo", WaitAgent: "Esperando Agente"},
+			RedisOptions:               cache.RedisOptions{},
 		}
 		actual := CreateManager(config)
 		actual.SalesforceService = nil

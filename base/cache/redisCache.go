@@ -26,6 +26,7 @@ type CommonRedisCache interface {
 	StoreDataToSet(key string, data []byte) error
 	RetrieveDataFromSet(key string) ([]string, error)
 	DeleteSet(key string) error
+	GetAllKeysWithScanByMatch(match string, count int64) ([]string, error)
 }
 
 // RedisCache implements a session cache with Redis

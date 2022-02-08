@@ -59,7 +59,7 @@ type Interconnection struct {
 	BotrunnnerClient     botrunner.BotRunnerInterface        `json:"-"`
 	SalesforceService    services.SalesforceServiceInterface `json:"-"`
 	IntegrationsClient   integrations.IntegrationInterface   `json:"-"`
-	interconnectionCache cache.InterconnectionCache          `json:"-"`
+	interconnectionCache cache.IInterconnectionCache         `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
 	offset         int `json:"-"`

@@ -1,10 +1,11 @@
 package cron
 
 import (
-	"github.com/robfig/cron/v3"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
+
+	"github.com/robfig/cron/v3"
+	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 )
@@ -15,7 +16,7 @@ type crons struct {
 	Contextschedule   string
 	ContactEmail      string
 	Client            string
-	ContextCache      cache.ContextCache
+	ContextCache      cache.IContextCache
 }
 
 func NewCron(salesforceService services.SalesforceServiceInterface,
