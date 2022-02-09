@@ -255,16 +255,17 @@ func TestSendMessage(t *testing.T) {
 }
 
 func TestChatClient_ReconnectSession(t *testing.T) {
+	affinity := "efae1fa0"
 	t.Run("ReconnectSession case Successful", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		chat := &SfcChatClient{Proxy: mock}
 		expected := MessagesResponse{
 			Messages: []MessageObject{
 				{
-					Type: "type",
+					Type: ReconnectSession,
 					Message: Message{
 						ResetSequence: true,
-						AffinityToken: "affinity",
+						AffinityToken: affinity,
 					},
 				},
 			},
@@ -278,7 +279,7 @@ func TestChatClient_ReconnectSession(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader(binExpected)),
 		}, nil)
 
-		session, err := chat.ReconnectSession("token", "key", "offset")
+		session, err := chat.ReconnectSession("key", "offset")
 
 		assert.NoError(t, err)
 		assert.Equal(t, &expected, session)
@@ -287,13 +288,14 @@ func TestChatClient_ReconnectSession(t *testing.T) {
 	t.Run("ReconnectSession Error offset", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		chat := &SfcChatClient{Proxy: mock}
+		expectedError := fmt.Sprintf("%s : offset is empty", constants.QueryParamError)
 		expected := MessagesResponse{
 			Messages: []MessageObject{
 				{
-					Type: "type",
+					Type: ReconnectSession,
 					Message: Message{
 						ResetSequence: true,
-						AffinityToken: "affinity",
+						AffinityToken: affinity,
 					},
 				},
 			},
@@ -307,21 +309,40 @@ func TestChatClient_ReconnectSession(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader(binExpected)),
 		}, nil)
 
-		session, err := chat.ReconnectSession("token", "key", "")
+		session, err := chat.ReconnectSession("key", "")
 
 		assert.Error(t, err)
 		assert.Nil(t, session)
+		assert.Equal(t, expectedError, err.Error())
 	})
 
 	t.Run("ReconnectSession error request", func(t *testing.T) {
 		mock := &proxy.Mock{}
 		chat := &SfcChatClient{Proxy: mock}
+		expectedError := fmt.Sprintf("%s : %s", constants.ForwardError, assert.AnError.Error())
 		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
 
-		session, err := chat.ReconnectSession("token", "key", "offset")
+		session, err := chat.ReconnectSession("key", "offset")
 
 		assert.Error(t, err)
 		assert.Nil(t, session)
+		assert.Equal(t, expectedError, err.Error())
+	})
+
+	t.Run("Chat end error status", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		chat := &SfcChatClient{Proxy: mock}
+		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "map[error:Reconnect Error]")
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"error":"Reconnect Error"}`))),
+		}, nil)
+
+		session, err := chat.ReconnectSession("key", "offset")
+
+		assert.Error(t, err)
+		assert.Nil(t, session)
+		assert.Equal(t, expectedError, err.Error())
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +66,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		Provider:             provider,
 		finishChannel:        manager.finishInterconnection,
 		interconnectionCache: manager.interconnectionsCache,
+		offset:               10000,
 	}
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
 
@@ -190,13 +192,30 @@ func TestHandleLongPolling_test(t *testing.T) {
 		assert.Equal(t, false, interconnection.runnigLongPolling)
 	})
 
-	t.Run("Handle Status Service Unavailable", func(t *testing.T) {
-		expectedLog := "StatusServiceUnavailable"
+	t.Run("Handle Reconnect session when response is Status Service Unavailable", func(t *testing.T) {
+		expectedLog := "Reconnect session on long polling"
+		expectedAffinityToken := "newAffinityToken"
 		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
 		interconnection.SalesforceService = mockSalesforceServiceInterface
 
 		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusServiceUnavailable,
+			Error:      assert.AnError,
+		}).Once().
+			On("ReconnectSession", sessionKey, strconv.Itoa(interconnection.offset)).Return(&chat.MessagesResponse{
+			Messages: []chat.MessageObject{
+				{
+					Type: chat.ReconnectSession,
+					Message: chat.Message{
+						AffinityToken: expectedAffinityToken,
+					},
+				},
+			},
+		}, nil,
+		).Once().
+			On("GetMessages", mock.Anything, expectedAffinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Error:      assert.AnError,
 		}).Once()
 
 		botrunnerMock := new(BotRunnerInterface)
@@ -213,9 +232,47 @@ func TestHandleLongPolling_test(t *testing.T) {
 		}
 		assert.Equal(t, Closed, interconnection.Status)
 		assert.Equal(t, false, interconnection.runnigLongPolling)
+		assert.Equal(t, expectedAffinityToken, interconnection.AffinityToken)
+
+		inRedis, _ := interconnection.interconnectionCache.RetrieveInterconnection(cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client})
+		assert.Equal(t, expectedAffinityToken, inRedis.AffinityToken)
+	})
+
+	t.Run("Handle Reconnect Error when response is Status Service Unavailable", func(t *testing.T) {
+		interconnection.AffinityToken = affinityToken
+		logError := "Reconnect session on long polling"
+		expectedLog := "Reconnect session failed"
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		interconnection.SalesforceService = mockSalesforceServiceInterface
+
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+			StatusCode: http.StatusServiceUnavailable,
+			Error:      assert.AnError,
+		}).Once().
+			On("ReconnectSession", sessionKey, strconv.Itoa(interconnection.offset)).Return(&chat.MessagesResponse{}, assert.AnError).Once()
+
+		botrunnerMock := new(BotRunnerInterface)
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+		interconnection.BotrunnnerClient = botrunnerMock
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.handleLongPolling()
+		logs := buf.String()
+		if strings.Contains(logs, logError) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", logError, logs)
+		}
+
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+		assert.Equal(t, Closed, interconnection.Status)
+		assert.Equal(t, false, interconnection.runnigLongPolling)
 	})
 
 	t.Run("Handle Other error", func(t *testing.T) {
+		interconnection.AffinityToken = affinityToken
 		expectedLog := "Exists error in long polling"
 		SalesforceServiceInterface := new(SalesforceServiceInterface)
 		interconnection.SalesforceService = SalesforceServiceInterface
@@ -224,6 +281,11 @@ func TestHandleLongPolling_test(t *testing.T) {
 			StatusCode: http.StatusBadGateway,
 			Error:      assert.AnError,
 		}).Once()
+
+		botrunnerMock := new(BotRunnerInterface)
+		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
+			Return(true, nil).Once()
+		interconnection.BotrunnnerClient = botrunnerMock
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
@@ -532,6 +594,66 @@ func TestInterconnection_updateStatusRedis(t *testing.T) {
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
 		interconnection.updateStatusRedis(string(Active))
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+}
+
+func TestInterconnection_updateAffinityTokenRedis(t *testing.T) {
+	interconnection := Interconnection{
+		Client: client,
+		UserID: userID,
+		Status: OnHold,
+	}
+
+	t.Run("Update affinity token redis without error ", func(t *testing.T) {
+		interconnectionCache := new(InterconnectionCache)
+		expectedLog := "Could not update affinity token in interconnection"
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, nil).Once()
+		interconnectionCache.On("StoreInterconnection", mock.Anything).
+			Return(nil).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateAffinityTokenRedis(affinityToken)
+		logs := buf.String()
+		if strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Update affinity token redis with error in RetrieveInterconnection", func(t *testing.T) {
+		interconnectionCache := new(InterconnectionCache)
+		expectedLog := "Could not update affinity token in interconnection"
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, assert.AnError).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateAffinityTokenRedis(affinityToken)
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
+	})
+
+	t.Run("Update affinity token redis with error in StoreInterconnection", func(t *testing.T) {
+		expectedLog := "Could not update affinity token in interconnection"
+		interconnectionCache := new(InterconnectionCache)
+		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, nil).Once()
+		interconnectionCache.On("StoreInterconnection", mock.Anything).
+			Return(assert.AnError).Once()
+		interconnection.interconnectionCache = interconnectionCache
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.updateAffinityTokenRedis(affinityToken)
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
