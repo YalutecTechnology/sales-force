@@ -52,6 +52,7 @@ type SalesforceServiceInterface interface {
 	EndChat(affinityToken, sessionKey string) error
 	RefreshToken()
 	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
+	ReconnectSession(sessionKey, offset string) (*chat.MessagesResponse, error)
 }
 
 func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFieldsCase map[string]string, recordTypeID, firsNameContact string, customFieldsContact map[string]string) *SalesforceService {
@@ -434,4 +435,8 @@ func (s *SalesforceService) SearchContactComposite(email, phoneNumber string) (*
 	span := tracer.StartSpan("SearchContactComposite")
 	defer span.Finish()
 	return s.SfcClient.SearchContactComposite(span, email, phoneNumber)
+}
+
+func (s *SalesforceService) ReconnectSession(sessionKey, offset string) (*chat.MessagesResponse, error) {
+	return s.SfcChatClient.ReconnectSession(sessionKey, offset)
 }

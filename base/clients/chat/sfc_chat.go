@@ -33,6 +33,7 @@ const (
 	AgentTyping        = "AgentTyping"
 	AgentNotTyping     = "AgentNotTyping"
 	ChatEnded          = "ChatEnded"
+	ReconnectSession   = "ReconnectSession"
 )
 
 type SfcChatClient struct {
@@ -141,7 +142,7 @@ type SfcChatInterface interface {
 	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse)
 	SendMessage(tracer.Span, string, string, MessagePayload) (bool, error)
 	ChatEnd(affinityToken, sessionKey string) error
-	ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error)
+	ReconnectSession(sessionKey, offset string) (*MessagesResponse, error)
 	UpdateToken(accessToken string)
 }
 
@@ -410,11 +411,13 @@ func (c *SfcChatClient) SendMessage(mainSpan tracer.Span, affinityToken, session
 	return true, nil
 }
 
-//ReconnectSession Reconnet session to the live agent user.
-func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset string) (*MessagesResponse, error) {
+//ReconnectSession Reconnect session to the live agent user.
+func (c *SfcChatClient) ReconnectSession(sessionKey, offset string) (*MessagesResponse, error) {
 	// datadog tracing
 	span := tracer.StartSpan("reconnect_session")
 	span.SetTag(ext.AnalyticsEvent, true)
+	span.SetTag("sessionKey", sessionKey)
+	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", http.MethodGet, "/chat/rest/System/ReconnectSession"))
 	defer span.Finish()
 
 	var errorMessage string
@@ -424,7 +427,7 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 
 	//validating query params struct
 	if offset == "" {
-		errorMessage = fmt.Sprintf("%s ", constants.QueryParamError)
+		errorMessage = fmt.Sprintf("%s : offset is empty", constants.QueryParamError)
 		logrus.Error(errorMessage)
 		err := errors.New(errorMessage)
 		span.SetTag(ext.Error, err)
@@ -432,12 +435,11 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 	}
 
 	newRequest := c.getRequest(
-		affinityToken,
+		"null",
 		sessionKey,
-		http.MethodPost,
+		http.MethodGet,
 		fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
 		nil)
-	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
@@ -453,8 +455,8 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 		return nil, err
 	}
 
-	var session MessagesResponse
-	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &session)
+	var response MessagesResponse
+	readAndUnmarshalError := helpers.ReadAndUnmarshal(proxiedResponse.Body, &response)
 	if readAndUnmarshalError != nil {
 		errorMessage = fmt.Sprintf("%s : %s", constants.UnmarshallError, readAndUnmarshalError.Error())
 		logrus.Error(errorMessage)
@@ -464,9 +466,9 @@ func (c *SfcChatClient) ReconnectSession(affinityToken, sessionKey, offset strin
 
 	//check this one if this is a response success
 	logrus.WithFields(logrus.Fields{
-		"response": session,
-	}).Info("Reconnet session sucessfully")
-	return &session, nil
+		"response": response,
+	}).Info("Reconnect session successfully")
+	return &response, nil
 }
 
 //ChatEnd end chat of salesforce.

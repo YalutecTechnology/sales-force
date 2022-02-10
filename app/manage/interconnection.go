@@ -62,7 +62,7 @@ type Interconnection struct {
 	interconnectionCache cache.IInterconnectionCache         `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
-	offset         int `json:"-"`
+	offset         int `json:"offset"`
 	StudioNG       studiong.StudioNGInterface
 	isStudioNGFlow bool
 	kafkaProducer  subscribers.Producer
@@ -146,26 +146,32 @@ func (in *Interconnection) handleLongPolling() {
 				time.Sleep(time.Second * 5)
 			case http.StatusForbidden:
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
-				in.updateStatusRedis(string(Closed))
-				in.Status = Closed
-				in.runnigLongPolling = false
+				in.finishLongPolling(Closed)
 				logrus.WithFields(logFields).Error("StatusForbidden")
 				mainSpan.SetTag(ext.Error, errorResponse.Error)
 				mainSpan.SetTag(events.StatusSalesforce, errorResponse.StatusCode)
 			case http.StatusServiceUnavailable:
-				// TODO: Reconnect Session
-				in.updateStatusRedis(string(Closed))
-				in.Status = Closed
-				in.runnigLongPolling = false
 				logrus.WithFields(logFields).Error("StatusServiceUnavailable")
-				mainSpan.SetTag(ext.Error, errorResponse.Error)
+				mainSpan.SetTag("errorSalesforce", errorResponse.Error.Error())
 				mainSpan.SetTag(events.StatusSalesforce, errorResponse.StatusCode)
+
+				reconnect, err := in.SalesforceService.ReconnectSession(in.SessionKey, strconv.Itoa(in.offset))
+
+				if err != nil {
+					go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
+					in.finishLongPolling(Closed)
+					logrus.WithFields(logFields).WithError(err).Error("Reconnect session failed")
+					mainSpan.SetTag(ext.Error, err)
+					continue
+				}
+
+				logrus.WithFields(logFields).Info("Reconnect session on long polling")
+				in.AffinityToken = reconnect.Messages[0].Message.AffinityToken
+				in.updateAffinityTokenRedis(reconnect.Messages[0].Message.AffinityToken)
 			default:
 				logrus.WithFields(logFields).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
-				in.updateStatusRedis(string(Closed))
-				in.Status = Closed
-				in.runnigLongPolling = false
+				in.finishLongPolling(Closed)
 				mainSpan.SetTag(ext.Error, errorResponse.Error)
 				mainSpan.SetTag(events.StatusSalesforce, errorResponse.StatusCode)
 			}
@@ -203,9 +209,7 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 		logrus.WithFields(logFields).Infof("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)
 		mainSpan.SetTag(ext.Error, fmt.Errorf("event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason))
 		go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
-		in.updateStatusRedis(string(Failed))
-		in.runnigLongPolling = false
-		in.Status = Failed
+		in.finishLongPolling(Failed)
 	case chat.ChatRequestSuccess:
 		logrus.WithFields(logFields).Infof("Event [%s]", chat.ChatRequestSuccess)
 		if Messages.WaitAgent != "" {
@@ -233,9 +237,7 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 		}*/
 	case chat.ChatEnded:
 		go ChangeToState(in.UserID, in.BotSlug, SuccessState[string(in.Provider)], in.BotrunnnerClient, 0, 0, in.StudioNG, in.isStudioNGFlow)
-		in.updateStatusRedis(string(Closed))
-		in.runnigLongPolling = false
-		in.Status = Closed
+		in.finishLongPolling(Closed)
 	default:
 		logrus.WithFields(logFields).Infof("Event [%s]", event.Type)
 	}
@@ -306,6 +308,21 @@ func (in *Interconnection) updateStatusRedis(status string) {
 	}
 }
 
+func (in *Interconnection) updateAffinityTokenRedis(affinityToken string) {
+	interconnectionCache, err := in.interconnectionCache.RetrieveInterconnection(cache.Interconnection{UserID: in.UserID, Client: in.Client})
+
+	if err != nil {
+		logrus.Errorf("Could not update affinity token in interconnection userID[%s]-client[%s] from redis : [%s]", in.UserID, in.Client, err.Error())
+		return
+	}
+
+	interconnectionCache.AffinityToken = affinityToken
+	err = in.interconnectionCache.StoreInterconnection(*interconnectionCache)
+	if err != nil {
+		logrus.Errorf("Could not update affinity token in interconnection userID[%s]-client[%s] from redis : [%s]", in.UserID, in.Client, err.Error())
+	}
+}
+
 func (in *Interconnection) sendMessageToSalesforce(message *Message) {
 	// datadog tracing
 	spanContext := events.GetSpanContextFromSpan(message.MainSpan)
@@ -370,4 +387,10 @@ func (in *Interconnection) sendMessageToQueue(mainSpan tracer.Span, messageID, t
 		}).WithError(err).Error("error sendMessage to kafka'")
 
 	}
+}
+
+func (in *Interconnection) finishLongPolling(status InterconnectionStatus) {
+	in.updateStatusRedis(string(status))
+	in.Status = status
+	in.runnigLongPolling = false
 }

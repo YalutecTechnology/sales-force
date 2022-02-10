@@ -639,3 +639,29 @@ func TestSalesforceService_SearchContactComposite(t *testing.T) {
 		assert.Equal(t, contact, searchResponse)
 	})
 }
+
+func TestSalesforceService_ReconnectSession(t *testing.T) {
+
+	t.Run("Get reconnect Succesfull", func(t *testing.T) {
+		mock := new(SfcChatInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+
+		salesforceService.SfcChatClient = mock
+		message := &chat.MessagesResponse{
+			Messages: []chat.MessageObject{
+				{
+					Type: chat.ReconnectSession,
+					Message: chat.Message{
+						Name: "name",
+					},
+				},
+			},
+		}
+
+		mock.On("ReconnectSession", "sessionKey", "0").Return(message, nil).Once()
+		messageResponse, err := salesforceService.ReconnectSession("sessionKey", "0")
+		assert.Nil(t, err)
+		assert.Equal(t, message, messageResponse)
+	})
+
+}

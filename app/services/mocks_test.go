@@ -103,13 +103,13 @@ func (_m *SfcChatInterface) GetMessages(mainSpan ddtrace.Span, affinityToken str
 	return r0, r1
 }
 
-// ReconnectSession provides a mock function with given fields: affinityToken, sessionKey, offset
-func (_m *SfcChatInterface) ReconnectSession(affinityToken string, sessionKey string, offset string) (*chat.MessagesResponse, error) {
-	ret := _m.Called(affinityToken, sessionKey, offset)
+// ReconnectSession provides a mock function with given fields: sessionKey, offset
+func (_m *SfcChatInterface) ReconnectSession(sessionKey string, offset string) (*chat.MessagesResponse, error) {
+	ret := _m.Called(sessionKey, offset)
 
 	var r0 *chat.MessagesResponse
-	if rf, ok := ret.Get(0).(func(string, string, string) *chat.MessagesResponse); ok {
-		r0 = rf(affinityToken, sessionKey, offset)
+	if rf, ok := ret.Get(0).(func(string, string) *chat.MessagesResponse); ok {
+		r0 = rf(sessionKey, offset)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*chat.MessagesResponse)
@@ -117,8 +117,8 @@ func (_m *SfcChatInterface) ReconnectSession(affinityToken string, sessionKey st
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
-		r1 = rf(affinityToken, sessionKey, offset)
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(sessionKey, offset)
 	} else {
 		r1 = ret.Error(1)
 	}
