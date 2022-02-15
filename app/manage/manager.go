@@ -5,22 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/events"
 	"yalochat.com/salesforce-integration/base/subscribers"
 	"yalochat.com/salesforce-integration/base/subscribers/kafka"
-
-	"golang.org/x/time/rate"
-
-	"github.com/sirupsen/logrus"
 
 	"yalochat.com/salesforce-integration/app/config/envs"
 	"yalochat.com/salesforce-integration/app/cron"
@@ -305,20 +302,6 @@ func CreateManager(config *ManagerOptions) *Manager {
 		KafkaTopic:                   config.KafkaTopic,
 	}
 
-	// TODO: Add function restore interconnections
-	if !reflect.ValueOf(m.interconnectionsCache).IsNil() {
-		interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
-		ctx := context.Background()
-		for _, interconnection := range *interconnections {
-			if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
-				in := convertInterconnectionCacheToInterconnection(interconnection)
-				m.AddInterconnection(ctx, in)
-			}
-		}
-	}
-
-	go m.handleInterconnection()
-
 	if config.KafkaUser != "" {
 		producer := kafka.NewProducer(kafka.KafkaSettings{
 			Host:     config.KafkaHost,
@@ -338,6 +321,19 @@ func CreateManager(config *ManagerOptions) *Manager {
 		go consumer.Start()
 	}
 
+	// TODO: Add function restore interconnections
+	if !reflect.ValueOf(m.interconnectionsCache).IsNil() {
+		interconnections := interconnectionsCache.RetrieveAllInterconnections(config.Client)
+		ctx := context.Background()
+		for _, interconnection := range *interconnections {
+			if InterconnectionStatus(interconnection.Status) == Active || interconnection.Status == string(OnHold) {
+				in := convertInterconnectionCacheToInterconnection(interconnection)
+				m.AddInterconnection(ctx, in)
+			}
+		}
+	}
+
+	go m.handleInterconnection()
 	return m
 }
 

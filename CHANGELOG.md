@@ -1,12 +1,16 @@
 
 <a name="v1.1.1"></a>
-## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-09)
+## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
 
 ### Feat
 
 * **Improve Salesforce implementation:** Add reconnect on long-polling. Do a reconnection when a 503 http error occurs on long polling. Closes #UI-25
 * **Integration-interconnection:** Redis singleton connection Salesforce. Change CreateManager to Redis singleton connection. Closes #UI-23.
 * **Integration-interconnection:** Implement kafka. Add Kafka to the project to avoid lost messages. Closes #UI-8.
+
+### Fix
+
+* **Improve Salesforce implementation:** Adding producer to interconnections in restore. Change the order of the Kakfa producer declaration, to be done before restoring interconnects. Closes #UI-26
 
 
 <a name="v1.1.0"></a>
