@@ -18,6 +18,7 @@ type Envs struct {
 	Environment          string            `default:"dev" split_words:"true"`
 	RedisAddress         string            `split_words:"true"`
 	RedisMaster          string            `split_words:"true"`
+	RedisPassword        string            `split_words:"true"`
 	RedisSentinelAddress string            `split_words:"true"`
 	BlockedUserState     map[string]string `required:"true" split_words:"true" default:"whatsapp:from-sf-blocked,facebook:from-sf-blocked"`
 	TimeoutState         map[string]string `required:"true" split_words:"true" default:"whatsapp:from-sf-timeout,facebook:from-sf-timeout"`
