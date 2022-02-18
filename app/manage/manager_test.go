@@ -1506,7 +1506,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertImageInCase",
-			"http://test.com", "caption", "image/png", "caseID").
+			"http://test.com", "caption 1 2  3", "image/png", "caseID").
 			Return(assert.AnError).Once()
 
 		cacheMessage := new(IMessageCache)
@@ -1553,7 +1553,7 @@ func TestManager_SaveContext(t *testing.T) {
 			Image: models.Media{
 				URL:      "http://test.com",
 				MIMEType: "image/png",
-				Caption:  "caption",
+				Caption:  "caption/1?2^&3??",
 			},
 		}
 		err := manager.SaveContext(context.Background(), integrations)
