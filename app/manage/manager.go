@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/time/rate"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/events"
 	"yalochat.com/salesforce-integration/base/subscribers"
 	"yalochat.com/salesforce-integration/base/subscribers/kafka"
@@ -819,7 +820,9 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 func defineImageName(interconnection *Interconnection, integration *models.IntegrationsRequest) string {
 	maxLength := 255
 	if integration.Image.Caption != "" && len(integration.Image.Caption) <= maxLength {
-		return integration.Image.Caption
+		re, _ := regexp.Compile(`[^\w]`)
+		caption := re.ReplaceAllString(integration.Image.Caption, " ")
+		return strings.Trim(caption, " ")
 	}
 
 	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+-.+-.+-.+)")
