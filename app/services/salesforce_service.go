@@ -48,7 +48,7 @@ type SalesforceServiceInterface interface {
 	SendMessage(tracer.Span, string, string, chat.MessagePayload) (bool, error)
 	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(context context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
-	InsertImageInCase(uri, title, mimeType, caseID string) error
+	InsertFileInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 	RefreshToken()
 	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
@@ -348,8 +348,8 @@ func (s *SalesforceService) RefreshToken() {
 	logrus.Info("Refresh token successful")
 }
 
-func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID string) error {
-	span := tracer.StartSpan("InsertImageInCase")
+func (s *SalesforceService) InsertFileInCase(uri, title, mimeType, caseID string) error {
+	span := tracer.StartSpan("InsertFileInCase")
 	span.SetTag("caseId", caseID)
 	span.SetTag("title", title)
 	defer span.Finish()
@@ -361,7 +361,7 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err := fmt.Errorf("image not found")
+		err := fmt.Errorf("file not found")
 		span.SetTag(ext.Error, err)
 		return err
 	}
@@ -421,7 +421,7 @@ func (s *SalesforceService) InsertImageInCase(uri, title, mimeType, caseID strin
 	_, errResponse := s.SfcClient.Composite(span, request)
 	if errResponse != nil {
 		span.SetTag(ext.Error, errResponse.Error)
-		return errors.New(helpers.ErrorMessage("not insert image", errResponse.Error))
+		return errors.New(helpers.ErrorMessage("not insert file", errResponse.Error))
 	}
 
 	return nil

@@ -1445,7 +1445,7 @@ func TestManager_SaveContext(t *testing.T) {
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
-		salesforceMock.On("InsertImageInCase",
+		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
 			Return(nil).Once()
 
@@ -1505,7 +1505,7 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("InsertImageInCase",
+		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "caption 1 2  3", "image/png", "caseID").
 			Return(assert.AnError).Once()
 
@@ -1566,7 +1566,7 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("InsertImageInCase",
+		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "image/png", "caseID").
 			Return(nil).Once()
 
@@ -1615,6 +1615,195 @@ func TestManager_SaveContext(t *testing.T) {
 				URL:      "http://test.com",
 				MIMEType: "image/png",
 				Caption:  "",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send file to salesforce", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadFileSuccess: "Archivo subido, titulo: "}
+
+		SendImageNameInMessage = true
+		defer func() {
+			SendImageNameInMessage = false
+			interconnectionLocal.Clear()
+		}()
+
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		fileId := "459e2d42-418a-441c-86e4-e062a3be0272"
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com/"+fileId, "459e2d42 418a 441c 86e4 e062a3be0272", "document/pdf", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.DocumentType,
+			From:      userID,
+			Document: models.Media{
+				URL:      "http://test.com/" + fileId,
+				MIMEType: "document/pdf",
+				Caption:  fileId,
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send a document to salesforce, the document should have the session in the title", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com", sessionID, "document/pdf", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.DocumentType,
+			From:      userID,
+			Document: models.Media{
+				URL:      "http://test.com",
+				MIMEType: "document/pdf",
+				Caption:  "",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should send file to salesforce error service", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com", "caption 1 2  3", "document/pdf", "caseID").
+			Return(assert.AnError).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationsClient:           integrationsIMock,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.DocumentType,
+			From:      userID,
+			Document: models.Media{
+				URL:      "http://test.com",
+				MIMEType: "document/pdf",
+				Caption:  "caption/1?2^&3??",
 			},
 		}
 		err := manager.SaveContext(context.Background(), integrations)
@@ -2150,7 +2339,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("InsertImageInCase",
+		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "", "caseID").
 			Return(nil).Once()
 
@@ -2215,6 +2404,94 @@ func TestManager_SaveContextFB(t *testing.T) {
 												URL: "http://test.com",
 											},
 											Type: constants.ImageType,
+										},
+									},
+								},
+								Timestamp: 1631202334957,
+							},
+						},
+						Time: 12345,
+					},
+				},
+				Object: "object",
+			},
+			Provider:    "facebook",
+			MsgTracking: models.MsgTracking{},
+		}
+		err := manager.SaveContextFB(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("Should interaction file from user", func(t *testing.T) {
+		defer interconnectionLocal.Clear()
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com", sessionID, "", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			finishInterconnection:        make(chan *Interconnection),
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:            Active,
+			AffinityToken:     affinityToken,
+			SessionKey:        sessionKey,
+			CaseID:            caseID,
+			SessionID:         sessionID,
+			finishChannel:     manager.finishInterconnection,
+			SalesforceService: salesforceMock,
+			kafkaProducer:     producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsFacebook{
+			AuthorRole: fromUser,
+			BotID:      "botID",
+			Timestamp:  1631202334957,
+			Message: models.Message{
+				Entry: []models.Entry{
+					{
+						ID: "id",
+						Messaging: []models.Messaging{
+							{
+								Recipient: models.Recipient{
+									ID: botID,
+								},
+								Sender: models.Recipient{
+									ID: userID,
+								},
+								Message: models.MessagingMessage{
+									Mid: messageID,
+									Attachments: []models.Attachment{
+										{
+											Payload: models.Payload{
+												URL: "http://test.com",
+											},
+											Type: constants.FileType,
 										},
 									},
 								},
@@ -2337,7 +2614,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
-		salesforceMock.On("InsertImageInCase",
+		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "", "caseID").
 			Return(assert.AnError).Once()
 
@@ -3113,4 +3390,90 @@ func TestManager_Process(t *testing.T) {
 
 	})
 	<-time.After(time.Second)
+}
+
+func Test_defineFileName(t *testing.T) {
+	type args struct {
+		interconnection *Interconnection
+		integration     *models.IntegrationsRequest
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Should return session ID",
+			args: args{
+				interconnection: &Interconnection{SessionID: "sessionID"},
+				integration:     &models.IntegrationsRequest{},
+			},
+			want: sessionID,
+		},
+		{
+			name: "Should return caption name if it is a file type",
+			args: args{
+				interconnection: &Interconnection{SessionID: "sessionID"},
+				integration: &models.IntegrationsRequest{
+					Type: constants.DocumentType,
+					Document: models.Media{
+						URL:      "http://test.pdf",
+						MIMEType: "application/pdf",
+						Caption:  "File name caption",
+					},
+				},
+			},
+			want: "File name caption",
+		},
+		{
+			name: "Should return caption name if it is a image type",
+			args: args{
+				interconnection: &Interconnection{SessionID: "sessionID"},
+				integration: &models.IntegrationsRequest{
+					Type: constants.ImageType,
+					Image: models.Media{
+						URL:      "http://test.pdf",
+						MIMEType: "application/pdf",
+						Caption:  "Image name caption",
+					},
+				},
+			},
+			want: "Image name caption",
+		},
+		{
+			name: "Should return imageId if it is a file type",
+			args: args{
+				interconnection: &Interconnection{SessionID: "sessionID"},
+				integration: &models.IntegrationsRequest{
+					Type: constants.DocumentType,
+					Document: models.Media{
+						URL:      "https://test.com/376f03dc-0b71-4ab4-bc02-ab910cb86f2a.pdf",
+						MIMEType: "application/pdf",
+						Caption:  "",
+					},
+				},
+			},
+			want: "376f03dc-0b71-4ab4-bc02-ab910cb86f2a.pdf",
+		},
+		{
+			name: "Should return imageId if it is a image type",
+			args: args{
+				interconnection: &Interconnection{SessionID: "sessionID"},
+				integration: &models.IntegrationsRequest{
+					Type: constants.ImageType,
+					Image: models.Media{
+						URL:      "https://test.com/376f03dc-0b71-4ab4-bc02-ab910cb86f2a.png",
+						MIMEType: "image/png",
+						Caption:  "",
+					},
+				},
+			},
+			want: "376f03dc-0b71-4ab4-bc02-ab910cb86f2a.png",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, defineFileName(tt.args.interconnection, tt.args.integration), "defineFileName(%v, %v)", tt.args.interconnection, tt.args.integration)
+		})
+	}
 }

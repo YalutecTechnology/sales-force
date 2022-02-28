@@ -408,8 +408,9 @@ func TestSalesforceService_GetMessages(t *testing.T) {
 	})
 }
 
-func TestSalesforceService_InsertImageInCase(t *testing.T) {
-	t.Run("Insert image in case success", func(t *testing.T) {
+func TestSalesforceService_InsertFileInCase(t *testing.T) {
+
+	t.Run("Insert file in case success", func(t *testing.T) {
 		salesforceMock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
@@ -455,12 +456,12 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 		}
 		salesforceMock.On("Composite", mock.Anything, request).Return(salesforce.CompositeResponses{}, nil).Once()
 
-		err := salesforceService.InsertImageInCase(uri, title, mimeType, caseID)
+		err := salesforceService.InsertFileInCase(uri, title, mimeType, caseID)
 
 		assert.NoError(t, err)
 	})
 
-	t.Run("Insert image in case error get image", func(t *testing.T) {
+	t.Run("Insert file in case error get image", func(t *testing.T) {
 		salesforceMock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
@@ -473,21 +474,21 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 		}
 		salesforceMock.On("CreateContentVersion", contentVersion).Return("", assert.AnError).Once()
 
-		err := salesforceService.InsertImageInCase("error", title, mimeType, caseID)
+		err := salesforceService.InsertFileInCase("error", title, mimeType, caseID)
 
 		assert.Error(t, err)
 	})
 
-	t.Run("Image not found error", func(t *testing.T) {
-		expectedError := "image not found"
+	t.Run("File not found error", func(t *testing.T) {
+		expectedError := "file not found"
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
-		err := salesforceService.InsertImageInCase("https://google.com/errr", title, mimeType, caseID)
+		err := salesforceService.InsertFileInCase("https://google.com/errr", title, mimeType, caseID)
 
 		assert.Error(t, err)
 		assert.Equal(t, expectedError, err.Error())
 	})
 
-	t.Run("Insert image in case error composite", func(t *testing.T) {
+	t.Run("Insert file in case error composite", func(t *testing.T) {
 		salesforceMock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
@@ -534,12 +535,12 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
 		salesforceMock.On("Composite", mock.Anything, request).Return(salesforce.CompositeResponses{}, errorResponse).Once()
 
-		err := salesforceService.InsertImageInCase(uri, title, mimeType, caseID)
+		err := salesforceService.InsertFileInCase(uri, title, mimeType, caseID)
 
 		assert.Error(t, err)
 	})
 
-	t.Run("Insert image in case success without mimetype", func(t *testing.T) {
+	t.Run("Insert file in case success without mimetype", func(t *testing.T) {
 		salesforceMock := new(SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
@@ -585,7 +586,7 @@ func TestSalesforceService_InsertImageInCase(t *testing.T) {
 		}
 		salesforceMock.On("Composite", mock.Anything, request).Return(salesforce.CompositeResponses{}, nil).Once()
 
-		err := salesforceService.InsertImageInCase(uri, title, "", caseID)
+		err := salesforceService.InsertFileInCase(uri, title, "", caseID)
 
 		assert.NoError(t, err)
 	})

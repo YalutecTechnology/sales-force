@@ -33,7 +33,7 @@ const (
 	StatusSalesforce = "statusSalesforce"
 	MessageRepeated  = "messageRepeated"
 	MessageSentAgent = "messageSentAgent"
-	SendImage        = "sendImage"
+	SendFile         = "sendFile"
 )
 
 // GetSpanContextFromSpan returns a SpanContext to be used as parent given a span

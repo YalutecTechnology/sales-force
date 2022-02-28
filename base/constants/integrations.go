@@ -9,4 +9,5 @@ const (
 	DocumentType     = "document"
 	ImageType        = "image"
 	TextType         = "text"
+	FileType         = "file"
 )

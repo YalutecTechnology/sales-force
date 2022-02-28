@@ -1,6 +1,14 @@
 
+<a name="v1.1.3"></a>
+## [v1.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.3..v1.1.2) (2022-02-28)
+
+### Feat
+
+* **Improve Salesforce implementation:** Upload files on cases. Upload files and add them to the case when there is an active chat and an attachment is sent on whatsapp and facebook. Closes #UI-30
+
+
 <a name="v1.1.2"></a>
-## [v1.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-02-22)
+## [v1.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-03-02)
 
 
 <a name="v1.1.1"></a>
