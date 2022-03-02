@@ -125,8 +125,8 @@ func (_m *SalesforceServiceInterface) GetOrCreateContact(_a0 context.Context, na
 	return r0, r1
 }
 
-// InsertImageInCase provides a mock function with given fields: uri, title, mimeType, caseID
-func (_m *SalesforceServiceInterface) InsertImageInCase(uri string, title string, mimeType string, caseID string) error {
+// InsertFileInCase provides a mock function with given fields: uri, title, mimeType, caseID
+func (_m *SalesforceServiceInterface) InsertFileInCase(uri string, title string, mimeType string, caseID string) error {
 	ret := _m.Called(uri, title, mimeType, caseID)
 
 	var r0 error

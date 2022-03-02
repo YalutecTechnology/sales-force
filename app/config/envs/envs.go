@@ -71,7 +71,7 @@ type Envs struct {
 	CleanContextSchedule       string                 `split_words:"true" default:"0 9 * * *"`
 	IntegrationChanRateLimit   float64                `split_words:"true" default:"20"`
 	SaleforceChanRateLimit     float64                `split_words:"true" default:"20"`
-	Messages                   models.MessageTemplate `split_words:"true" required:"true" default:"{\"waitAgent\":\"Esperando un agente\",\"welcomeTemplate\":\"Hola soy %s y necesito ayuda\",\"context\":\"Contexto\",\"DescriptionCase\":\"Caso levantado por el Bot\",\"uploadImageError\":\"Imagen no enviada\",\"uploadImageSuccess\":\"**El usuario adjunto una imagen al caso**\",\"queuePosition\":\"Posici\u00F3n en la cola\",\"waitTime\":\"Tiempo de espera\",\"firstNameContact\":\"Contacto Bot - \",\"clientLabel\":\"Cliente\",\"botLabel\":\"Bot\"}"`
+	Messages                   models.MessageTemplate `split_words:"true" required:"true" default:"{\"waitAgent\":\"Esperando un agente\",\"welcomeTemplate\":\"Hola soy %s y necesito ayuda\",\"context\":\"Contexto\",\"DescriptionCase\":\"Caso levantado por el Bot\",\"uploadImageError\":\"Imagen no enviada\",\"uploadImageSuccess\":\"**El usuario adjunto una imagen al caso**\",\"uploadFileError\":\"Archivo no enviado\",\"uploadFileSuccess\":\"**El usuario adjunto un archivo al caso**\",\"queuePosition\":\"Posici\u00F3n en la cola\",\"waitTime\":\"Tiempo de espera\",\"firstNameContact\":\"Contacto Bot - \",\"clientLabel\":\"Cliente\",\"botLabel\":\"Bot\"}"`
 	Timezone                   string                 `required:"true" default:"America/Mexico_City"`
 	SendImageNameInMessage     bool                   `split_words:"true" default:"false"`
 	KafkaHost                  string                 `required:"true" split_words:"true"`
@@ -93,7 +93,7 @@ type SourceFlowBot struct {
 
 type SfcSourceFlowBot map[string]SourceFlowBot
 
-//Decoder this function deserializes the struct by the envconfig Decoder interface implementation
+//Decode Decoder this function deserializes the struct by the envconfig Decoder interface implementation
 func (sd *SfcSourceFlowBot) Decode(value string) error {
 	providerMap := map[string]SourceFlowBot{}
 

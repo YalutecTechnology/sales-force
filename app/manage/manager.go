@@ -783,29 +783,41 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			integration.Text.Body,
 			constants.SendMessageToSalesforce)
 
-	case constants.ImageType:
-		imageName := defineImageName(interconnection, integration)
+	case constants.ImageType, constants.DocumentType:
+		fileMessageError := Messages.UploadFileError
+		fileMessageSuccess := Messages.UploadFileSuccess
+		uri := integration.Document.URL
+		mime := integration.Document.MIMEType
 
-		err := m.SalesforceService.InsertImageInCase(
-			integration.Image.URL,
+		if integration.Type == constants.ImageType {
+			fileMessageError = Messages.UploadImageError
+			fileMessageSuccess = Messages.UploadImageSuccess
+			uri = integration.Image.URL
+			mime = integration.Image.MIMEType
+		}
+
+		imageName := defineFileName(interconnection, integration)
+
+		err := m.SalesforceService.InsertFileInCase(
+			uri,
 			imageName,
-			integration.Image.MIMEType,
+			mime,
 			interconnection.CaseID)
 		if err != nil {
 			mainSpan.SetTag(ext.Error, err)
-			mainSpan.SetTag(events.SendImage, false)
-			logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
+			mainSpan.SetTag(events.SendFile, false)
+			logrus.WithFields(logFields).WithError(err).Error("InsertFileInCase error")
 			interconnection.sendMessageToQueue(mainSpan,
 				integration.ID,
-				Messages.UploadImageError,
+				fileMessageError,
 				constants.SendMessageToUser)
 
 			return
 		}
-		logrus.WithFields(logFields).Info("Send Image to agent")
-		mainSpan.SetTag(events.SendImage, true)
+		logrus.WithFields(logFields).Info("Send file to agent")
+		mainSpan.SetTag(events.SendFile, true)
 
-		textMessage := Messages.UploadImageSuccess
+		textMessage := fileMessageSuccess
 		if SendImageNameInMessage {
 			textMessage += imageName
 		}
@@ -817,16 +829,23 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 	}
 }
 
-func defineImageName(interconnection *Interconnection, integration *models.IntegrationsRequest) string {
+func defineFileName(interconnection *Interconnection, integration *models.IntegrationsRequest) string {
+	caption := integration.Document.Caption
+	url := integration.Document.URL
+
+	if integration.Type == constants.ImageType {
+		caption = integration.Image.Caption
+		url = integration.Image.URL
+	}
 	maxLength := 255
-	if integration.Image.Caption != "" && len(integration.Image.Caption) <= maxLength {
+	if caption != "" && len(caption) <= maxLength {
 		re, _ := regexp.Compile(`[^\w]`)
-		caption := re.ReplaceAllString(integration.Image.Caption, " ")
-		return strings.Trim(caption, " ")
+		captionName := re.ReplaceAllString(caption, " ")
+		return strings.Trim(captionName, " ")
 	}
 
 	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+-.+-.+-.+)")
-	imageId := regexToFindImageId.FindStringSubmatch(integration.Image.URL)
+	imageId := regexToFindImageId.FindStringSubmatch(url)
 	if len(imageId) > 0 && imageId[1] != "" {
 		return imageId[1]
 	}
@@ -1036,27 +1055,35 @@ func (m *Manager) sendMessageComunicationFB(mainSpan tracer.Span, interconnectio
 
 	case message.Message.Attachments != nil:
 		for _, attachment := range message.Message.Attachments {
-			if attachment.Type == constants.ImageType {
-				err := m.SalesforceService.InsertImageInCase(
+			if attachment.Type == constants.ImageType || attachment.Type == constants.FileType {
+				fileMessageError := Messages.UploadFileError
+				fileMessageSuccess := Messages.UploadFileSuccess
+
+				if attachment.Type == constants.ImageType {
+					fileMessageError = Messages.UploadImageError
+					fileMessageSuccess = Messages.UploadImageSuccess
+				}
+
+				err := m.SalesforceService.InsertFileInCase(
 					attachment.Payload.URL,
 					interconnection.SessionID,
 					"",
 					interconnection.CaseID)
 				if err != nil {
 					mainSpan.SetTag(ext.Error, err)
-					mainSpan.SetTag(events.SendImage, false)
-					logrus.WithFields(logFields).WithError(err).Error("InsertImageInCase error")
+					mainSpan.SetTag(events.SendFile, false)
+					logrus.WithFields(logFields).WithError(err).Error("InsertFileInCase error")
 					interconnection.sendMessageToQueue(mainSpan,
 						message.Sender.ID,
-						Messages.UploadImageError,
+						fileMessageError,
 						constants.SendMessageToUser)
 					return
 				}
-				logrus.WithFields(logFields).Info("FB Send Image to agent")
-				mainSpan.SetTag(events.SendImage, true)
+				logrus.WithFields(logFields).Info("FB Send File to agent")
+				mainSpan.SetTag(events.SendFile, true)
 				interconnection.sendMessageToQueue(mainSpan,
 					message.Sender.ID,
-					Messages.UploadImageSuccess,
+					fileMessageSuccess,
 					constants.SendMessageToSalesforce)
 			}
 		}
