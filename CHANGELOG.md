@@ -1,4 +1,8 @@
 
+<a name="v1.1.2"></a>
+## [v1.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-02-22)
+
+
 <a name="v1.1.1"></a>
 ## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
 
@@ -36,7 +40,7 @@
 
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..v0.1.7) (2021-12-21)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -57,12 +61,12 @@
 * **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
 
 
-<a name="v0.1.7"></a>
-## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..V0.1.7) (2021-11-16)
-
-
 <a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.6) (2021-11-16)
+## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
+
+
+<a name="v0.1.7"></a>
+## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 
