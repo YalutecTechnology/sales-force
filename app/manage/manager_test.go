@@ -857,6 +857,112 @@ func TestManager_CreateChat(t *testing.T) {
 		manager.EndChat(interconnection)
 	})
 
+	t.Run("Create Chat Failed for error redis", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+			ExtraData:   map[string]interface{}{"data": "datavalue"},
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcRecordTypeID = recordTypeID
+		SfcCustomFieldsCase = map[string]string{"data": "data"}
+
+		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionMock := new(InterconnectionCache)
+
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, assert.AnError).Once()
+
+		cacheContextMock := new(ContextCacheMock)
+
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+			contextcache:          cacheContextMock,
+			interconnectionMap:    interconectionLocal,
+			SfcSourceFlowField:    "data",
+			SfcSourceFlowBot: envs.SfcSourceFlowBot{
+				defaultFieldCustom: {
+					Subject: "subject",
+					Providers: map[string]envs.Provider{
+						"whatsapp": {
+							ButtonID: "buttonWAID",
+							OwnerID:  "ownerWAID",
+						},
+					},
+				},
+			},
+		}
+
+		err := manager.CreateChat(context.Background(), interconnection)
+		assert.Error(t, err)
+		manager.EndChat(interconnection)
+	})
+
+	t.Run("Create Chat Failed for interconnection exist", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+		interconnection := &Interconnection{
+			UserID:      userID,
+			Client:      client,
+			BotSlug:     botSlug,
+			BotID:       botID,
+			Name:        name,
+			Provider:    provider,
+			Email:       email,
+			PhoneNumber: phoneNumber,
+			ExtraData:   map[string]interface{}{"data": "datavalue"},
+		}
+
+		SfcOrganizationID = organizationID
+		SfcDeploymentID = deploymentID
+		SfcRecordTypeID = recordTypeID
+		SfcCustomFieldsCase = map[string]string{"data": "data"}
+
+		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionMock := new(InterconnectionCache)
+
+		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, assert.AnError).Once()
+
+		cacheContextMock := new(ContextCacheMock)
+
+		interconectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), interconnection, ttlMessage)
+
+		manager := &Manager{
+			client:                client,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionMock,
+			contextcache:          cacheContextMock,
+			interconnectionMap:    interconectionLocal,
+			SfcSourceFlowField:    "data",
+			SfcSourceFlowBot: envs.SfcSourceFlowBot{
+				defaultFieldCustom: {
+					Subject: "subject",
+					Providers: map[string]envs.Provider{
+						"whatsapp": {
+							ButtonID: "buttonWAID",
+							OwnerID:  "ownerWAID",
+						},
+					},
+				},
+			},
+		}
+
+		err := manager.CreateChat(context.Background(), interconnection)
+		assert.Error(t, err)
+		manager.EndChat(interconnection)
+	})
+
 }
 
 func TestManager_FinishChat(t *testing.T) {

@@ -599,10 +599,23 @@ func (m *Manager) ValidateUserID(ctx context.Context, userID string) error {
 	span.SetTag("userID", userID)
 	defer span.Finish()
 
-	sessionRedis, _ := m.interconnectionsCache.RetrieveInterconnection(cache.Interconnection{
+	// validate that it exists on the map
+	if _, ok := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userID)); ok {
+		err := errors.New("session exists with this userID")
+		span.SetTag(ext.Error, err)
+		return err
+	}
+
+	sessionRedis, err := m.interconnectionsCache.RetrieveInterconnection(cache.Interconnection{
 		UserID: userID,
 		Client: m.client,
 	})
+
+	if err != nil {
+		err = fmt.Errorf("error retrieve interconnection: %s", err.Error())
+		span.SetTag(ext.Error, err)
+		return err
+	}
 
 	if sessionRedis != nil && (sessionRedis.Status == string(Active) || sessionRedis.Status == string(OnHold)) {
 		err := errors.New("session exists in redis with this userID")
@@ -610,12 +623,6 @@ func (m *Manager) ValidateUserID(ctx context.Context, userID string) error {
 		return err
 	}
 
-	// validate that it exists on the map
-	if _, ok := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userID)); ok {
-		err := errors.New("session exists with this userID")
-		span.SetTag(ext.Error, err)
-		return err
-	}
 	return nil
 }
 
