@@ -968,6 +968,8 @@ func TestManager_CreateChat(t *testing.T) {
 func TestManager_FinishChat(t *testing.T) {
 	interconectionLocal := cache.New()
 	t.Run("Finish Chat Succesfull", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
 		interconnectionCacheMock := new(InterconnectionCache)
 		salesforceMock := new(SalesforceServiceInterface)
 		interconnection := &Interconnection{
@@ -1001,6 +1003,151 @@ func TestManager_FinishChat(t *testing.T) {
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.FinishChat(userID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Finish Chat Succesfull found from redis", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
+		interconnectionCacheMock := new(InterconnectionCache)
+		salesforceMock := new(SalesforceServiceInterface)
+
+		interconnectionCache := &cache.Interconnection{
+			UserID:        userID,
+			SessionID:     sessionID,
+			SessionKey:    sessionKey,
+			AffinityToken: affinityToken,
+			Status:        string(Active),
+			Client:        client,
+		}
+
+		manager := &Manager{
+			interconnectionMap:    interconectionLocal,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionCacheMock,
+			client:                client,
+		}
+
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{UserID: userID, Client: client}).
+			Return(interconnectionCache, nil).Times(2)
+
+		interconnectionCacheClose := &cache.Interconnection{
+			UserID:        userID,
+			SessionID:     sessionID,
+			SessionKey:    sessionKey,
+			AffinityToken: affinityToken,
+			Status:        string(Closed),
+			Client:        client,
+		}
+		interconnectionCacheMock.On("StoreInterconnection", *interconnectionCacheClose).
+			Return(nil).Once()
+
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(nil).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.FinishChat(userID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Finish Chat error found from redis", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
+		interconnectionCacheMock := new(InterconnectionCache)
+		salesforceMock := new(SalesforceServiceInterface)
+
+		manager := &Manager{
+			interconnectionMap:    interconectionLocal,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionCacheMock,
+			client:                client,
+		}
+
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{UserID: userID, Client: client}).
+			Return(nil, assert.AnError).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.FinishChat(userID)
+		assert.Error(t, err)
+	})
+
+	t.Run("Finish Chat Succesfull found active Interconnection", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
+		interconnectionCacheMock := new(InterconnectionCache)
+		salesforceMock := new(SalesforceServiceInterface)
+
+		interconnectionCache := &cache.Interconnection{
+			UserID:        userID,
+			SessionID:     sessionID,
+			SessionKey:    sessionKey,
+			AffinityToken: affinityToken,
+			Status:        string(Closed),
+			Client:        client,
+		}
+
+		manager := &Manager{
+			interconnectionMap:    interconectionLocal,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionCacheMock,
+			client:                client,
+		}
+
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{UserID: userID, Client: client}).
+			Return(interconnectionCache, nil).Once()
+
+		manager.SalesforceService = salesforceMock
+
+		err := manager.FinishChat(userID)
+		assert.Error(t, err)
+	})
+
+	t.Run("Finish Chat Succesfull with error endchat saleforce", func(t *testing.T) {
+		defer interconectionLocal.Clear()
+
+		interconnectionCacheMock := new(InterconnectionCache)
+		salesforceMock := new(SalesforceServiceInterface)
+		interconnection := &Interconnection{
+			Client:               client,
+			Status:               Active,
+			AffinityToken:        affinityToken,
+			SessionKey:           sessionKey,
+			interconnectionCache: interconnectionCacheMock}
+		interconectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), interconnection, ttlMessage)
+		interconectionLocal.Wait()
+		interconnectionCache := &cache.Interconnection{
+			UserID:     userID,
+			SessionID:  sessionID,
+			SessionKey: sessionID,
+			Status:     string(Active),
+		}
+
+		manager := &Manager{
+			interconnectionMap:    interconectionLocal,
+			SalesforceService:     salesforceMock,
+			interconnectionsCache: interconnectionCacheMock,
+		}
+
+		interconnectionCacheMock.On("RetrieveInterconnection",
+			cache.Interconnection{UserID: interconnection.UserID, Client: client}).
+			Return(interconnectionCache, nil).Once()
+		interconnectionCache.Status = string(Closed)
+		interconnectionCacheMock.On("StoreInterconnection", *interconnectionCache).
+			Return(nil).Once()
+
+		salesforceMock.On("EndChat",
+			affinityToken, sessionKey).
+			Return(assert.AnError).Once()
 
 		manager.SalesforceService = salesforceMock
 
