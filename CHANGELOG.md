@@ -1,11 +1,12 @@
 
 <a name="v1.1.4"></a>
-## [v1.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-22)
+## [v1.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-23)
 
 ### Feat
 
-* **Integration-interconnection:** Improve handling redis errors. Add error redis handler in validate user function. Closes #UI-32
+* **General improvemnts:** Show text when an image contains it. Closes #UI-36
 * **Integration-interconnection:** End chat correctly. Change validation EndChat endpoint to validate interconnection in redis. Closes #UI-33
+* **Integration-interconnection:** Improve handling redis errors. Add error redis handler in validate user function. Closes #UI-32
 
 
 <a name="v1.1.3"></a>
@@ -57,7 +58,7 @@
 
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..v0.1.7) (2021-12-21)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -76,6 +77,10 @@
 
 * **Validation - Bug fixing:** Remove from docker file the config to run on M1 processor. Closes #CSF-223
 * **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
+
+
+<a name="V0.1.7"></a>
+## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
 
 
 <a name="v0.1.7"></a>
