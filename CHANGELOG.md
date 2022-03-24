@@ -5,6 +5,7 @@
 ### Feat
 
 * **Integration-interconnection:** Improve handling redis errors. Add error redis handler in validate user function. Closes #UI-32
+* **Integration-interconnection:** End chat correctly. Change validation EndChat endpoint to validate interconnection in redis. Closes #UI-33
 
 
 <a name="v1.1.3"></a>

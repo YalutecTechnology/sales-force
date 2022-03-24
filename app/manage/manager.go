@@ -160,7 +160,7 @@ type ManagerI interface {
 	CreateChat(ctx context.Context, interconnection *Interconnection) error
 	GetContextByUserID(userID string) []cache.Context
 	SaveContextFB(ctx context.Context, integration *models.IntegrationsFacebook) error
-	FinishChat(userId string) error
+	FinishChat(userID string) error
 	RegisterWebhookInIntegrations(provider string) error
 	RemoveWebhookInIntegrations(provider string) error
 }
@@ -568,21 +568,37 @@ func ChangeToState(userID, botSlug, state string, botRunnerClient botrunner.BotR
 	}
 }
 
-func (m *Manager) FinishChat(userId string) error {
+func (m *Manager) FinishChat(userID string) error {
+	var in *Interconnection
 	titleMessage := "could not finish chat in salesforce"
 
 	// Get session interconnection
-	interconnection, exist := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userId))
-	if !exist {
-		return errors.New(helpers.ErrorMessage(titleMessage, errors.New("this contact does not have an interconnection")))
-	}
+	interconnection, exist := m.interconnectionMap.Get(fmt.Sprintf(constants.UserKey, userID))
+	if exist {
+		in = interconnection.(*Interconnection)
+	} else {
+		interconnection, err := m.interconnectionsCache.RetrieveInterconnection(
+			cache.Interconnection{
+				UserID: userID,
+				Client: m.client,
+			})
 
-	in := interconnection.(*Interconnection)
+		if err != nil {
+			return errors.New(helpers.ErrorMessage(titleMessage, fmt.Errorf("error not found interconnection: %s", err.Error())))
+		}
+
+		if interconnection != nil && (interconnection.Status == string(Closed) || interconnection.Status == string(Failed)) {
+			return errors.New(helpers.ErrorMessage(titleMessage, errors.New("this contact does not have an interconnection")))
+		}
+
+		in = convertInterconnectionCacheToInterconnection(*interconnection)
+		in.interconnectionCache = m.interconnectionsCache
+	}
 
 	// End chat Salesforce
 	err := m.SalesforceService.EndChat(in.AffinityToken, in.SessionKey)
 	if err != nil {
-		return errors.New(helpers.ErrorMessage(titleMessage, err))
+		logrus.Errorf("could not end chat in salesforce: %s", err.Error())
 	}
 
 	in.runnigLongPolling = false
