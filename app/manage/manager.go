@@ -605,6 +605,7 @@ func (m *Manager) FinishChat(userID string) error {
 
 	in.updateStatusRedis(string(Closed))
 	m.EndChat(in)
+	go ChangeToState(in.UserID, in.BotSlug, SuccessState[string(in.Provider)], m.BotrunnnerClient, 0, 0, in.StudioNG, in.isStudioNGFlow)
 	return nil
 }
 
@@ -811,12 +812,14 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		fileMessageSuccess := Messages.UploadFileSuccess
 		uri := integration.Document.URL
 		mime := integration.Document.MIMEType
+		message := ""
 
 		if integration.Type == constants.ImageType {
 			fileMessageError = Messages.UploadImageError
 			fileMessageSuccess = Messages.UploadImageSuccess
 			uri = integration.Image.URL
 			mime = integration.Image.MIMEType
+			message = integration.Image.Caption
 		}
 
 		imageName := defineFileName(interconnection, integration)
@@ -841,6 +844,7 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		mainSpan.SetTag(events.SendFile, true)
 
 		textMessage := fileMessageSuccess
+
 		if SendImageNameInMessage {
 			textMessage += imageName
 		}
@@ -849,6 +853,14 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			integration.ID,
 			textMessage,
 			constants.SendMessageToSalesforce)
+
+		if message != "" {
+			mainSpan.SetTag("messageWithImage", true)
+			interconnection.sendMessageToQueue(mainSpan,
+				integration.ID,
+				message,
+				constants.SendMessageToSalesforce)
+		}
 	}
 }
 

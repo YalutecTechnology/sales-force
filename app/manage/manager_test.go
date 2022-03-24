@@ -967,14 +967,24 @@ func TestManager_CreateChat(t *testing.T) {
 
 func TestManager_FinishChat(t *testing.T) {
 	interconectionLocal := cache.New()
+	botRunnerMock := new(BotRunnerInterface)
+	SuccessState = map[string]string{
+		provider:                 successState,
+		string(FacebookProvider): successState,
+	}
+
 	t.Run("Finish Chat Succesfull", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
 		interconnectionCacheMock := new(InterconnectionCache)
 		salesforceMock := new(SalesforceServiceInterface)
+
 		interconnection := &Interconnection{
 			Client:               client,
+			UserID:               userID,
+			BotSlug:              botSlug,
 			Status:               Active,
+			Provider:             provider,
 			AffinityToken:        affinityToken,
 			SessionKey:           sessionKey,
 			interconnectionCache: interconnectionCacheMock}
@@ -991,6 +1001,7 @@ func TestManager_FinishChat(t *testing.T) {
 			interconnectionMap:    interconectionLocal,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionCacheMock,
+			BotrunnnerClient:      botRunnerMock,
 		}
 
 		interconnectionCacheMock.On("RetrieveInterconnection",
@@ -1003,6 +1014,9 @@ func TestManager_FinishChat(t *testing.T) {
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
+
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": successState, "userId": userID}).
+			Return(true, nil).Once()
 
 		manager.SalesforceService = salesforceMock
 
@@ -1018,6 +1032,8 @@ func TestManager_FinishChat(t *testing.T) {
 
 		interconnectionCache := &cache.Interconnection{
 			UserID:        userID,
+			BotSlug:       botSlug,
+			Provider:      provider,
 			SessionID:     sessionID,
 			SessionKey:    sessionKey,
 			AffinityToken: affinityToken,
@@ -1029,6 +1045,7 @@ func TestManager_FinishChat(t *testing.T) {
 			interconnectionMap:    interconectionLocal,
 			SalesforceService:     salesforceMock,
 			interconnectionsCache: interconnectionCacheMock,
+			BotrunnnerClient:      botRunnerMock,
 			client:                client,
 		}
 
@@ -1038,6 +1055,8 @@ func TestManager_FinishChat(t *testing.T) {
 
 		interconnectionCacheClose := &cache.Interconnection{
 			UserID:        userID,
+			BotSlug:       botSlug,
+			Provider:      provider,
 			SessionID:     sessionID,
 			SessionKey:    sessionKey,
 			AffinityToken: affinityToken,
@@ -1050,6 +1069,9 @@ func TestManager_FinishChat(t *testing.T) {
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
+
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": successState, "userId": userID}).
+			Return(true, nil).Once()
 
 		manager.SalesforceService = salesforceMock
 
@@ -1119,6 +1141,9 @@ func TestManager_FinishChat(t *testing.T) {
 		salesforceMock := new(SalesforceServiceInterface)
 		interconnection := &Interconnection{
 			Client:               client,
+			BotSlug:              botSlug,
+			UserID:               userID,
+			Provider:             provider,
 			Status:               Active,
 			AffinityToken:        affinityToken,
 			SessionKey:           sessionKey,
@@ -1127,6 +1152,8 @@ func TestManager_FinishChat(t *testing.T) {
 		interconectionLocal.Wait()
 		interconnectionCache := &cache.Interconnection{
 			UserID:     userID,
+			Provider:   provider,
+			BotSlug:    botSlug,
 			SessionID:  sessionID,
 			SessionKey: sessionID,
 			Status:     string(Active),
@@ -1135,6 +1162,7 @@ func TestManager_FinishChat(t *testing.T) {
 		manager := &Manager{
 			interconnectionMap:    interconectionLocal,
 			SalesforceService:     salesforceMock,
+			BotrunnnerClient:      botRunnerMock,
 			interconnectionsCache: interconnectionCacheMock,
 		}
 
@@ -1148,6 +1176,9 @@ func TestManager_FinishChat(t *testing.T) {
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(assert.AnError).Once()
+
+		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": successState, "userId": userID}).
+			Return(true, nil).Once()
 
 		manager.SalesforceService = salesforceMock
 
@@ -1754,6 +1785,74 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("Should send image to salesforce", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
+
+		SendImageNameInMessage = true
+		defer func() {
+			SendImageNameInMessage = false
+			interconnectionLocal.Clear()
+		}()
+
+		contextCache := new(ContextCacheMock)
+		salesforceMock := new(SalesforceServiceInterface)
+		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com/"+imageId, imageId, "image/png", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.ImageType,
+			From:      userID,
+			Image: models.Media{
+				URL:      "http://test.com/" + imageId,
+				MIMEType: "image/png",
+				Caption:  "",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
 	t.Run("Should send image to salesforce error service", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
@@ -1814,13 +1913,13 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Should send an image to salesforce, the image should have the session in the title", func(t *testing.T) {
+	t.Run("Should send an image with text to salesforce, the image should have the session in the title", func(t *testing.T) {
 		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
 		defer interconnectionLocal.Clear()
 		contextCache := new(ContextCacheMock)
 		salesforceMock := new(SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
-			"http://test.com", sessionID, "image/png", "caseID").
+			"http://test.com", "Mensaje", "image/png", "caseID").
 			Return(nil).Once()
 
 		salesforceMock.On("SendMessage", mock.Anything,
@@ -1831,7 +1930,7 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		producerMock := new(Producer)
-		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Twice()
 
 		manager := &Manager{
 			contextcache:                 contextCache,
@@ -1867,7 +1966,7 @@ func TestManager_SaveContext(t *testing.T) {
 			Image: models.Media{
 				URL:      "http://test.com",
 				MIMEType: "image/png",
-				Caption:  "",
+				Caption:  "Mensaje",
 			},
 		}
 		err := manager.SaveContext(context.Background(), integrations)
@@ -1899,7 +1998,7 @@ func TestManager_SaveContext(t *testing.T) {
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		producerMock := new(Producer)
-		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Twice()
 
 		manager := &Manager{
 			contextcache:                 contextCache,
