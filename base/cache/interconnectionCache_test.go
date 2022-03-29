@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
+	"yalochat.com/salesforce-integration/base/constants"
 )
 
 func TestStoreInterconnection(t *testing.T) {
@@ -104,16 +105,29 @@ func TestRetrieveInterconnection(t *testing.T) {
 	})
 
 	t.Run("Should fail to retrieve a not stored interconnection", func(t *testing.T) {
-		expectedError := "redis: nil"
-
 		_, err := cache.RetrieveInterconnection(Interconnection{
 			BotSlug: "aCode",
 			BotID:   "botID",
 		})
 
-		if err.Error() != expectedError {
-			t.Fatalf("Expected this error %v, but this was retrieved %v", expectedError, err)
+		if err.Error() != constants.ErrInterconnectionNotFound.Error() {
+			t.Fatalf("Expected this error %v, but this was retrieved %v", constants.ErrInterconnectionNotFound.Error(), err)
 		}
+	})
+
+	t.Run("Should retrieve interconnection without errors", func(t *testing.T) {
+		c := redis.NewClient(&redis.Options{
+			Addr: "127.0.0.1:10000",
+		})
+		rcs := &RedisCache{
+			client: c,
+		}
+		cache := NewInterconnectionCache(rcs)
+
+		arrays, err := cache.RetrieveInterconnection(Interconnection{})
+
+		assert.Nil(t, arrays)
+		assert.Error(t, err)
 	})
 }
 

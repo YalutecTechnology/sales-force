@@ -396,7 +396,7 @@ func TestManager_CreateChat(t *testing.T) {
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{
 			UserID: userID, Client: client,
 		}).
-			Return(nil, nil).Once()
+			Return(nil, constants.ErrInterconnectionNotFound).Once()
 		interconnectionMock.On("StoreInterconnection", mock.Anything).
 			Return(nil).Once()
 
@@ -785,7 +785,7 @@ func TestManager_CreateChat(t *testing.T) {
 		}, errors.New("could not create chat in salesforce : not create chat on Salesforce")).Once()
 
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
-			Return(true, nil).Once()
+			Return(true, assert.AnError).Once()
 
 		interconnectionMock := new(InterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).

@@ -1,6 +1,14 @@
 
+<a name="v1.1.5"></a>
+## [v1.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-29)
+
+### Fix
+
+* **Integration-interconnection:** Hotfix redis salesforce. Omit error redis nil to create chat. Closes #UI-37
+
+
 <a name="v1.1.4"></a>
-## [v1.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-24)
+## [v1.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-25)
 
 ### Feat
 
@@ -58,7 +66,7 @@
 
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
+## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..v0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -77,10 +85,6 @@
 
 * **Validation - Bug fixing:** Remove from docker file the config to run on M1 processor. Closes #CSF-223
 * **Validation - Bug fixing:** Fix missing custom messages, allow status and priority to be sent in extradata. Closes #CSF-222
-
-
-<a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
 
 
 <a name="v0.1.7"></a>
