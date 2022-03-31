@@ -2,10 +2,13 @@ package cache
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/sirupsen/logrus"
+	"yalochat.com/salesforce-integration/base/constants"
 )
 
 // InterconnectionStatus contains interconnection status to match with InterconnectionStatus
@@ -69,6 +72,9 @@ func (rc *InterconnectionCache) RetrieveInterconnection(interconnection Intercon
 	var redisInterconnection Interconnection
 	data, err := rc.cache.RetrieveData(assembleKey(interconnection))
 	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil, constants.ErrInterconnectionNotFound
+		}
 		return nil, err
 	}
 	json.Unmarshal([]byte(data), &redisInterconnection)

@@ -628,7 +628,7 @@ func (m *Manager) ValidateUserID(ctx context.Context, userID string) error {
 		Client: m.client,
 	})
 
-	if err != nil {
+	if err != nil && !errors.Is(err, constants.ErrInterconnectionNotFound) {
 		err = fmt.Errorf("error retrieve interconnection: %s", err.Error())
 		span.SetTag(ext.Error, err)
 		return err
