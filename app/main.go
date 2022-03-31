@@ -136,11 +136,13 @@ func main() {
 			PoolSize:      1000,
 			MinIdleConns:  10,
 			ReadTimeout:   time.Second * 15,
+			Password:      envs.RedisPassword,
 		}
 	}
 	if len(envs.RedisAddress) > 0 {
 		managerOptions.RedisOptions.Options = &redis.Options{
-			Addr: envs.RedisAddress,
+			Addr:     envs.RedisAddress,
+			Password: envs.RedisPassword,
 		}
 	}
 

@@ -1,6 +1,10 @@
 
 <a name="v1.1.5"></a>
-## [v1.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-29)
+## [v1.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-02-16)
+
+### Feat
+
+* **Integration-interconnection:** Implement redis enterprise on salesforce and s1 | Staging. Add redis enterprise config connection. Closes #UI-27.
 
 ### Fix
 
