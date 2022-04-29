@@ -36,6 +36,7 @@ var apiConfig = ApiConfig{
 	SalesforceUsername: salesforceUserTest,
 	SalesforcePassword: salesforcePasswordTest,
 	SecretKey:          secretTest,
+	UseProfile:         true,
 }
 
 // TODO: Upgrade unit tests as in chat_handler_test.go

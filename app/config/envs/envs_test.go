@@ -53,6 +53,13 @@ func TestSfcSourceFlowBot_Decode(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "error parse",
+			args: args{
+				value: "test",
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

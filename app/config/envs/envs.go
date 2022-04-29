@@ -80,6 +80,7 @@ type Envs struct {
 	KafkaUser                  string                 `required:"true" split_words:"true"`
 	KafkaPassword              string                 `required:"true" split_words:"true"`
 	KafkaTopic                 string                 `required:"true" split_words:"true"`
+	UseProfile                 bool                   `split_words:"true" default:"false"`
 }
 
 type Provider struct {
