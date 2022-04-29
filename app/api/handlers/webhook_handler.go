@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
 	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/events"
 
@@ -90,11 +91,6 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 
 func (app *App) getContext(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	userID := params.ByName("user_id")
-
-	if userID == "" {
-		helpers.WriteFailedResponse(w, http.StatusBadRequest, helpers.MissingParam+" : user_id")
-		return
-	}
 
 	ctx := app.ManageManager.GetContextByUserID(userID)
 

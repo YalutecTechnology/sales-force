@@ -154,6 +154,7 @@ func main() {
 		SalesforcePassword:    envs.SalesforcePassword,
 		SecretKey:             envs.SecretKey,
 		IntegrationsSignature: envs.IntegrationsSignature,
+		UseProfile:            envs.UseProfile,
 	})
 
 	httpServer = http.Server{

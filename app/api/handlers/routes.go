@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"net/http/pprof"
 
 	"github.com/sirupsen/logrus"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
@@ -29,6 +30,7 @@ type ApiConfig struct {
 	SalesforcePassword    string
 	SecretKey             string
 	IntegrationsSignature string
+	UseProfile            bool
 }
 
 const apiVersion = "/v1"
@@ -79,4 +81,18 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 	srv.DELETE(fmt.Sprintf("%s/chat/finish/:user_id", apiVersion), app.authorizeMiddleware(app.finishChat, []RoleType{Yalo}))
 	srv.POST(fmt.Sprintf("%s/integrations/webhook/register/:provider", apiVersion), app.authorizeMiddleware(app.registerWebhook, []RoleType{Yalo}))
 	srv.DELETE(fmt.Sprintf("%s/integrations/webhook/remove/:provider", apiVersion), app.authorizeMiddleware(app.removeWebhook, []RoleType{Yalo}))
+
+	if apiConfig.UseProfile {
+		//endpoint to implement profiling in the app
+		srv.HandlerFunc("GET", "/debug/pprof", pprof.Profile)
+		srv.HandlerFunc("GET", "/debug/pprof/cmdline", pprof.Cmdline)
+		srv.HandlerFunc("GET", "/debug/pprof/profile", pprof.Profile)
+		srv.HandlerFunc("GET", "/debug/pprof/symbol", pprof.Symbol)
+		srv.HandlerFunc("GET", "/debug/pprof/trace", pprof.Trace)
+		srv.Handler("GET", "/debug/pprof/block", pprof.Handler("block"))
+		srv.Handler("GET", "/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		srv.Handler("GET", "/debug/pprof/heap", pprof.Handler("heap"))
+		srv.Handler("GET", "/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	}
+
 }
