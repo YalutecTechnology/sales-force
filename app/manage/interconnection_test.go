@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
 
 	"github.com/go-redis/redis"
@@ -19,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
-	"yalochat.com/salesforce-integration/base/helpers"
 )
 
 const (
@@ -47,6 +47,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		},
 		SpecSchedule: "@every 1h30m",
 	}
+
 	manager := CreateManager(config)
 	SuccessState = map[string]string{
 		string(WhatsappProvider): successState,
@@ -69,6 +70,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		offset:               10000,
 	}
 	manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
+	waitCheckEvent = 2 * time.Second
 
 	t.Run("Handle 204 not content", func(t *testing.T) {
 		expectedLog := "Not content events"
@@ -201,8 +203,8 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusServiceUnavailable,
 			Error:      assert.AnError,
-		}).Once().
-			On("ReconnectSession", sessionKey, strconv.Itoa(interconnection.offset)).Return(&chat.MessagesResponse{
+		}).Once()
+		mockSalesforceServiceInterface.On("ReconnectSession", sessionKey, strconv.Itoa(interconnection.offset)).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ReconnectSession,
@@ -212,8 +214,8 @@ func TestHandleLongPolling_test(t *testing.T) {
 				},
 			},
 		}, nil,
-		).Once().
-			On("GetMessages", mock.Anything, expectedAffinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		).Once()
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, expectedAffinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusInternalServerError,
 			Error:      assert.AnError,
 		}).Once()
@@ -296,6 +298,41 @@ func TestHandleLongPolling_test(t *testing.T) {
 		}
 		assert.Equal(t, Closed, interconnection.Status)
 		assert.Equal(t, false, interconnection.runnigLongPolling)
+	})
+
+	t.Run("Handle StatusConflict  error client", func(t *testing.T) {
+		expectedLog := "Duplicate Long Polling"
+		mockSalesforceServiceInterface := new(SalesforceServiceInterface)
+		studioNGMock := new(StudioNGInterface)
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+			StatusCode: http.StatusConflict,
+		}).Once()
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey).Return(&chat.MessagesResponse{
+			Messages: []chat.MessageObject{
+				{
+					Type: chat.ChatEnded,
+				},
+			},
+		}, nil).Once()
+
+		studioNGMock.On("SendTo", successState, userID).
+			Return(assert.AnError).Once()
+
+		interconnection.SalesforceService = mockSalesforceServiceInterface
+		interconnection.BotrunnnerClient = nil
+		interconnection.isStudioNGFlow = true
+		interconnection.StudioNG = studioNGMock
+		defer func() {
+			interconnection.isStudioNGFlow = false
+		}()
+
+		var buf bytes.Buffer
+		logrus.SetOutput(&buf)
+		interconnection.handleLongPolling()
+		logs := buf.String()
+		if !strings.Contains(logs, expectedLog) {
+			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
+		}
 	})
 
 }
@@ -542,15 +579,14 @@ func TestCheckEvent_test(t *testing.T) {
 }
 
 func TestInterconnection_updateStatusRedis(t *testing.T) {
-	interconnection := Interconnection{
-		Client: client,
-		UserID: userID,
-		Status: OnHold,
-	}
 
 	t.Run("Update status redis without error ", func(t *testing.T) {
+		interconnection := Interconnection{
+			Client: client,
+			UserID: userID,
+			Status: OnHold,
+		}
 		interconnectionCache := new(InterconnectionCache)
-		expectedLog := "Could not update status in interconnection"
 		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client}).
 			Return(&cache.Interconnection{UserID: interconnection.UserID, Client: interconnection.Client, Status: ""}, nil).Once()
 		interconnectionCache.On("StoreInterconnection", mock.Anything).
@@ -558,15 +594,19 @@ func TestInterconnection_updateStatusRedis(t *testing.T) {
 		interconnection.interconnectionCache = interconnectionCache
 
 		var buf bytes.Buffer
-		logrus.SetOutput(&buf)
+		logrus.New().SetOutput(&buf)
+
 		interconnection.updateStatusRedis(string(Active))
 		logs := buf.String()
-		if strings.Contains(logs, expectedLog) {
-			t.Fatalf("Logs should not contain <%s>, but this was found <%s>", expectedLog, logs)
-		}
+		assert.Zero(t, logs)
 	})
 
 	t.Run("Update status redis with error in RetrieveInterconnection", func(t *testing.T) {
+		interconnection := Interconnection{
+			Client: client,
+			UserID: userID,
+			Status: OnHold,
+		}
 		interconnectionCache := new(InterconnectionCache)
 		expectedLog := "Could not update status in interconnection"
 		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
@@ -583,6 +623,11 @@ func TestInterconnection_updateStatusRedis(t *testing.T) {
 	})
 
 	t.Run("Update status redis with error in StoreInterconnection", func(t *testing.T) {
+		interconnection := Interconnection{
+			Client: client,
+			UserID: userID,
+			Status: OnHold,
+		}
 		expectedLog := "Could not update status in interconnection"
 		interconnectionCache := new(InterconnectionCache)
 		interconnectionCache.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).

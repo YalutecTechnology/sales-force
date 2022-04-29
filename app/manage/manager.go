@@ -56,6 +56,7 @@ var (
 	Messages               models.MessageTemplate
 	Timezone               string
 	SendImageNameInMessage bool
+	waitCheckEvent         time.Duration
 )
 
 const (
@@ -89,6 +90,7 @@ type Manager struct {
 	SalesforceChanRequestLimiter *rate.Limiter
 	kafkaProducer                subscribers.Producer
 	KafkaTopic                   string
+	SleepLongPollling            time.Duration
 }
 
 // ManagerOptions holds configurations for the interactions manager
@@ -153,6 +155,7 @@ type ManagerOptions struct {
 	KafkaUser                  string
 	KafkaPassword              string
 	KafkaTopic                 string
+	SleepLongPollling          time.Duration
 }
 
 type ManagerI interface {
@@ -301,6 +304,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		IntegrationChanRateLimiter:   integrationsRateLimiter,
 		SalesforceChanRequestLimiter: salesforceRateLimiter,
 		KafkaTopic:                   config.KafkaTopic,
+		SleepLongPollling:            config.SleepLongPollling,
 	}
 
 	if config.KafkaUser != "" {
@@ -660,13 +664,13 @@ func (m *Manager) AddInterconnection(ctx context.Context, interconnection *Inter
 	interconnection.isStudioNGFlow = m.isStudioNGFlow
 	interconnection.kafkaProducer = m.kafkaProducer
 	interconnection.KafkaTopic = m.KafkaTopic
+	interconnection.SleepLongPolling = m.SleepLongPollling
 
 	go m.storeInterconnectionInRedis(interconnection)
 
 	m.interconnectionMap.Set(fmt.Sprintf(constants.UserKey, interconnection.UserID), interconnection, 0)
 
 	go interconnection.handleLongPolling()
-	go interconnection.handleStatus()
 	logrus.Infof("Create interconnection successfully : %s", interconnection.UserID)
 }
 
