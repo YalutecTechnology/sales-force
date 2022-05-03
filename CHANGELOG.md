@@ -4,6 +4,7 @@
 
 ### Feat
 
+* **Integration - Interconnection:** Decrease wait time in long polling. Decrease wait time in long polling  between each request to salesforce. Closes #UI-53
 * **Integration - Interconnection:** Add pprof endpoints. Add profile endpoints to check api performance. Closes #UI-52
 
 

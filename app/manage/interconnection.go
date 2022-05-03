@@ -62,11 +62,12 @@ type Interconnection struct {
 	interconnectionCache cache.IInterconnectionCache         `json:"-"`
 	runnigLongPolling    bool                                `json:"-"`
 	// This field helps us reconnect the chat in Salesforce.
-	offset         int `json:"offset"`
-	StudioNG       studiong.StudioNGInterface
-	isStudioNGFlow bool
-	kafkaProducer  subscribers.Producer
-	KafkaTopic     string
+	offset           int `json:"offset"`
+	StudioNG         studiong.StudioNGInterface
+	isStudioNGFlow   bool
+	kafkaProducer    subscribers.Producer
+	KafkaTopic       string
+	SleepLongPolling time.Duration
 }
 
 type InterconnectionMessageQueue struct {
@@ -143,7 +144,7 @@ func (in *Interconnection) handleLongPolling() {
 				logrus.WithFields(logFields).Info("Not content events")
 			case http.StatusConflict:
 				logrus.WithFields(logFields).Info("Duplicate Long Polling")
-				time.Sleep(time.Second * 5)
+				<-time.After(in.SleepLongPolling)
 			case http.StatusForbidden:
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.finishLongPolling(Closed)
@@ -156,7 +157,6 @@ func (in *Interconnection) handleLongPolling() {
 				mainSpan.SetTag(events.StatusSalesforce, errorResponse.StatusCode)
 
 				reconnect, err := in.SalesforceService.ReconnectSession(in.SessionKey, strconv.Itoa(in.offset))
-
 				if err != nil {
 					go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 					in.finishLongPolling(Closed)
@@ -184,8 +184,7 @@ func (in *Interconnection) handleLongPolling() {
 				in.checkEvent(span, &event)
 			}
 		}(mainSpan)
-
-		time.Sleep(time.Second * 5)
+		<-time.After(waitCheckEvent)
 	}
 }
 
@@ -243,23 +242,6 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 	}
 }
 
-func (in *Interconnection) handleStatus() {
-	for {
-		if in.Status == Failed {
-			// TODO :  Create new interconnection
-			logrus.Info("Chat failed")
-			in.finishChannel <- in
-			return
-		}
-
-		if in.Status == Closed {
-			logrus.Info("Chat Ended")
-			in.finishChannel <- in
-			return
-		}
-	}
-}
-
 func (in *Interconnection) ActiveChat(mainSpan tracer.Span) {
 	in.Status = Active
 	in.updateStatusRedis(string(in.Status))
@@ -295,7 +277,6 @@ func convertInterconnectionCacheToInterconnection(interconnection cache.Intercon
 
 func (in *Interconnection) updateStatusRedis(status string) {
 	interconnectionCache, err := in.interconnectionCache.RetrieveInterconnection(cache.Interconnection{UserID: in.UserID, Client: in.Client})
-
 	if err != nil {
 		logrus.Errorf("Could not update status in interconnection userID[%s]-client[%s] from redis : [%s]", in.UserID, in.Client, err.Error())
 		return
@@ -390,7 +371,8 @@ func (in *Interconnection) sendMessageToQueue(mainSpan tracer.Span, messageID, t
 }
 
 func (in *Interconnection) finishLongPolling(status InterconnectionStatus) {
-	in.updateStatusRedis(string(status))
+	go in.updateStatusRedis(string(status))
 	in.Status = status
 	in.runnigLongPolling = false
+	in.finishChannel <- in
 }

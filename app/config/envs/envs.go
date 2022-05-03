@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"yalochat.com/salesforce-integration/base/models"
 )
@@ -81,6 +82,7 @@ type Envs struct {
 	KafkaPassword              string                 `required:"true" split_words:"true"`
 	KafkaTopic                 string                 `required:"true" split_words:"true"`
 	UseProfile                 bool                   `split_words:"true" default:"false"`
+	SleepLongPollling          time.Duration          `split_words:"true" default:"3s"`
 }
 
 type Provider struct {

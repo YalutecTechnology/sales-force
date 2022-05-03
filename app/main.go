@@ -126,6 +126,7 @@ func main() {
 		KafkaUser:                  envs.KafkaUser,
 		KafkaPassword:              envs.KafkaPassword,
 		KafkaTopic:                 envs.KafkaTopic,
+		SleepLongPollling:          envs.SleepLongPollling,
 	}
 
 	if len(envs.RedisMaster) > 0 {
