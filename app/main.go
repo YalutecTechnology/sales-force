@@ -156,6 +156,7 @@ func main() {
 		SecretKey:             envs.SecretKey,
 		IntegrationsSignature: envs.IntegrationsSignature,
 		UseProfile:            envs.UseProfile,
+		IgnoreMessageTypes:    envs.IgnoreMessageTypes,
 	})
 
 	httpServer = http.Server{

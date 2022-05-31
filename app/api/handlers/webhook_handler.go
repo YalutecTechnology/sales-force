@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -55,10 +56,14 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		return
 	}
 
-	if integrationsRequest.Type == constants.StatusType {
-		span.SetTag("statusMessage", true)
+	if strings.Contains(app.IgnoreMessageTypes, integrationsRequest.Type) {
+		logrus.WithFields(logrus.Fields{
+			"integrationsRequest": integrationsRequest,
+		}).Info("Ignoring message")
+		span.SetTag("typeMessage", integrationsRequest.Type)
 		span.SetTag(ext.HTTPCode, http.StatusOK)
-		helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: "status message skipped"})
+		message := fmt.Sprintf("message type: %s was skipped", integrationsRequest.Type)
+		helpers.WriteSuccessResponse(w, helpers.SuccessResponse{Message: message})
 		return
 	}
 

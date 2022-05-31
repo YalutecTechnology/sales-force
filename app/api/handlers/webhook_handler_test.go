@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/mock"
 	"yalochat.com/salesforce-integration/base/constants"
 
 	"github.com/sirupsen/logrus"
@@ -61,7 +62,7 @@ func TestApp_webhook(t *testing.T) {
 
 	})
 
-	t.Run("Should skip status message ", func(t *testing.T) {
+	t.Run("Should skip status message", func(t *testing.T) {
 		body := models.IntegrationsRequest{
 			ID:        "",
 			Timestamp: "1234556",
@@ -73,10 +74,12 @@ func TestApp_webhook(t *testing.T) {
 		binBody, err := json.Marshal(body)
 		assert.NoError(t, err)
 
+		getApp().IgnoreMessageTypes = constants.StatusType
+
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
 		req.Header.Add("x-yalochat-signature", "secret")
 		response := httptest.NewRecorder()
-		expectedLog := helpers.SuccessResponse{Message: "status message skipped"}
+		expectedLog := helpers.SuccessResponse{Message: "message type: status was skipped"}
 		binexpectedLog, err := json.Marshal(expectedLog)
 		assert.NoError(t, err)
 
@@ -89,7 +92,38 @@ func TestApp_webhook(t *testing.T) {
 		if !strings.Contains(response.Body.String(), string(binexpectedLog)) {
 			t.Errorf("Response should be %v, but it answer with %v ", expectedLog, response.Body.String())
 		}
+	})
 
+	t.Run("Should skip notification-status message", func(t *testing.T) {
+		body := models.IntegrationsRequest{
+			ID:        "",
+			Timestamp: "1234556",
+			Type:      constants.NotificationStatusType,
+			From:      "5555555555",
+			To:        "",
+		}
+
+		binBody, err := json.Marshal(body)
+		assert.NoError(t, err)
+
+		getApp().IgnoreMessageTypes = fmt.Sprintf("%s,%s", constants.StatusType, constants.NotificationStatusType)
+
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(binBody))
+		req.Header.Add("x-yalochat-signature", "secret")
+		response := httptest.NewRecorder()
+		expectedLog := helpers.SuccessResponse{Message: "message type: notification-status was skipped"}
+		binexpectedLog, err := json.Marshal(expectedLog)
+		assert.NoError(t, err)
+
+		handler.ServeHTTP(response, req)
+
+		if response.Code != http.StatusOK {
+			t.Errorf("Response should be %v, but it answer with %v ", http.StatusOK, response.Code)
+		}
+
+		if !strings.Contains(response.Body.String(), string(binexpectedLog)) {
+			t.Errorf("Response should be %v, but it answer with %v ", expectedLog, response.Body.String())
+		}
 	})
 
 	t.Run("Should return error validate payload", func(t *testing.T) {

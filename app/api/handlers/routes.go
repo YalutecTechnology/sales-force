@@ -21,6 +21,7 @@ type App struct {
 	SalesforcePassword    string
 	SecretKey             string
 	IntegrationsSignature string
+	IgnoreMessageTypes    string
 }
 
 type ApiConfig struct {
@@ -30,6 +31,7 @@ type ApiConfig struct {
 	SalesforcePassword    string
 	SecretKey             string
 	IntegrationsSignature string
+	IgnoreMessageTypes    string
 	UseProfile            bool
 }
 
@@ -68,6 +70,7 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 		SalesforcePassword:    hex.EncodeToString(salesforceHash.Sum(nil)),
 		SecretKey:             apiConfig.SecretKey,
 		IntegrationsSignature: apiConfig.IntegrationsSignature,
+		IgnoreMessageTypes:    apiConfig.IgnoreMessageTypes,
 	}
 	setApp(*app)
 
