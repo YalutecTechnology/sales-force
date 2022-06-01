@@ -1,4 +1,12 @@
 
+<a name="v1.1.7"></a>
+## [v1.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)
+
+### Hotfix
+
+* **webhook integrations:** Add the possibility to filter the messages types
+
+
 <a name="v1.1.6"></a>
 ## [v1.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.6..v1.1.5) (2022-05-02)
 
@@ -239,4 +247,3 @@
 * **Integration-interconnection:** Interconnection for Message Handler(image). Add handler to send message to salesforce. Closes #CSF-82
 * **Integration-interconnection:** Interconnection for Message Handler. Add handler to send message to salesforce . Closes #CSF-82
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
-
