@@ -25,7 +25,7 @@ func NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID,
 		ChannelFB:     channelFB,
 		BotWAID:       botWAID,
 		BotFBID:       botFBID,
-		Proxy:         proxy.NewProxy(url, 30),
+		Proxy:         proxy.NewProxy(url, 30,3, 1, 30),
 		AccessTokenWA: tokenWA,
 		AccessTokenFB: tokenFB,
 	}

@@ -14,6 +14,7 @@ require (
 	github.com/go-playground/validator/v10 v10.9.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gorilla/context v1.1.1
+	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/labstack/gommon v0.3.0

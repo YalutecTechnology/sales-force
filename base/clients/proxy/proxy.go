@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
@@ -29,11 +30,15 @@ type Proxy struct {
 	Client  *http.Client
 }
 
-func NewProxy(baseUrl string, timeout int) *Proxy {
+func NewProxy(baseUrl string, timeout int, maxRetries int, minRetryWait int, maxRetryWait int) *Proxy {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = maxRetries
+	retryClient.RetryWaitMin = time.Duration(minRetryWait) * time.Second
+	retryClient.RetryWaitMax = time.Duration(maxRetryWait) * time.Second
+	retryClient.HTTPClient.Timeout = time.Second * time.Duration(timeout)
+
 	return &Proxy{
-		Client: httptrace.WrapClient(&http.Client{
-			Timeout: time.Second * time.Duration(timeout),
-		}),
+		Client: httptrace.WrapClient(retryClient.StandardClient()),
 
 		BaseURL: baseUrl,
 	}

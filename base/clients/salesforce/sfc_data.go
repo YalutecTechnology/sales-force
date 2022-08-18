@@ -26,7 +26,7 @@ const (
 
 func NewSalesforceRequester(url, token string) *SalesforceClient {
 	return &SalesforceClient{
-		Proxy:       proxy.NewProxy(url, 30),
+		Proxy:       proxy.NewProxy(url, 30, 3, 1, 30),
 		AccessToken: token,
 	}
 }

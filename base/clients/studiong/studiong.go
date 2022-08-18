@@ -25,7 +25,7 @@ type StudioNGInterface interface {
 
 func NewStudioNGClient(url, token string) *StudioNG {
 	return &StudioNG{
-		Proxy: proxy.NewProxy(url, 30),
+		Proxy: proxy.NewProxy(url, 30, 3, 1, 30),
 		Token: token,
 	}
 }

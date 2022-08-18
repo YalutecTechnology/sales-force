@@ -1,3 +1,9 @@
+<a name="v1.1.8"></a>
+## [v1.1.8](https://bitbucket.org/yalochat/salesforce-integration/branch/release/1.1.8?dest=release%2F1.1.7) (2022-08-17)
+
+### Hotfix
+
+* **General improvemnts:** Add retrys on all http calls in order to handle "tcp: connection reset by peer" errors.
 
 <a name="v1.1.7"></a>
 ## [v1.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)

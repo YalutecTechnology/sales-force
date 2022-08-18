@@ -210,7 +210,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcLoginClient := &login.SfcLoginClient{
-		Proxy: proxy.NewProxy(config.SfcLoginUrl, 30),
+		Proxy: proxy.NewProxy(config.SfcLoginUrl, 30, 3, 1, 30),
 	}
 
 	// Get token for salesforce
@@ -222,12 +222,12 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcChatClient := &chat.SfcChatClient{
-		Proxy:      proxy.NewProxy(config.SfcChatUrl, 60),
+		Proxy:      proxy.NewProxy(config.SfcChatUrl, 30, 3, 1, 30),
 		ApiVersion: config.SfcApiVersion,
 	}
 
 	salesforceClient := &salesforce.SalesforceClient{
-		Proxy:               proxy.NewProxy(config.SfcBaseUrl, 30),
+		Proxy:               proxy.NewProxy(config.SfcBaseUrl, 30, 3, 1, 30),
 		APIVersion:          config.SfcApiVersion,
 		SfcBlockedChatField: config.SfcBlockedChatField,
 	}

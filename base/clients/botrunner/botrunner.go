@@ -34,7 +34,7 @@ type BotRunnerInterface interface {
 
 func NewBotrunnerClient(url, token string) *BotRunner {
 	return &BotRunner{
-		Proxy: proxy.NewProxy(url, 30),
+		Proxy: proxy.NewProxy(url, 30,3, 1, 30),
 		Token: token,
 	}
 }

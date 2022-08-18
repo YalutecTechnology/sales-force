@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
@@ -138,7 +139,11 @@ func (in *Interconnection) handleLongPolling() {
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
 		response, errorResponse := in.SalesforceService.GetMessages(mainSpan, in.AffinityToken, in.SessionKey)
+		// fmt.Println("interconnection.handleLongPolling response: ", response)
+		// fmt.Println("interconnection.waitCheckEvent", waitCheckEvent)
+		// fmt.Println("interconection.errorResponse", errorResponse)
 		if errorResponse != nil {
+			// fmt.Println("interconnection.errorResponse: ", errorResponse.Error.Error())
 			switch errorResponse.StatusCode {
 			case http.StatusNoContent:
 				logrus.WithFields(logFields).Info("Not content events")
@@ -169,6 +174,13 @@ func (in *Interconnection) handleLongPolling() {
 				in.AffinityToken = reconnect.Messages[0].Message.AffinityToken
 				in.updateAffinityTokenRedis(reconnect.Messages[0].Message.AffinityToken)
 			default:
+
+				if strings.Contains(errorResponse.Error.Error(), "Client.Timeout exceeded while awaiting headers") {
+					//fmt.Println("interconnection.timeOutExceeded: ", errorResponse.Error.Error())
+					mainSpan.SetTag("Client.Timeout exceeded while awaiting headers", errorResponse.Error.Error())
+					continue
+				}
+
 				logrus.WithFields(logFields).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
 				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
 				in.finishLongPolling(Closed)
@@ -184,7 +196,7 @@ func (in *Interconnection) handleLongPolling() {
 				in.checkEvent(span, &event)
 			}
 		}(mainSpan)
-		<-time.After(waitCheckEvent)
+		<-time.After(time.Millisecond * 100)
 	}
 }
 
@@ -202,7 +214,7 @@ func (in *Interconnection) checkEvent(mainSpan tracer.Span, event *chat.MessageO
 		constants.SpanIdKey:  span.Context().SpanID(),
 		events.UserID:        in.UserID,
 	}
-
+	//fmt.Println("Interconnection.checkEvent: ", event.Type)
 	switch event.Type {
 	case chat.ChatRequestFail:
 		logrus.WithFields(logFields).Infof("Event [%s] : [%s]", chat.ChatRequestFail, event.Message.Reason)

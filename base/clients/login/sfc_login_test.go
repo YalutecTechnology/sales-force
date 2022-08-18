@@ -65,7 +65,7 @@ func TestGetToken(t *testing.T) {
 		mock := &proxy.Mock{}
 		expectedError := constants.UnmarshallError
 		salesforceClient := &SfcLoginClient{
-			Proxy: proxy.NewProxy("http://salesforce.com", 5),
+			Proxy: proxy.NewProxy("http://salesforce.com", 5, 3, 1, 30),
 		}
 		mock.On("SendHTTPRequest").Return(&http.Response{
 			StatusCode: http.StatusOK,
