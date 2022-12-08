@@ -20,6 +20,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"yalochat.com/salesforce-integration/app/config/envs"
+	"yalochat.com/salesforce-integration/app/manage/mocks"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/clients/chat"
 	"yalochat.com/salesforce-integration/base/clients/integrations"
@@ -85,7 +86,7 @@ func TestCreateManager(t *testing.T) {
 
 		cache.StoreInterconnection(NewInterconectionCache(interconnection))
 
-		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
 			Return(&chat.MessagesResponse{}, nil).Once()
@@ -231,7 +232,8 @@ func TestManager_CreateChat(t *testing.T) {
 	t.Run("Create Chat Succesfull", func(t *testing.T) {
 		Messages = models.MessageTemplate{DescriptionCase: "Caso levantado por el Bot"}
 		defer interconectionLocal.Clear()
-		interconnection := &Interconnection{
+
+		interconnection := NewInterconnection(&NewInterconnectionParams{
 			UserID:      userID,
 			Client:      client,
 			BotSlug:     botSlug,
@@ -241,15 +243,15 @@ func TestManager_CreateChat(t *testing.T) {
 			Email:       email,
 			PhoneNumber: phoneNumber,
 			ExtraData:   map[string]interface{}{"data": "datavalue"},
-		}
+		})
 
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = map[string]string{"data": "data"}
 
-		salesforceMock := new(SalesforceServiceInterface)
-		interconnectionMock := new(InterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
 		contact := &models.SfcContact{
 			ID:          contactID,
@@ -287,8 +289,8 @@ func TestManager_CreateChat(t *testing.T) {
 			Key:           sessionKey,
 		}, nil).Once()
 
-		salesforceMock.On("GetMessages", mock.Anything,
-			affinityToken, sessionKey).
+		salesforceMock.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
@@ -296,7 +298,7 @@ func TestManager_CreateChat(t *testing.T) {
 		interconnectionMock.On("StoreInterconnection", mock.Anything).
 			Return(nil).Once()
 
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
@@ -337,7 +339,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 	t.Run("Create Chat Succesfull with FB provider", func(t *testing.T) {
 		defer interconectionLocal.Clear()
-		interconnection := &Interconnection{
+		interconnection := NewInterconnection(&NewInterconnectionParams{
 			UserID:      userID,
 			Client:      client,
 			BotSlug:     botSlug,
@@ -346,10 +348,10 @@ func TestManager_CreateChat(t *testing.T) {
 			Provider:    FacebookProvider,
 			Email:       email,
 			PhoneNumber: phoneNumber,
-		}
+		})
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
-		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 
 		contact := &models.SfcContact{
 			ID:          contactID,
@@ -389,10 +391,10 @@ func TestManager_CreateChat(t *testing.T) {
 			}, nil).Once()
 
 		salesforceMock.On("GetMessages", mock.Anything,
-			affinityToken, sessionKey).
+			affinityToken, sessionKey, -1).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{
 			UserID: userID, Client: client,
 		}).
@@ -400,7 +402,7 @@ func TestManager_CreateChat(t *testing.T) {
 		interconnectionMock.On("StoreInterconnection", mock.Anything).
 			Return(nil).Once()
 
-		contextMock := new(ContextCacheMock)
+		contextMock := new(mocks.IContextCache)
 		contextMock.On("RetrieveContextFromSet",
 			client, userID).
 			Return([]cache.Context{
@@ -438,7 +440,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 	t.Run("Create Chat Succesfull with an account", func(t *testing.T) {
 		defer interconectionLocal.Clear()
-		interconnection := &Interconnection{
+		interconnection := NewInterconnection(&NewInterconnectionParams{
 			UserID:      userID,
 			Client:      client,
 			BotSlug:     botSlug,
@@ -448,15 +450,15 @@ func TestManager_CreateChat(t *testing.T) {
 			Email:       email,
 			PhoneNumber: phoneNumber,
 			ExtraData:   map[string]interface{}{"data": "datavalue"},
-		}
+		})
 
 		SfcOrganizationID = organizationID
 		SfcDeploymentID = deploymentID
 		SfcRecordTypeID = recordTypeID
 		//SfcCustomFieldsCase = map[string]string{"data": "data"}
 
-		salesforceMock := new(SalesforceServiceInterface)
-		interconnectionMock := new(InterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
 		contact := &models.SfcContact{
 			AccountID:   recordAccountTypeID,
@@ -497,7 +499,7 @@ func TestManager_CreateChat(t *testing.T) {
 		}, nil).Once()
 
 		salesforceMock.On("GetMessages", mock.Anything,
-			affinityToken, sessionKey).
+			affinityToken, sessionKey, -1).
 			Return(&chat.MessagesResponse{}, nil).Once()
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{
@@ -507,7 +509,7 @@ func TestManager_CreateChat(t *testing.T) {
 		interconnectionMock.On("StoreInterconnection", mock.Anything).
 			Return(nil).Once()
 
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
@@ -559,8 +561,8 @@ func TestManager_CreateChat(t *testing.T) {
 			Blocked:     true,
 		}
 
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		botRunnerMock := new(BotRunnerInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
+		botRunnerMock := new(mocks.BotRunnerInterface)
 
 		salesforceServiceMock.On("GetOrCreateContact",
 			mock.Anything,
@@ -572,7 +574,7 @@ func TestManager_CreateChat(t *testing.T) {
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": blockedUserState, "userId": userID}).
 			Return(true, nil).Once()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
 		manager := &Manager{
@@ -619,8 +621,8 @@ func TestManager_CreateChat(t *testing.T) {
 			Blocked:     false,
 		}
 
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		botRunnerMock := new(BotRunnerInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
+		botRunnerMock := new(mocks.BotRunnerInterface)
 
 		salesforceServiceMock.On("GetOrCreateContact",
 			mock.Anything,
@@ -632,7 +634,7 @@ func TestManager_CreateChat(t *testing.T) {
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
 		manager := &Manager{
@@ -679,8 +681,8 @@ func TestManager_CreateChat(t *testing.T) {
 			Blocked:     false,
 		}
 
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		botRunnerMock := new(BotRunnerInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
+		botRunnerMock := new(mocks.BotRunnerInterface)
 
 		salesforceServiceMock.On("GetOrCreateContact",
 			mock.Anything,
@@ -703,7 +705,7 @@ func TestManager_CreateChat(t *testing.T) {
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, nil).Once()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
 		manager := &Manager{
@@ -751,8 +753,8 @@ func TestManager_CreateChat(t *testing.T) {
 			Blocked:     false,
 		}
 
-		salesforceServiceMock := new(SalesforceServiceInterface)
-		botRunnerMock := new(BotRunnerInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
+		botRunnerMock := new(mocks.BotRunnerInterface)
 
 		salesforceServiceMock.On("GetOrCreateContact",
 			mock.Anything,
@@ -787,7 +789,7 @@ func TestManager_CreateChat(t *testing.T) {
 		botRunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
 			Return(true, assert.AnError).Once()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
 		manager := &Manager{
@@ -824,13 +826,13 @@ func TestManager_CreateChat(t *testing.T) {
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = map[string]string{"data": "data"}
 
-		salesforceMock := new(SalesforceServiceInterface)
-		interconnectionMock := new(InterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(&cache.Interconnection{UserID: userID, Status: string(Active)}, nil).Once()
 
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 
 		manager := &Manager{
 			client:                client,
@@ -876,13 +878,13 @@ func TestManager_CreateChat(t *testing.T) {
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = map[string]string{"data": "data"}
 
-		salesforceMock := new(SalesforceServiceInterface)
-		interconnectionMock := new(InterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, assert.AnError).Once()
 
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 
 		manager := &Manager{
 			client:                client,
@@ -928,13 +930,13 @@ func TestManager_CreateChat(t *testing.T) {
 		SfcRecordTypeID = recordTypeID
 		SfcCustomFieldsCase = map[string]string{"data": "data"}
 
-		salesforceMock := new(SalesforceServiceInterface)
-		interconnectionMock := new(InterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, assert.AnError).Once()
 
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 
 		interconectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), interconnection, ttlMessage)
 
@@ -967,7 +969,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 func TestManager_FinishChat(t *testing.T) {
 	interconectionLocal := cache.New()
-	botRunnerMock := new(BotRunnerInterface)
+	botRunnerMock := new(mocks.BotRunnerInterface)
 	SuccessState = map[string]string{
 		provider:                 successState,
 		string(FacebookProvider): successState,
@@ -976,8 +978,8 @@ func TestManager_FinishChat(t *testing.T) {
 	t.Run("Finish Chat Succesfull", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 
 		interconnection := &Interconnection{
 			Client:               client,
@@ -987,7 +989,8 @@ func TestManager_FinishChat(t *testing.T) {
 			Provider:             provider,
 			AffinityToken:        affinityToken,
 			SessionKey:           sessionKey,
-			interconnectionCache: interconnectionCacheMock}
+			interconnectionCache: interconnectionCacheMock,
+		}
 		interconectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), interconnection, ttlMessage)
 		interconectionLocal.Wait()
 		interconnectionCache := &cache.Interconnection{
@@ -1027,8 +1030,8 @@ func TestManager_FinishChat(t *testing.T) {
 	t.Run("Finish Chat Succesfull found from redis", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 
 		interconnectionCache := &cache.Interconnection{
 			UserID:        userID,
@@ -1082,8 +1085,8 @@ func TestManager_FinishChat(t *testing.T) {
 	t.Run("Finish Chat error found from redis", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 
 		manager := &Manager{
 			interconnectionMap:    interconectionLocal,
@@ -1105,8 +1108,8 @@ func TestManager_FinishChat(t *testing.T) {
 	t.Run("Finish Chat Succesfull found active Interconnection", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 
 		interconnectionCache := &cache.Interconnection{
 			UserID:        userID,
@@ -1137,8 +1140,8 @@ func TestManager_FinishChat(t *testing.T) {
 	t.Run("Finish Chat Succesfull with error endchat saleforce", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		interconnection := &Interconnection{
 			Client:               client,
 			BotSlug:              botSlug,
@@ -1192,10 +1195,10 @@ func TestManager_SaveContext(t *testing.T) {
 	interconnectionLocal := cache.New()
 
 	t.Run("Should save context audio", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1220,10 +1223,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context voice", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1249,10 +1252,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context document", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1278,10 +1281,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context document", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1307,10 +1310,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context text", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1334,10 +1337,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context error StoreContextToSet", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1362,10 +1365,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context with error", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1389,10 +1392,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context default", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1416,10 +1419,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context error timestamp", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1443,10 +1446,10 @@ func TestManager_SaveContext(t *testing.T) {
 	})
 
 	t.Run("Should save context repeated message", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
 
 		manager := &Manager{
@@ -1471,18 +1474,18 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send message to salesforce", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		channelFinish := make(chan *Interconnection)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -1525,18 +1528,18 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send message to salesforce error sendMessage kafka", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
 		channelFinish := make(chan *Interconnection)
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(assert.AnError).Once()
 
 		manager := &Manager{
@@ -1579,9 +1582,9 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send message end chat", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
@@ -1603,7 +1606,7 @@ func TestManager_SaveContext(t *testing.T) {
 		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
 			Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1649,9 +1652,9 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send message end chat error service", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		interconnectionCacheMock := new(InterconnectionCache)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(assert.AnError).Once()
@@ -1673,7 +1676,7 @@ func TestManager_SaveContext(t *testing.T) {
 		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
 			Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -1726,8 +1729,8 @@ func TestManager_SaveContext(t *testing.T) {
 			interconnectionLocal.Clear()
 		}()
 
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
@@ -1737,10 +1740,10 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -1794,8 +1797,8 @@ func TestManager_SaveContext(t *testing.T) {
 			interconnectionLocal.Clear()
 		}()
 
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
@@ -1805,10 +1808,10 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -1855,19 +1858,19 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send image to salesforce error service", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "caption 1 2  3", "image/png", "caseID").
 			Return(assert.AnError).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -1916,8 +1919,8 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should send an image with text to salesforce, the image should have the session in the title", func(t *testing.T) {
 		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "Mensaje", "image/png", "caseID").
 			Return(nil).Once()
@@ -1926,10 +1929,10 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Twice()
 
 		manager := &Manager{
@@ -1983,8 +1986,8 @@ func TestManager_SaveContext(t *testing.T) {
 			interconnectionLocal.Clear()
 		}()
 
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		fileId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+fileId, "459e2d42 418a 441c 86e4 e062a3be0272", "document/pdf", "caseID").
@@ -1994,10 +1997,10 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Twice()
 
 		manager := &Manager{
@@ -2045,8 +2048,8 @@ func TestManager_SaveContext(t *testing.T) {
 	t.Run("Should send a document to salesforce, the document should have the session in the title", func(t *testing.T) {
 		Messages = models.MessageTemplate{UploadImageSuccess: "Imagen subida, title: "}
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "document/pdf", "caseID").
 			Return(nil).Once()
@@ -2055,10 +2058,10 @@ func TestManager_SaveContext(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -2105,19 +2108,19 @@ func TestManager_SaveContext(t *testing.T) {
 
 	t.Run("Should send file to salesforce error service", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "caption 1 2  3", "document/pdf", "caseID").
 			Return(assert.AnError).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -2176,7 +2179,7 @@ func TestManager_getContextByUserID(t *testing.T) {
 			Messages = models.MessageTemplate{}
 			Timezone = ""
 		}()
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		ctx := []cache.Context{
 			{
 				UserID:    userID,
@@ -2264,7 +2267,7 @@ second line
 			Messages = models.MessageTemplate{}
 			Timezone = ""
 		}()
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		ctx := []cache.Context{
 			{
 				UserID:    userID,
@@ -2305,7 +2308,7 @@ Cliente [09-09-2021 12:45:37]:this a test second line
 func TestManager_GetContextByUserID(t *testing.T) {
 	t.Run("Should Get context by userID and client", func(t *testing.T) {
 		ttlExpected := time.Now().Add(2 * time.Minute)
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		ctx := []cache.Context{
 			{
 				UserID:    userID,
@@ -2420,10 +2423,10 @@ second line
 func TestManager_SaveContextFB(t *testing.T) {
 	interconnectionLocal := cache.New()
 	t.Run("Should save context text from user", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -2469,10 +2472,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should save context text from user error StoreContextToSet", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -2518,7 +2521,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should save context repited message", func(t *testing.T) {
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(true).Once()
 
 		manager := &Manager{
@@ -2563,10 +2566,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 	})
 
 	t.Run("Should save context text from bot", func(t *testing.T) {
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -2613,17 +2616,17 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 	t.Run("Should interaction text from user", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 
 		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -2689,8 +2692,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 	t.Run("Should interaction image from user", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "", "caseID").
 			Return(nil).Once()
@@ -2699,10 +2702,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -2777,8 +2780,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 	t.Run("Should interaction file from user", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "", "caseID").
 			Return(nil).Once()
@@ -2787,10 +2790,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -2865,8 +2868,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 
 	t.Run("Should save context endchat", func(t *testing.T) {
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("EndChat",
 			affinityToken, sessionKey).
 			Return(nil).Once()
@@ -2882,7 +2885,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			SessionKey: sessionID,
 			Status:     string(Active),
 		}
-		interconnectionCacheMock := new(InterconnectionCache)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
 		interconnectionCacheMock.On("RetrieveInterconnection",
 			cache.Interconnection{
 				UserID: userID,
@@ -2893,7 +2896,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 		interconnectionCacheMock.On("StoreInterconnection", *cacheMock).
 			Return(nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
 		manager := &Manager{
@@ -2964,8 +2967,8 @@ func TestManager_SaveContextFB(t *testing.T) {
 	t.Run("Should interaction image from user error", func(t *testing.T) {
 		Messages = models.MessageTemplate{UploadImageError: "Error al subir imagen"}
 		defer interconnectionLocal.Clear()
-		contextCache := new(ContextCacheMock)
-		salesforceMock := new(SalesforceServiceInterface)
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "", "caseID").
 			Return(assert.AnError).Once()
@@ -2974,7 +2977,7 @@ func TestManager_SaveContextFB(t *testing.T) {
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", integrations.SendTextPayloadFB{
 			MessagingType: "RESPONSE",
 			Recipient: integrations.Recipient{
@@ -2986,10 +2989,10 @@ func TestManager_SaveContextFB(t *testing.T) {
 			Metadata: "YALOSOURCE:FIREHOSE",
 		}, string(FacebookProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
-		cacheMessage := new(IMessageCache)
+		cacheMessage := new(mocks.IMessageCache)
 		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
 
-		producerMock := new(Producer)
+		producerMock := new(mocks.Producer)
 		producerMock.On("SendMessage", mock.Anything).Return(nil).Once()
 
 		manager := &Manager{
@@ -3072,7 +3075,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 	WebhookWhatsapp = "/v1/integrations/whatsapp/webhook"
 	t.Run("Register webhook whastapp Succesfull", func(t *testing.T) {
 		WAPhone = "waphone"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		response := &integrations.HealthcheckResponse{
 			BotId:   "botID",
@@ -3098,7 +3101,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook whastapp Fail", func(t *testing.T) {
 		WAPhone = "waphone"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    WAPhone,
@@ -3118,7 +3121,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook facebook Succesfull", func(t *testing.T) {
 		FBPhone = "fbphone"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		response := &integrations.HealthcheckResponse{
 			BotId:   "botID",
@@ -3145,7 +3148,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook facebook fail", func(t *testing.T) {
 		FBPhone = "fbphone"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.HealthcheckPayload{
 			Phone:    FBPhone,
@@ -3166,7 +3169,7 @@ func TestManager_RegisterWebhook(t *testing.T) {
 
 	t.Run("Register webhook default value", func(t *testing.T) {
 		FBPhone = "fbphone"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		manager := &Manager{
 			IntegrationsClient: integrationsClientMock,
@@ -3184,7 +3187,7 @@ func TestManager_StoreInterconnectionInRedis(t *testing.T) {
 			SessionID: "sessionId",
 		}
 		intCache := NewInterconectionCache(interconnection)
-		interconnectionCacheMock := new(InterconnectionCache)
+		interconnectionCacheMock := new(mocks.IInterconnectionCache)
 		interconnectionCacheMock.On("StoreInterconnection", intCache).
 			Return(assert.AnError).Once()
 		manager := &Manager{
@@ -3206,7 +3209,7 @@ func TestManager_GetContextInterconnection(t *testing.T) {
 		interconnection := &Interconnection{
 			UserID: "55125421545",
 		}
-		cacheContextMock := new(ContextCacheMock)
+		cacheContextMock := new(mocks.IContextCache)
 		cacheContextMock.On("RetrieveContextFromSet", client, userID).
 			Return([]cache.Context{
 				{
@@ -3235,7 +3238,7 @@ func TestManager_RemoveWebhook(t *testing.T) {
 	t.Run("Remove webhook whastapp Succesfull", func(t *testing.T) {
 		WAPhone = "waphone"
 		WebhookBaseUrl = "http://localhost"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.RemoveWebhookPayload{
 			Phone:    WAPhone,
@@ -3255,7 +3258,7 @@ func TestManager_RemoveWebhook(t *testing.T) {
 	t.Run("Remove webhook whastapp Fail", func(t *testing.T) {
 		WAPhone = "waphone"
 		WebhookBaseUrl = "http://localhost"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.RemoveWebhookPayload{
 			Phone:    WAPhone,
@@ -3275,7 +3278,7 @@ func TestManager_RemoveWebhook(t *testing.T) {
 	t.Run("Remove webhook facebook Succesfull", func(t *testing.T) {
 		FBPhone = "fbphone"
 		WebhookBaseUrl = "http://localhost"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.RemoveWebhookPayload{
 			Phone:    FBPhone,
@@ -3295,7 +3298,7 @@ func TestManager_RemoveWebhook(t *testing.T) {
 	t.Run("Remove webhook facebook fail", func(t *testing.T) {
 		FBPhone = "fbphone"
 		WebhookBaseUrl = "http://localhost"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		payload := integrations.RemoveWebhookPayload{
 			Phone:    FBPhone,
@@ -3315,7 +3318,7 @@ func TestManager_RemoveWebhook(t *testing.T) {
 	t.Run("Remove webhook default value", func(t *testing.T) {
 		FBPhone = "fbphone"
 		WebhookBaseUrl = "http://localhost"
-		integrationsClientMock := new(IntegrationInterface)
+		integrationsClientMock := new(mocks.IntegrationInterface)
 
 		manager := &Manager{
 			IntegrationsClient: integrationsClientMock,
@@ -3371,7 +3374,7 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 
 	t.Run("Should sent message", func(t *testing.T) {
 		expectedLog := "Send message to agent from salesforce"
-		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
 		manager := Manager{
 			SalesforceService: salesforceServiceMock,
@@ -3390,7 +3393,7 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 
 	t.Run("Should retry message one time", func(t *testing.T) {
 		expectedLog := "Error sendMessage to salesforce"
-		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(true, nil).Once()
 		manager := Manager{
@@ -3410,7 +3413,7 @@ func TestManager_sendMessageToSalesforce(t *testing.T) {
 
 	t.Run("Should retry message three times", func(t *testing.T) {
 		expectedLog := "Error sendMessage to salesforce, max retries"
-		salesforceServiceMock := new(SalesforceServiceInterface)
+		salesforceServiceMock := new(mocks.SalesforceServiceInterface)
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
 		salesforceServiceMock.On("SendMessage", mock.Anything, message.AffinityToken, message.SessionKey, chat.MessagePayload{Text: message.Text}).Return(false, assert.AnError).Once()
@@ -3443,7 +3446,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 
 	t.Run("Should sent message whats", func(t *testing.T) {
 		expectedLog := "Send message to UserID"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 		manager := Manager{
 			IntegrationsClient: integrationsClient,
@@ -3462,7 +3465,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 
 	t.Run("Should retry message one time whats", func(t *testing.T) {
 		expectedLog := "Error sendMessage to user"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 		manager := Manager{
@@ -3482,7 +3485,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 
 	t.Run("Should retry message three times whats", func(t *testing.T) {
 		expectedLog := "Error sendMessage to user, max retries"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
@@ -3505,7 +3508,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 	message.Provider = FacebookProvider
 	t.Run("Should sent message fb", func(t *testing.T) {
 		expectedLog := "Send message to UserID"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 		manager := Manager{
 			IntegrationsClient: integrationsClient,
@@ -3524,7 +3527,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 
 	t.Run("Should retry message one time fb", func(t *testing.T) {
 		expectedLog := "Error sendMessage to user"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 		manager := Manager{
@@ -3544,7 +3547,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 
 	t.Run("Should retry message three times fb", func(t *testing.T) {
 		expectedLog := "Error sendMessage to user, max retries"
-		integrationsClient := new(IntegrationInterface)
+		integrationsClient := new(mocks.IntegrationInterface)
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
 		integrationsClient.On("SendMessage", mock.Anything, string(message.Provider)).Return(&integrations.SendMessageResponse{}, assert.AnError).Once()
@@ -3568,7 +3571,7 @@ func TestManager_sendMessageToUser(t *testing.T) {
 func TestManager_saveContextInRedis(t *testing.T) {
 	t.Run("Should save context in redis without error", func(t *testing.T) {
 		expectedLog := "Error store context in set"
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(nil).Once()
 		manager := Manager{
 			contextcache: contextCache,
@@ -3586,7 +3589,7 @@ func TestManager_saveContextInRedis(t *testing.T) {
 
 	t.Run("Should save context in redis with error", func(t *testing.T) {
 		expectedLog := "Error store context in set"
-		contextCache := new(ContextCacheMock)
+		contextCache := new(mocks.IContextCache)
 		contextCache.On("StoreContextToSet", mock.Anything).Return(assert.AnError).Once()
 		manager := Manager{
 			contextcache: contextCache,
@@ -3627,9 +3630,9 @@ func TestManager_Process(t *testing.T) {
 		messageBin, err := json.Marshal(message)
 		assert.NoError(t, err)
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
-		salesforceMock := new(SalesforceServiceInterface)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("SendMessage", mock.Anything,
 			affinityToken, sessionKey, mock.Anything).
 			Return(false, nil).Once()
@@ -3667,9 +3670,9 @@ func TestManager_Process(t *testing.T) {
 		messageBin, err := json.Marshal(message)
 		assert.NoError(t, err)
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
 		manager := Manager{
@@ -3705,9 +3708,9 @@ func TestManager_Process(t *testing.T) {
 		messageBin, err := json.Marshal(message)
 		assert.NoError(t, err)
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
 		manager := Manager{
@@ -3725,9 +3728,9 @@ func TestManager_Process(t *testing.T) {
 	t.Run("Should send message with error unmarshal", func(t *testing.T) {
 		defer interconectionLocal.Clear()
 
-		interconnectionMock := new(InterconnectionCache)
+		interconnectionMock := new(mocks.IInterconnectionCache)
 
-		integrationsIMock := new(IntegrationInterface)
+		integrationsIMock := new(mocks.IntegrationInterface)
 		integrationsIMock.On("SendMessage", mock.Anything, string(WhatsappProvider)).Return(&integrations.SendMessageResponse{}, nil).Once()
 
 		manager := Manager{

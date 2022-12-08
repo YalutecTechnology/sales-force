@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	cronV3 "github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"yalochat.com/salesforce-integration/app/services"
 	"yalochat.com/salesforce-integration/base/cache"
 )
 
-type crons struct {
+type cron struct {
 	salesforceService services.SalesforceServiceInterface
 	SpecSchedule      string
 	Contextschedule   string
@@ -19,25 +19,28 @@ type crons struct {
 	ContextCache      cache.IContextCache
 }
 
-func NewCron(salesforceService services.SalesforceServiceInterface,
-	specSchedule, contactEmail string) *crons {
-	return &crons{
+func NewCron(
+	salesforceService services.SalesforceServiceInterface,
+	specSchedule,
+	contactEmail string,
+) *cron {
+	return &cron{
 		salesforceService: salesforceService,
 		SpecSchedule:      specSchedule,
 		ContactEmail:      contactEmail,
 	}
 }
 
-func (c *crons) Run() {
+func (c *cron) Run() {
 	err := c.setCron()
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (c *crons) setCron() error {
+func (c *cron) setCron() error {
 
-	crons := cron.New()
+	crons := cronV3.New()
 
 	_, err := crons.AddFunc(c.SpecSchedule, func() {
 		_, err := c.salesforceService.SearchContactComposite(c.ContactEmail, "")

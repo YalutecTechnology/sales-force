@@ -69,6 +69,8 @@ type Interconnection struct {
 	kafkaProducer    subscribers.Producer
 	KafkaTopic       string
 	SleepLongPolling time.Duration
+	// ack is a sequencing mechanism that allows you to poll for messages on the Live Agent server
+	ack int
 }
 
 type InterconnectionMessageQueue struct {
@@ -95,6 +97,34 @@ type Message struct {
 	Provider      Provider    `json:"provider"`
 }
 
+type NewInterconnectionParams struct {
+	UserID      string
+	Name        string
+	Provider    Provider
+	BotSlug     string
+	BotID       string
+	PhoneNumber string
+	Email       string
+	ExtraData   map[string]interface{}
+	Client      string
+}
+
+func NewInterconnection(p *NewInterconnectionParams) *Interconnection {
+	i := &Interconnection{
+		UserID:      p.UserID,
+		Name:        p.Name,
+		Provider:    p.Provider,
+		BotSlug:     p.BotSlug,
+		BotID:       p.BotID,
+		PhoneNumber: p.PhoneNumber,
+		Email:       p.Email,
+		ExtraData:   p.ExtraData,
+		Client:      p.Client,
+	}
+	i.ack = constants.InitialAck
+	return i
+}
+
 func NewIntegrationsMessage(mainSpan tracer.Span, id, userID, text string, provider Provider) *Message {
 	return &Message{
 		ID:       id,
@@ -116,10 +146,10 @@ func NewSfMessage(mainSpan tracer.Span, affinityToken, key, text, userID string)
 }
 
 // handleLongPolling It will be a gorutine that is active during the conversation between an end user and a Salesforce
-// agent, it launches requests to the endpoint `{{sfChatApi}}/chat/rest/System/Messages`, with which we will know if
-// the status of the chat and we receive messages from the agents to send to the end user
+// agent, it launches requests to the endpoint `{{sfChatApi}}/chat/rest/System/Messages`, with which we will know
+// the status of the chat, and we will receive messages from the agents to send to the end user
 func (in *Interconnection) handleLongPolling() {
-	// datadog tracing
+	// datadog tracing and logging
 	mainSpan := tracer.StartSpan("interconnection.handleLongPolling")
 	mainSpan.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", "GET", "/chat/rest/System/Messages"))
 	mainSpan.SetTag(ext.AnalyticsEvent, true)
@@ -128,20 +158,18 @@ func (in *Interconnection) handleLongPolling() {
 	mainSpan.SetTag(events.Client, in.Client)
 	mainSpan.SetTag("sessionID", in.SessionID)
 	defer mainSpan.Finish()
-
 	logFields := logrus.Fields{
 		constants.TraceIdKey: mainSpan.Context().TraceID(),
 		constants.SpanIdKey:  mainSpan.Context().SpanID(),
 		events.UserID:        in.UserID,
 	}
+	logrus.WithFields(logFields).Info("Starting long polling service from salesforce...")
+	// ---
 
-	logrus.WithFields(logFields).Info("Starting long polling service from salesforce")
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {
-		response, errorResponse := in.SalesforceService.GetMessages(mainSpan, in.AffinityToken, in.SessionKey)
-		// fmt.Println("interconnection.handleLongPolling response: ", response)
-		// fmt.Println("interconnection.waitCheckEvent", waitCheckEvent)
-		// fmt.Println("interconection.errorResponse", errorResponse)
+		response, errorResponse := in.SalesforceService.
+			GetMessages(mainSpan, in.AffinityToken, in.SessionKey, in.ack)
 		if errorResponse != nil {
 			// fmt.Println("interconnection.errorResponse: ", errorResponse.Error.Error())
 			switch errorResponse.StatusCode {
@@ -174,7 +202,6 @@ func (in *Interconnection) handleLongPolling() {
 				in.AffinityToken = reconnect.Messages[0].Message.AffinityToken
 				in.updateAffinityTokenRedis(reconnect.Messages[0].Message.AffinityToken)
 			default:
-
 				if strings.Contains(errorResponse.Error.Error(), "Client.Timeout exceeded while awaiting headers") {
 					//fmt.Println("interconnection.timeOutExceeded: ", errorResponse.Error.Error())
 					mainSpan.SetTag("Client.Timeout exceeded while awaiting headers", errorResponse.Error.Error())
@@ -182,7 +209,17 @@ func (in *Interconnection) handleLongPolling() {
 				}
 
 				logrus.WithFields(logFields).Errorf("Exists error in long polling : %s", errorResponse.Error.Error())
-				go ChangeToState(in.UserID, in.BotSlug, TimeoutState[string(in.Provider)], in.BotrunnnerClient, BotrunnerTimeout, StudioNGTimeout, in.StudioNG, in.isStudioNGFlow)
+
+				go ChangeToState(
+					in.UserID,
+					in.BotSlug,
+					TimeoutState[string(in.Provider)],
+					in.BotrunnnerClient,
+					BotrunnerTimeout,
+					StudioNGTimeout,
+					in.StudioNG,
+					in.isStudioNGFlow,
+				)
 				in.finishLongPolling(Closed)
 				mainSpan.SetTag(ext.Error, errorResponse.Error)
 				mainSpan.SetTag(events.StatusSalesforce, errorResponse.StatusCode)
@@ -191,6 +228,9 @@ func (in *Interconnection) handleLongPolling() {
 		}
 
 		in.offset = response.Offset
+		if response.Sequence != 0 {
+			in.ack = response.Sequence
+		}
 		go func(span tracer.Span) {
 			for _, event := range response.Messages {
 				in.checkEvent(span, &event)

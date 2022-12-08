@@ -46,7 +46,7 @@ type SalesforceServiceInterface interface {
 	CreatChat(context context.Context, contactName, organizationID, deploymentID, buttonID, caseID, contactID string) (*chat.SessionResponse, error)
 	GetOrCreateContact(context context.Context, name, email, phoneNumber string, extraData map[string]interface{}) (*models.SfcContact, error)
 	SendMessage(tracer.Span, string, string, chat.MessagePayload) (bool, error)
-	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse)
+	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string, ack int) (*chat.MessagesResponse, *helpers.ErrorResponse)
 	CreatCase(context context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error)
 	InsertFileInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
@@ -55,7 +55,16 @@ type SalesforceServiceInterface interface {
 	ReconnectSession(sessionKey, offset string) (*chat.MessagesResponse, error)
 }
 
-func NewSalesforceService(loginClient login.SfcLoginClient, chatClient chat.SfcChatClient, salesforceClient salesforce.SalesforceClient, tokenPayload login.TokenPayload, customFieldsCase map[string]string, recordTypeID, firsNameContact string, customFieldsContact map[string]string) *SalesforceService {
+func NewSalesforceService(
+	loginClient login.SfcLoginClient,
+	chatClient chat.SfcChatClient,
+	salesforceClient salesforce.SalesforceClient,
+	tokenPayload login.TokenPayload,
+	customFieldsCase map[string]string,
+	recordTypeID,
+	firsNameContact string,
+	customFieldsContact map[string]string,
+) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient:          &loginClient,
 		SfcChatClient:           &chatClient,
@@ -269,8 +278,8 @@ func (s *SalesforceService) SendMessage(mainSpan tracer.Span, affinityToken, ses
 	return s.SfcChatClient.SendMessage(mainSpan, affinityToken, sessionKey, message)
 }
 
-func (s *SalesforceService) GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*chat.MessagesResponse, *helpers.ErrorResponse) {
-	return s.SfcChatClient.GetMessages(mainSpan, affinityToken, sessionKey)
+func (s *SalesforceService) GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string, ack int) (*chat.MessagesResponse, *helpers.ErrorResponse) {
+	return s.SfcChatClient.GetMessages(mainSpan, affinityToken, sessionKey, chat.GetMessagesParams{Ack: ack})
 }
 
 func (s *SalesforceService) CreatCase(ctx context.Context, contactID, description, subject, origin, ownerID string, extraData map[string]interface{}) (string, error) {

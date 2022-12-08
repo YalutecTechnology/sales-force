@@ -5,11 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"yalochat.com/salesforce-integration/base/clients/chat/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"yalochat.com/salesforce-integration/base/clients/proxy"
@@ -145,7 +148,8 @@ func TestGetMessages(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(messagesResponse))),
 		}, nil)
 
-		messages, err := salesforceClient.GetMessages(span, "affinityToken", "key")
+		messages, err := salesforceClient.
+			GetMessages(span, "affinityToken", "key", GetMessagesParams{})
 
 		if err != nil {
 			t.Fatalf("Expected nil error, but retrieved this %#v", err)
@@ -154,6 +158,78 @@ func TestGetMessages(t *testing.T) {
 		if len(messages.Messages) != 18 {
 			t.Fatalf(`Expected 17 items, but retrieved %d`, len(messages.Messages))
 		}
+	})
+
+	t.Run("Get Messages Successful, when ack parameter is set", func(t *testing.T) {
+		mock := &proxy.Mock{}
+		salesforceClient := &SfcChatClient{Proxy: mock}
+		mock.On("SendHTTPRequest").Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(messagesResponse))),
+		}, nil)
+
+		messages, err := salesforceClient.
+			GetMessages(span, "affinityToken", "key", GetMessagesParams{Ack: -1})
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		if len(messages.Messages) != 18 {
+			t.Fatalf(`Expected 17 items, but retrieved %d`, len(messages.Messages))
+		}
+	})
+
+	t.Run("sets the correct URI in the underlying HTTP request, when ack param is specified", func(t *testing.T) {
+		proxyMock := new(mocks.ProxyInterface)
+		salesforceClient := &SfcChatClient{Proxy: proxyMock}
+
+		// see https://github.com/vektra/mockery#return-value-provider-functions
+		proxyMock.
+			On("SendHTTPRequest", mock.Anything, mock.Anything).
+			Return(
+				func(_ tracer.Span, r *proxy.Request) *http.Response {
+					assert.Equal(t, "/chat/rest/System/Messages?ack=-1", r.URI)
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       ioutil.NopCloser(bytes.NewReader([]byte(messagesResponse))),
+					}
+				},
+				func(_ tracer.Span, _ *proxy.Request) error {
+					return nil
+				},
+			).
+			Once()
+
+		messages, err := salesforceClient.
+			GetMessages(span, "affinityToken", "key", GetMessagesParams{Ack: -1})
+
+		if err != nil {
+			t.Fatalf("Expected nil error, but retrieved this %#v", err)
+		}
+
+		if len(messages.Messages) != 18 {
+			t.Fatalf(`Expected 17 items, but retrieved %d`, len(messages.Messages))
+		}
+
+		proxyMock.
+			On("SendHTTPRequest", mock.Anything, mock.Anything).
+			Return(
+				func(_ tracer.Span, r *proxy.Request) *http.Response {
+					assert.Equal(t, "/chat/rest/System/Messages?ack=5", r.URI)
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       ioutil.NopCloser(bytes.NewReader([]byte(messagesResponse))),
+					}
+				},
+				func(_ tracer.Span, _ *proxy.Request) error {
+					return nil
+				},
+			).
+			Once()
+
+		salesforceClient.
+			GetMessages(span, "affinityToken", "key", GetMessagesParams{Ack: 5})
 	})
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
@@ -165,7 +241,7 @@ func TestGetMessages(t *testing.T) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
 
-		_, err := salesforceClient.GetMessages(span, "affinityToken", "key")
+		_, err := salesforceClient.GetMessages(span, "affinityToken", "key", GetMessagesParams{})
 
 		if err.StatusCode != http.StatusNoContent {
 			t.Fatalf("Expected Status not content, but retrieved %v", err.StatusCode)
@@ -392,7 +468,6 @@ func TestChatEnd(t *testing.T) {
 }
 
 func TestCaseClient_UpdateToken(t *testing.T) {
-
 	t.Run("Update token Succesfull", func(t *testing.T) {
 		tokenExpected := "14525542211224"
 		sfChatClient := &SfcChatClient{AccessToken: "accessToken"}

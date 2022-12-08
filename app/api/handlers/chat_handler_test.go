@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +40,7 @@ func TestCreateChat(t *testing.T) {
 	t.Run("Should get a valid response", func(t *testing.T) {
 		managerMock := new(ManagerI)
 
-		interconnection := &manage.Interconnection{
+		interconnectionParams := &manage.NewInterconnectionParams{
 			UserID:      "5217331175599",
 			BotSlug:     "coppel-bot",
 			BotID:       "521554578545",
@@ -48,6 +49,9 @@ func TestCreateChat(t *testing.T) {
 			Email:       "ochoapumas@gmail.com",
 			PhoneNumber: "55555555555",
 		}
+
+		interconnection := manage.NewInterconnection(interconnectionParams)
+
 		managerMock.On("CreateChat", mock.Anything, interconnection).Return(nil).Once()
 		getApp().ManageManager = managerMock
 
@@ -68,7 +72,7 @@ func TestCreateChat(t *testing.T) {
 	t.Run("Should get a valid response with payload error", func(t *testing.T) {
 		managerMock := new(ManagerI)
 
-		interconnection := &manage.Interconnection{
+		interconnectionParams := &manage.NewInterconnectionParams{
 			BotSlug:     "coppel-bot",
 			BotID:       "521554578545",
 			Name:        "Eduardo Ochoa",
@@ -76,6 +80,9 @@ func TestCreateChat(t *testing.T) {
 			Email:       "ochoapumas@gmail.com",
 			PhoneNumber: "55555555555",
 		}
+
+		interconnection := manage.NewInterconnection(interconnectionParams)
+
 		getApp().ManageManager = managerMock
 
 		interconnectionBin, err := json.Marshal(interconnection)
@@ -134,7 +141,7 @@ func TestCreateChat(t *testing.T) {
 	t.Run("Should get a error manage service", func(t *testing.T) {
 		managerMock := new(ManagerI)
 
-		interconnection := &manage.Interconnection{
+		interconnectionParams := &manage.NewInterconnectionParams{
 			UserID:      "5217331175599",
 			BotSlug:     "coppel-bot",
 			BotID:       "521554578545",
@@ -143,6 +150,9 @@ func TestCreateChat(t *testing.T) {
 			Email:       "ochoapumas@gmail.com",
 			PhoneNumber: "55555555555",
 		}
+
+		interconnection := manage.NewInterconnection(interconnectionParams)
+
 		managerMock.On("CreateChat", mock.Anything, interconnection).Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 
@@ -171,7 +181,6 @@ func TestCreateChat(t *testing.T) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
 		}
 	})
-
 }
 
 func TestFinishChat(t *testing.T) {

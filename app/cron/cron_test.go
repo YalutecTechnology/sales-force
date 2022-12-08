@@ -1,13 +1,15 @@
 package cron
 
 import (
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/stretchr/testify/assert"
+	"yalochat.com/salesforce-integration/app/cron/mocks"
 	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
 )
@@ -37,14 +39,14 @@ func Test_crons_setCron(t *testing.T) {
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 
-		saleforceService := new(SalesforceServiceInterface)
+		saleforceService := new(mocks.SalesforceServiceInterface)
 		contact := &models.SfcContact{
 			Email:   email,
 			Blocked: true,
 		}
 		saleforceService.On("SearchContactComposite", email, "").Return(contact, nil).Times(10)
 
-		contextCacheMock := new(ContextCache)
+		contextCacheMock := new(mocks.IContextCache)
 		contextCacheMock.On("CleanContextToDate", client, mock.Anything).Return(nil).Times(10)
 
 		cronService := NewCron(saleforceService, "@every 1s", email)
@@ -62,7 +64,7 @@ func Test_crons_setCron(t *testing.T) {
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 
-		saleforceService := new(SalesforceServiceInterface)
+		saleforceService := new(mocks.SalesforceServiceInterface)
 		contact := &models.SfcContact{}
 		saleforceService.On("SearchContactComposite", email, "").Return(contact, &helpers.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
@@ -70,7 +72,7 @@ func Test_crons_setCron(t *testing.T) {
 
 		saleforceService.On("RefreshToken").Times(10)
 
-		contextCacheMock := new(ContextCache)
+		contextCacheMock := new(mocks.IContextCache)
 		contextCacheMock.On("CleanContextToDate", client, mock.Anything).Return(assert.AnError).Times(10)
 
 		cronService := NewCron(saleforceService, "@every 1s", email)

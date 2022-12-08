@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
+
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
@@ -136,10 +139,14 @@ type GeoLocation struct {
 	Longitude    float32 `json:"longitude,omitempty"`
 }
 
+type GetMessagesParams struct {
+	Ack int
+}
+
 type SfcChatInterface interface {
 	CreateSession(mainSpan tracer.Span) (*SessionResponse, error)
 	CreateChat(tracer.Span, string, string, ChatRequest) (bool, error)
-	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse)
+	GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string, params GetMessagesParams) (*MessagesResponse, *helpers.ErrorResponse)
 	SendMessage(tracer.Span, string, string, MessagePayload) (bool, error)
 	ChatEnd(affinityToken, sessionKey string) error
 	ReconnectSession(sessionKey, offset string) (*MessagesResponse, error)
@@ -163,8 +170,8 @@ func NewChatRequest(organizationID, deployementID, sessionID, ButtonID, userName
 	}
 }
 
-//CreateSession To create a new Live Agent session, you must call the SessionId request.
-//SessionId : Establishes a new Live Agent session. The SessionId request is required as the first request to create every new Live Agent session.
+// CreateSession To create a new Live Agent session, you must call the SessionId request.
+// SessionId : Establishes a new Live Agent session. The SessionId request is required as the first request to create every new Live Agent session.
 func (c *SfcChatClient) CreateSession(mainSpan tracer.Span) (*SessionResponse, error) {
 	// datadog tracing
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
@@ -223,8 +230,8 @@ func (c *SfcChatClient) CreateSession(mainSpan tracer.Span) (*SessionResponse, e
 	return &session, nil
 }
 
-//CreateChat We’ll send a chat request. To make sure this works, you should log in as a Live Agent user and make yourself available.
-//Initiates a new chat visitor session. The ChasitorInit request is always required as the first POST request in a new chat session.
+// CreateChat We’ll send a chat request. To make sure this works, you should log in as a Live Agent user and make yourself available.
+// Initiates a new chat visitor session. The ChasitorInit request is always required as the first POST request in a new chat session.
 func (c *SfcChatClient) CreateChat(mainSpan tracer.Span, affinityToken, sessionKey string, request ChatRequest) (bool, error) {
 	// datadog tracing
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
@@ -256,7 +263,8 @@ func (c *SfcChatClient) CreateChat(mainSpan tracer.Span, affinityToken, sessionK
 		sessionKey,
 		http.MethodPost,
 		"/chat/rest/Chasitor/ChasitorInit",
-		requestBytes)
+		requestBytes,
+	)
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
@@ -287,12 +295,25 @@ func (c *SfcChatClient) CreateChat(mainSpan tracer.Span, affinityToken, sessionK
 }
 
 // GetMessages Get messages from chat of salesforce.
-func (c *SfcChatClient) GetMessages(mainSpan tracer.Span, affinityToken, sessionKey string) (*MessagesResponse, *helpers.ErrorResponse) {
+func (c *SfcChatClient) GetMessages(
+	mainSpan tracer.Span,
+	affinityToken,
+	sessionKey string,
+	params GetMessagesParams,
+) (*MessagesResponse, *helpers.ErrorResponse) {
 	// datadog tracing
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("get_messages", tracer.ChildOf(spanContext))
 	span.SetTag("sessionKey", sessionKey)
 	span.SetTag(ext.AnalyticsEvent, true)
+
+	uri := "/chat/rest/System/Messages"
+	if params.Ack != 0 {
+		queryParams := url.Values{"ack": []string{strconv.Itoa(params.Ack)}}
+		span.SetTag("ack", params.Ack)
+		uri += "?" + queryParams.Encode()
+	}
+
 	defer span.Finish()
 	var errorMessage string
 
@@ -300,8 +321,9 @@ func (c *SfcChatClient) GetMessages(mainSpan tracer.Span, affinityToken, session
 		affinityToken,
 		sessionKey,
 		http.MethodGet,
-		"/chat/rest/System/Messages",
-		nil)
+		uri,
+		nil,
+	)
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
@@ -378,7 +400,8 @@ func (c *SfcChatClient) SendMessage(mainSpan tracer.Span, affinityToken, session
 		sessionKey,
 		http.MethodPost,
 		uri,
-		requestBytes)
+		requestBytes,
+	)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
@@ -411,7 +434,7 @@ func (c *SfcChatClient) SendMessage(mainSpan tracer.Span, affinityToken, session
 	return true, nil
 }
 
-//ReconnectSession Reconnect session to the live agent user.
+// ReconnectSession Reconnect session to the live agent user.
 func (c *SfcChatClient) ReconnectSession(sessionKey, offset string) (*MessagesResponse, error) {
 	// datadog tracing
 	span := tracer.StartSpan("reconnect_session")
@@ -438,8 +461,10 @@ func (c *SfcChatClient) ReconnectSession(sessionKey, offset string) (*MessagesRe
 		"null",
 		sessionKey,
 		http.MethodGet,
+		// Reconnect Session URL
 		fmt.Sprintf("/chat/rest/System/ReconnectSession?ReconnectSession.offset=%s", offset),
-		nil)
+		nil,
+	)
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
 	if proxyError != nil {
@@ -471,7 +496,7 @@ func (c *SfcChatClient) ReconnectSession(sessionKey, offset string) (*MessagesRe
 	return &response, nil
 }
 
-//ChatEnd end chat of salesforce.
+// ChatEnd end chat of salesforce.
 func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
 	// datadog tracing
 	span := tracer.StartSpan("chat_end")
@@ -484,7 +509,8 @@ func (c *SfcChatClient) ChatEnd(affinityToken, sessionKey string) error {
 		sessionKey,
 		http.MethodPost,
 		"/chat/rest/Chasitor/ChatEnd",
-		[]byte(bodyReason))
+		[]byte(bodyReason),
+	)
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", newRequest.Method, newRequest.URI))
 
 	proxiedResponse, proxyError := c.Proxy.SendHTTPRequest(span, &newRequest)
@@ -531,7 +557,13 @@ func stringResponse(body io.ReadCloser) (string, error) {
 	return buf.String(), nil
 }
 
-func (c *SfcChatClient) getRequest(affinityToken, sessionKey, method, uri string, body []byte) proxy.Request {
+func (c *SfcChatClient) getRequest(
+	affinityToken,
+	sessionKey,
+	method,
+	uri string,
+	body []byte,
+) proxy.Request {
 	header := make(map[string]string)
 	header[apiVersionHeader] = c.ApiVersion
 	header[affinityHeader] = affinityToken

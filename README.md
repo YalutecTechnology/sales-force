@@ -1,6 +1,7 @@
 # salesforce-integration #
 
-This service will be used as a solution for Coppel, it will allow communication between users of WhatsApp or Facebook bots and Coppel's human advisor through a live chat on the Salesforce platform.
+This service will be used as a solution for Coppel, it will allow communication between users of WhatsApp or Facebook 
+bots and Coppel's human advisor through a live chat on the Salesforce platform.
 
 The requirements of this solution are documented in the following [RFC-155.](https://www.notion.so/yalo/RFC-155-Salesforce-integration-204cbcfdacd44fd2a20e41a4348df35c).
 
@@ -10,14 +11,20 @@ We can have more detailed information on the flow of this solution in the follow
 
 ## What is this repository for? ##
 
-This service will serve as a middleware that will connect a user of a Yalo bot when requesting assistance with a human agent through a live chat on the Salesforce platform.
+This service will serve as a middleware that will connect a user of a Yalo bot when requesting assistance with a human
+agent through a live chat on the Salesforce platform.
 
-This solution aims to be used for different implementations with any client in a simple way, in which it is necessary to establish a live chat, through a Yalo bot and the Salesforce CRM platform.
+This solution aims to be used for different implementations with any client in a simple way, in which it is necessary to
+establish a live chat, through a Yalo bot and the Salesforce CRM platform.
 
-The flow implemented for creating chat between an end user and a human agent in Salesforce is as follows:
+The flow implemented for creating a chat between an end user and a human agent in Salesforce is as follows:
 
 1. The user is interacting with a Yalo bot.
-2. If the user requests human assistance by typing the keyword ***"Ayuda"***, Yalo Core, puts the artificial intelligence in a waiting state and Yalo Component creates a Chat session with Salesforce by making a request to the endpoint [`v1/chats/connect`](https://www.notion.so/yalo/Salesforce-Integrations-Endpoints-57ff093479084b89a9990a5bd0faa7b1) of this solution.
+2. If the user requests human assistance by typing the keyword ***"Ayuda"***, Yalo Core, puts the artificial
+intelligence in a waiting state and Yalo Component creates a Chat session with Salesforce by making a request to the
+endpoint
+[`v1/chats/connect`](https://www.notion.so/yalo/Salesforce-Integrations-Endpoints-57ff093479084b89a9990a5bd0faa7b1) of
+this solution.
 3. The endpoint must consume the following minimum information to create a chat:
 
 | Field       | Description                                                                                                                                                                                                 |
@@ -33,23 +40,31 @@ The flow implemented for creating chat between an end user and a human agent in 
 
 4. First, it is validated that the user does not have a live chat in existence at the time of making the request.
 
-5. First, it is validated that the user does not have a live chat in existence at the time of making the request.
+5. We search through the email or phone received that there is a **contact** or **personal account** in the customer's
+Salesforce account, if it does not exist, the contact or personal account is created.
 
-6. We search through the email or phone received that there is a **contact** or **personal account** in the customer's Salesforce account, if it does not exist, the contact or personal account is created.
+6. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the
+botrunner or studiong client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
 
-7. We validate that the user is not blocked in Salesforce, if so, the corresponding chat is not created and through the botrunner or studiong client the user is changed to a *blocked user state*, specified in the environment variable ***BLOCKED_USER_STATE***
+7. Once the contact has been validated in Salesforce, we create a query case with the data provided to add it and
+request a chat.
+[ChatRequest in LiveAgent API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChasitorInit.htm)
 
-8. Once the contact has been validated in Salesforce, we create a query case with the data provided to add it and request a chat. [ChatRequest in LiveAgent API](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ChasitorInit.htm)
+8. After successfully requesting the chat session with Salesforce, we save the information necessary to maintain the
+session in an **Interconnection** object in Redis.
 
-9. After successfully requesting the chat session with Salesforce, we save the information necessary to maintain the session in an **Interconnection** object in Redis.
+9. Finally, we initialize in the ***Interconnection*** a goroutine that starts the
+[***Long Polling***](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_http_long_polling_loop.htm)
+process with Salesforce, with which we consume a service to identify the different events that happen in the chat every
+5 seconds.
 
-10. Finally, we initialize in the ***Interconnection*** a goroutine that starts the [***Long Polling***](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_http_long_polling_loop.htm) process with Salesforce, with which we consume a service to identify the different events that happen in the chat every 5 seconds.
-
-11. According to the events received, **salesforce-integration** performs the following actions:
+10. According to the events received, **salesforce-integration** performs the following actions:
 
 * ***204 HTTP Status :*** It means that there are no changes in the chat.
-* ***503 HTTP Status :*** An attempt will be made to reconnect the session because the connection to Salesforce was lost. More details [ReconnectSession](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ReconnectSession.htm)
-* ***Other HTTP Status:*** The **Interconnection** is ended and through the **Botrunner or Studing client** the user is changed to a time-ended state, specified in the **TIMEOUT_STATE** environment variable
+* ***503 HTTP Status :*** An attempt will be made to reconnect the session because the connection to Salesforce was
+lost. More details [ReconnectSession](https://developer.salesforce.com/docs/atlas.en-us.live_agent_rest.meta/live_agent_rest/live_agent_rest_ReconnectSession.htm)
+* ***Other HTTP Status:*** The **Interconnection** is ended and through the **Botrunner or Studio NG client** the user
+is changed to a time-ended state, specified in the **TIMEOUT_STATE** environment variable
 * ***ChatRequestFail:*** The chat was not created correctly in the Salesforce console, due to no agents available in the queue the chat was sent to or some unknown error.
 * ***ChatRequestSuccess :*** The chat was created successfully and the **Interconnection** goes to `OnHold` status waiting for a human agent to accept the chat. The service sends the user a `Esperando agente` message via [**Integrations API**](https://www.notion.so/yalo/Integrations-API-00643b2f689943bb9daa1c5d064f0b32#fea506d44c434aeebb8399fe6225e3c1).
 * ***ChatEstablished :*** An agent accepts the chat and the **Interconnection** goes to `Active` status, at this time both can send messages to each other, but before that, the service sends the context of the query as the first message, that is, the previous conversation between the bot's AI and the user before requesting a live chat.
@@ -74,7 +89,10 @@ The service has two main folders:
 
 This folder contains the main functionalities of the service together with the packages for the API server.
 
-The **api/hadlers** package contains the endpoints available for this integration, mainly the endpoint ***/chats/connect*** to create the chats with Salesforce, as well as the endpoints that we need to register as webhooks in **integrations-api** so that **integrations-channels** can send us the messages between users and bots of *WhatsApp* and *Faceebook*.
+The **api/hadlers** package contains the endpoints available for this integration, mainly the endpoint
+***/chats/connect*** to create the chats with Salesforce, as well as the endpoints that we need to register as webhooks
+in **integrations-api** so that **integrations-channels** can send us the messages between users and bots of *WhatsApp*
+and *Faceebook*.
 
 Each of them is detailed in the [README](https://bitbucket.org/yalochat/salesforce-integration/src/develop/app/api/handlers/README.md) file in ***app/api/handlers*** or in [Saleforce Integrations Endpoints](https://www.notion.so/yalo/Salesforce-Integrations-Endpoints-57ff093479084b89a9990a5bd0faa7b1).
 

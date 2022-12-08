@@ -3,10 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/sirupsen/logrus"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
 	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/events"
 
@@ -70,7 +71,7 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 	}
 
 	// Create Interconnection between yalo and salesforce
-	interconnection := &manage.Interconnection{
+	interconnectionParams := &manage.NewInterconnectionParams{
 		UserID:      chatPayload.UserID,
 		Name:        chatPayload.Name,
 		Provider:    manage.Provider(chatPayload.Provider),
@@ -80,6 +81,8 @@ func (app *App) createChat(w http.ResponseWriter, r *http.Request, params httpro
 		Email:       chatPayload.Email,
 		ExtraData:   chatPayload.ExtraData,
 	}
+
+	interconnection := manage.NewInterconnection(interconnectionParams)
 
 	logFields[events.Interconnection] = interconnection
 	span.SetTag(events.UserID, interconnection.UserID)
