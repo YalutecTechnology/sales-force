@@ -29,17 +29,18 @@ const (
 )
 
 type SalesforceService struct {
-	TokenPayload            login.TokenPayload
-	SfcLoginClient          login.SfcLoginInterface
-	SfcChatClient           chat.SfcChatInterface
-	SfcClient               salesforce.SaleforceInterface
-	SourceFlowBot           envs.SfcSourceFlowBot
-	SfcCustomFieldsCase     map[string]string
-	SfcCustomFieldsContact  map[string]string
-	AccountRecordTypeId     string
-	DefaultBirthDateAccount string
-	RecordTypeID            string
-	FirstNameContact        string
+	TokenPayload                   login.TokenPayload
+	SfcLoginClient                 login.SfcLoginInterface
+	SfcChatClient                  chat.SfcChatInterface
+	SfcClient                      salesforce.SaleforceInterface
+	SourceFlowBot                  envs.SfcSourceFlowBot
+	SfcCustomFieldsCase            map[string]string
+	SfcCustomFieldsContact         map[string]string
+	SfcCustomFieldsToSearchContact map[string]string
+	AccountRecordTypeId            string
+	DefaultBirthDateAccount        string
+	RecordTypeID                   string
+	FirstNameContact               string
 }
 
 type SalesforceServiceInterface interface {
@@ -51,7 +52,7 @@ type SalesforceServiceInterface interface {
 	InsertFileInCase(uri, title, mimeType, caseID string) error
 	EndChat(affinityToken, sessionKey string) error
 	RefreshToken()
-	SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
+	SearchContactComposite(email, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse)
 	ReconnectSession(sessionKey, offset string) (*chat.MessagesResponse, error)
 }
 
@@ -64,17 +65,19 @@ func NewSalesforceService(
 	recordTypeID,
 	firsNameContact string,
 	customFieldsContact map[string]string,
+	customFieldsToSearchContact map[string]string,
 ) *SalesforceService {
 	salesforceService := &SalesforceService{
-		SfcLoginClient:          &loginClient,
-		SfcChatClient:           &chatClient,
-		SfcClient:               &salesforceClient,
-		TokenPayload:            tokenPayload,
-		SfcCustomFieldsCase:     customFieldsCase,
-		SfcCustomFieldsContact:  customFieldsContact,
-		RecordTypeID:            recordTypeID,
-		DefaultBirthDateAccount: time.Now().Format(constants.DateFormatDateTime),
-		FirstNameContact:        firsNameContact,
+		SfcLoginClient:                 &loginClient,
+		SfcChatClient:                  &chatClient,
+		SfcClient:                      &salesforceClient,
+		TokenPayload:                   tokenPayload,
+		SfcCustomFieldsCase:            customFieldsCase,
+		SfcCustomFieldsContact:         customFieldsContact,
+		SfcCustomFieldsToSearchContact: customFieldsToSearchContact,
+		RecordTypeID:                   recordTypeID,
+		DefaultBirthDateAccount:        time.Now().Format(constants.DateFormatDateTime),
+		FirstNameContact:               firsNameContact,
 	}
 	salesforceService.RefreshToken()
 	return salesforceService
@@ -197,7 +200,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 	span.SetTag("name", name)
 	defer span.Finish()
 
-	contact, err := s.SfcClient.SearchContactComposite(span, email, phoneNumber)
+	contact, err := s.SfcClient.SearchContactComposite(span, email, phoneNumber, s.SfcCustomFieldsToSearchContact, extraData)
 	if err != nil {
 		logrus.Errorf("Not found contact search by email or phoneNumber: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
 		if err.StatusCode == http.StatusUnauthorized {
@@ -440,10 +443,10 @@ func (s *SalesforceService) EndChat(affinityToken, sessionKey string) error {
 	return s.SfcChatClient.ChatEnd(affinityToken, sessionKey)
 }
 
-func (s *SalesforceService) SearchContactComposite(email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+func (s *SalesforceService) SearchContactComposite(email, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse) {
 	span := tracer.StartSpan("SearchContactComposite")
 	defer span.Finish()
-	return s.SfcClient.SearchContactComposite(span, email, phoneNumber)
+	return s.SfcClient.SearchContactComposite(span, email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 }
 
 func (s *SalesforceService) ReconnectSession(sessionKey, offset string) (*chat.MessagesResponse, error) {
