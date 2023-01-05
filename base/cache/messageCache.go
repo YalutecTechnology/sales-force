@@ -35,5 +35,5 @@ func (mc *MessageCache) IsRepeatedMessage(key string) bool {
 }
 
 func assembleMessageKey(key string) string {
-	return fmt.Sprintf(constants.MessageKey, key)
+	return fmt.Sprintln(constants.MessageKey, key)
 }

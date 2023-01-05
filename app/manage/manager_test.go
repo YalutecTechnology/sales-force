@@ -89,7 +89,7 @@ func TestCreateManager(t *testing.T) {
 		salesforceMock := new(mocks.SalesforceServiceInterface)
 		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey).
-			Return(&chat.MessagesResponse{}, nil).Once()
+			Return(&chat.MessagesResponse{}, nil)
 
 		expected := &Manager{
 			client:                       client,
@@ -291,7 +291,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.
 			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
-			Return(&chat.MessagesResponse{}, nil).Once()
+			Return(&chat.MessagesResponse{}, nil)
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{UserID: userID, Client: client}).
 			Return(nil, nil).Once()
@@ -392,7 +392,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey, -1).
-			Return(&chat.MessagesResponse{}, nil).Once()
+			Return(&chat.MessagesResponse{}, nil)
 
 		interconnectionMock := new(mocks.IInterconnectionCache)
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{
@@ -500,7 +500,7 @@ func TestManager_CreateChat(t *testing.T) {
 
 		salesforceMock.On("GetMessages", mock.Anything,
 			affinityToken, sessionKey, -1).
-			Return(&chat.MessagesResponse{}, nil).Once()
+			Return(&chat.MessagesResponse{}, nil)
 
 		interconnectionMock.On("RetrieveInterconnection", cache.Interconnection{
 			UserID: userID, Client: client,
@@ -1731,6 +1731,11 @@ func TestManager_SaveContext(t *testing.T) {
 
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
@@ -1799,6 +1804,11 @@ func TestManager_SaveContext(t *testing.T) {
 
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		imageId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+imageId, imageId, "image/png", "caseID").
@@ -1860,6 +1870,11 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "caption 1 2  3", "image/png", "caseID").
 			Return(assert.AnError).Once()
@@ -1988,6 +2003,11 @@ func TestManager_SaveContext(t *testing.T) {
 
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		fileId := "459e2d42-418a-441c-86e4-e062a3be0272"
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com/"+fileId, "459e2d42 418a 441c 86e4 e062a3be0272", "document/pdf", "caseID").
@@ -2050,6 +2070,10 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", sessionID, "document/pdf", "caseID").
 			Return(nil).Once()
@@ -2110,6 +2134,11 @@ func TestManager_SaveContext(t *testing.T) {
 		defer interconnectionLocal.Clear()
 		contextCache := new(mocks.IContextCache)
 		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		salesforceMock.On("InsertFileInCase",
 			"http://test.com", "caption 1 2  3", "document/pdf", "caseID").
 			Return(assert.AnError).Once()
@@ -2170,6 +2199,11 @@ func TestManager_SaveContext(t *testing.T) {
 
 func TestManager_getContextByUserID(t *testing.T) {
 	t.Run("ContextByUserID", func(t *testing.T) {
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		Messages = models.MessageTemplate{
 			BotLabel:    "Bot",
 			ClientLabel: "Cliente",
@@ -2258,6 +2292,11 @@ second line
 	})
 
 	t.Run("Should set the correct timezone when getting the context", func(t *testing.T) {
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, nil)
+
 		Messages = models.MessageTemplate{
 			BotLabel:    "Bot",
 			ClientLabel: "Cliente",

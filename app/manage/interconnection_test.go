@@ -231,6 +231,8 @@ func TestHandleLongPolling_test(t *testing.T) {
 				Error:      assert.AnError,
 			}).Once()
 
+		manager.interconnectionsCache.StoreInterconnection(NewInterconectionCache(interconnection))
+
 		botrunnerMock := new(mocks.BotRunnerInterface)
 		botrunnerMock.
 			On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
