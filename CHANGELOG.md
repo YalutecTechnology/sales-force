@@ -1,12 +1,18 @@
+
+<a name="v2.0.0"></a>
+## [v2.0.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.0..v1.1.8) (2023-01-05)
+
+### Feature
+
+* **get-messages:** adds the ack query parameters to get message requests. Closes #CS-2170
+
+
 <a name="v1.1.8"></a>
-## [v1.1.8](https://bitbucket.org/yalochat/salesforce-integration/branch/release/1.1.8?dest=release%2F1.1.7) (2022-08-17)
+## [v1.1.8](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.8..v1.1.7) (2022-08-18)
 
-### Hotfix
-
-* **General improvemnts:** Add retrys on all http calls in order to handle "tcp: connection reset by peer" errors.
 
 <a name="v1.1.7"></a>
-## [v1.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)
+## [v1.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)
 
 ### Hotfix
 
@@ -14,7 +20,7 @@
 
 
 <a name="v1.1.6"></a>
-## [v1.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.6..v1.1.5) (2022-05-02)
+## [v1.1.6](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.6..v1.1.5) (2022-05-02)
 
 ### Feat
 
@@ -23,7 +29,7 @@
 
 
 <a name="v1.1.5"></a>
-## [v1.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-31)
+## [v1.1.5](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-31)
 
 ### Feat
 
@@ -35,7 +41,7 @@
 
 
 <a name="v1.1.4"></a>
-## [v1.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-25)
+## [v1.1.4](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-25)
 
 ### Feat
 
@@ -45,7 +51,7 @@
 
 
 <a name="v1.1.3"></a>
-## [v1.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.3..v1.1.2) (2022-03-02)
+## [v1.1.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.3..v1.1.2) (2022-03-02)
 
 ### Feat
 
@@ -53,11 +59,11 @@
 
 
 <a name="v1.1.2"></a>
-## [v1.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-03-02)
+## [v1.1.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-03-02)
 
 
 <a name="v1.1.1"></a>
-## [v1.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
+## [v1.1.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
 
 ### Feat
 
@@ -71,7 +77,7 @@
 
 
 <a name="v1.1.0"></a>
-## [v1.1.0](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
+## [v1.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
 
 ### Feat
 
@@ -85,7 +91,7 @@
 
 
 <a name="v0.1.9"></a>
-## [v0.1.9](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.9..v0.1.8) (2021-12-22)
+## [v0.1.9](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.9..v0.1.8) (2021-12-22)
 
 ### Feat
 
@@ -93,7 +99,7 @@
 
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
+## [v0.1.8](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -115,11 +121,11 @@
 
 
 <a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
+## [V0.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
 
 
 <a name="v0.1.7"></a>
-## [v0.1.7](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
+## [v0.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 
@@ -131,7 +137,7 @@
 
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-16)
+## [v0.1.6](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-16)
 
 ### Chore
 
@@ -152,7 +158,7 @@
 
 
 <a name="v0.1.5"></a>
-## [v0.1.5](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-28)
+## [v0.1.5](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-28)
 
 ### Feat
 
@@ -168,7 +174,7 @@
 
 
 <a name="v0.1.4"></a>
-## [v0.1.4](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-25)
+## [v0.1.4](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-25)
 
 ### Feat
 
@@ -177,7 +183,7 @@
 
 
 <a name="v0.1.3"></a>
-## [v0.1.3](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
+## [v0.1.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
 
 ### Feat
 
@@ -189,7 +195,7 @@
 
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
+## [v0.1.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
 
 ### Chore
 
@@ -214,7 +220,7 @@
 
 
 <a name="v0.1.1"></a>
-## [v0.1.1](https://bitbucket.org-eduardoochoa/yalochat/salesforce-integration/compare/v0.1.1..v0.1.0-alpha) (2021-09-29)
+## [v0.1.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.1..v0.1.0-alpha) (2021-09-29)
 
 ### Feat
 
@@ -253,3 +259,4 @@
 * **Integration-interconnection:** Interconnection for Message Handler(image). Add handler to send message to salesforce. Closes #CSF-82
 * **Integration-interconnection:** Interconnection for Message Handler. Add handler to send message to salesforce . Closes #CSF-82
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
+
