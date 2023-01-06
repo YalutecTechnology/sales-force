@@ -226,12 +226,10 @@ func (in *Interconnection) handleLongPolling() {
 			continue
 		}
 
-		// During tests, we notice that the first sequence returned by Salesforce is 0, so we need to set the first ack
-		// value to 0. The only way the code reaches here is that the code response is 200, which is the only case that
-		// we will receive messages from Salesforce and, we are guaranteed to receive the sequence param.
 		in.offset = response.Offset
-		in.ack = response.Sequence
-
+		if response.Sequence != 0 {
+			in.ack = response.Sequence
+		}
 		go func(span tracer.Span) {
 			for _, event := range response.Messages {
 				in.checkEvent(span, &event)
