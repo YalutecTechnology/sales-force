@@ -1,4 +1,12 @@
 
+<a name="v2.0.1"></a>
+## [v2.0.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.1..v2.0.0) (2023-01-06)
+
+### Hotfix
+
+* **long-polling:** add support for initial sequence number equals to zero on GetMessages operation. Closes #CS-2220
+
+
 <a name="v2.0.0"></a>
 ## [v2.0.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.0..v1.1.8) (2023-01-05)
 

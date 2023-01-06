@@ -108,16 +108,24 @@ func TestHandleLongPolling_test(t *testing.T) {
 		expectedLog := "Not content events"
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		studioNGMock := new(mocks.StudioNGInterface)
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
-			StatusCode: http.StatusNoContent,
-		}).Once()
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+				StatusCode: http.StatusNoContent,
+			}).Once()
 		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatEnded,
 				},
 			},
+			Sequence: 0,
 		}, nil).Once()
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, 0).
+			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+				StatusCode: http.StatusNoContent,
+			})
 
 		studioNGMock.On("SendTo", successState, userID).
 			Return(nil).Once()
@@ -129,7 +137,10 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.handleLongPolling()
+		go interconnection.handleLongPolling()
+		time.Sleep(4 * time.Second)
+		interconnection.runnigLongPolling = false
+
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -140,17 +151,26 @@ func TestHandleLongPolling_test(t *testing.T) {
 		expectedLog := "Not content events"
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		studioNGMock := new(mocks.StudioNGInterface)
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
-			StatusCode: http.StatusNoContent,
-		}).Once()
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{
-			Messages: []chat.MessageObject{
-				{
-					Type: chat.ChatEnded,
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+				StatusCode: http.StatusNoContent,
+			}).Once()
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{
+				Messages: []chat.MessageObject{
+					{
+						Type: chat.ChatEnded,
+					},
 				},
-			},
-		}, nil).Once()
-
+				Sequence: 0,
+			}, nil).Once()
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, 0).
+			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+				StatusCode: http.StatusNoContent,
+			})
 		studioNGMock.On("SendTo", successState, userID).
 			Return(assert.AnError).Once()
 
@@ -164,7 +184,9 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
-		interconnection.handleLongPolling()
+		go interconnection.handleLongPolling()
+		time.Sleep(4 * time.Second)
+
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
@@ -175,9 +197,11 @@ func TestHandleLongPolling_test(t *testing.T) {
 		expectedLog := "StatusForbidden"
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		interconnection.SalesforceService = mockSalesforceServiceInterface
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
-			StatusCode: http.StatusForbidden,
-		}).Once()
+		mockSalesforceServiceInterface.
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+				StatusCode: http.StatusForbidden,
+			})
 
 		botrunnerMock := new(mocks.BotRunnerInterface)
 		botrunnerMock.On("SendTo", map[string]interface{}{"botSlug": botSlug, "message": "", "state": timeoutState, "userId": userID}).
@@ -186,7 +210,9 @@ func TestHandleLongPolling_test(t *testing.T) {
 
 		var buf bytes.Buffer
 		logrus.SetOutput(&buf)
+
 		interconnection.handleLongPolling()
+
 		logs := buf.String()
 		if !strings.Contains(logs, expectedLog) {
 			t.Fatalf("Logs should contain <%s>, but this was found <%s>", expectedLog, logs)
