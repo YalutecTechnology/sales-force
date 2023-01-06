@@ -308,12 +308,11 @@ func (c *SfcChatClient) GetMessages(
 	span.SetTag(ext.AnalyticsEvent, true)
 
 	uri := "/chat/rest/System/Messages"
-	if params.Ack != 0 {
-		queryParams := url.Values{"ack": []string{strconv.Itoa(params.Ack)}}
-		span.SetTag("ack", params.Ack)
-		uri += "?" + queryParams.Encode()
-	}
 
+	queryParams := url.Values{"ack": []string{strconv.Itoa(params.Ack)}}
+	span.SetTag("ack", params.Ack)
+	uri += "?" + queryParams.Encode()
+	
 	defer span.Finish()
 	var errorMessage string
 
