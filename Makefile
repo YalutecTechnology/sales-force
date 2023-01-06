@@ -80,3 +80,39 @@ gen-mocks:
 		--output base/clients/chat/mocks/ \
 		--outpkg mocks \
 		--case underscore
+	# mocks for base/clients/salesforce
+	mockery --name=ProxyInterface \
+		--dir base/clients/proxy/ \
+		--output base/clients/salesforce/mocks/ \
+		--outpkg mocks \
+		--case underscore
+	# mocks for base/clients/botrunner
+	mockery --name=ProxyInterface \
+		--dir base/clients/proxy/ \
+		--output base/clients/botrunner/mocks/ \
+		--outpkg mocks \
+		--case underscore
+	# mocks for base/clients/integrations
+	mockery --name=ProxyInterface \
+		--dir base/clients/proxy/ \
+		--output base/clients/integrations/mocks/ \
+		--outpkg mocks \
+		--case underscore
+	# mocks for base/clients/login
+	mockery --name=ProxyInterface \
+		--dir base/clients/proxy/ \
+		--output base/clients/login/mocks/ \
+		--outpkg mocks \
+		--case underscore
+	# mocks for base/clients/studiong
+	mockery --name=ProxyInterface \
+		--dir base/clients/proxy/ \
+		--output base/clients/studiong/mocks/ \
+		--outpkg mocks \
+		--case underscore
+	# mocks for app/api/handlers
+	mockery --name=ManagerI \
+		--dir app/manage/ \
+		--output app/api/handlers/mocks/ \
+		--outpkg mocks \
+		--case underscore

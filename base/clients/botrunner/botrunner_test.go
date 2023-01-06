@@ -3,20 +3,21 @@ package botrunner
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 
-	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"yalochat.com/salesforce-integration/base/clients/botrunner/mocks"
 )
 
 func TestSendTo(t *testing.T) {
 	t.Run("Send Message Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock := new(mocks.ProxyInterface)
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -39,9 +40,9 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Send Message Succesfull with token", func(t *testing.T) {
-		mock := &proxy.Mock{}
-		botrunnerClient := &BotRunner{Proxy: mock, Token: "1254512"}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock := new(mocks.ProxyInterface)
+		botrunnerClient := &BotRunner{Proxy: proxyMock, Token: "1254512"}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -64,10 +65,11 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by invalid userID received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
 		expectedError := "Invalid userId received"
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -93,10 +95,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by invalid state received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := "Invalid state received"
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -122,10 +124,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by invalid message received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := "Invalid message received"
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -151,10 +153,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by invalid botSlug received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := "Invalid botSlug received"
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{}"))),
 		}, nil)
@@ -180,10 +182,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by proxyError received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := forwardError
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{}, fmt.Errorf("Error proxying a request"))
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, fmt.Errorf("Error proxying a request"))
 
 		requestBody := make(map[string]interface{})
 		requestBody["state"] = "welcome"
@@ -207,10 +209,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by unmarshall error received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := unmarshallError
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{Invalid Payload:}"))),
 		}, nil)
@@ -237,10 +239,10 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Should fail by status error received", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		expectedError := fmt.Sprintf("%s-[%d] : %s", statusError, http.StatusInternalServerError, "map[error:Bad Request message:child \"userId\" fails because [\"userId\" must only contain alpha-numeric characters] statusCode:400 validation:map[keys:[userId] source:payload]]")
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{\"error\":\"Bad Request\",\"message\":\"child \\\"userId\\\" fails because [\\\"userId\\\" must only contain alpha-numeric characters]\",\"statusCode\":400,\"validation\":{\"keys\":[\"userId\"],\"source\":\"payload\"}}"))),
 		}, nil)
@@ -265,9 +267,9 @@ func TestSendTo(t *testing.T) {
 	})
 
 	t.Run("Send message succesfull with body not empty", func(t *testing.T) {
-		mock := &proxy.Mock{}
-		botrunnerClient := &BotRunner{Proxy: mock}
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock := new(mocks.ProxyInterface)
+		botrunnerClient := &BotRunner{Proxy: proxyMock}
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte("{\"clientId\":\"5217331175599\",\"message\":\"Hola\",\"state\":\"welcome\",\"userId\":\"5217331175599\"}"))),
 		}, nil)

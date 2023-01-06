@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
+	"yalochat.com/salesforce-integration/app/api/handlers/mocks"
 	"yalochat.com/salesforce-integration/base/cache"
 	"yalochat.com/salesforce-integration/base/helpers"
 	"yalochat.com/salesforce-integration/base/models"
@@ -26,7 +27,7 @@ func TestApp_webhook(t *testing.T) {
 	handler.POST(url, app.webhook)
 
 	t.Run("Should return success", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		body := models.IntegrationsRequest{
 			ID:        "id",
 			Timestamp: "1234556",
@@ -127,7 +128,7 @@ func TestApp_webhook(t *testing.T) {
 	})
 
 	t.Run("Should return error validate payload", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		body := models.IntegrationsRequest{
 			ID:   "id",
 			Type: "text",
@@ -165,7 +166,7 @@ func TestApp_webhook(t *testing.T) {
 	})
 
 	t.Run("Should return error payload decode", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		getApp().ManageManager = managerMock
 
@@ -191,7 +192,7 @@ func TestApp_webhook(t *testing.T) {
 	})
 
 	t.Run("Should return error manage", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		body := models.IntegrationsRequest{
 			ID:        "id",
 			Timestamp: "1234556",
@@ -236,7 +237,7 @@ func TestWebhookFB(t *testing.T) {
 	handler.POST(url, app.webhookFB)
 
 	t.Run("Should save context", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnection := &models.IntegrationsFacebook{
 			AuthorRole: "user",
@@ -277,7 +278,7 @@ func TestWebhookFB(t *testing.T) {
 	})
 
 	t.Run("Should save contextError Payload", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnection := &models.IntegrationsFacebook{
 			AuthorRole: "user",
@@ -326,7 +327,7 @@ func TestWebhookFB(t *testing.T) {
 	})
 
 	t.Run("Should save contextError Payload decode", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		getApp().ManageManager = managerMock
 
@@ -351,7 +352,7 @@ func TestWebhookFB(t *testing.T) {
 	})
 
 	t.Run("Should save context", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnection := &models.IntegrationsFacebook{
 			AuthorRole: "user",
@@ -409,7 +410,7 @@ func TestGetContext(t *testing.T) {
 	handler.GET(url, app.getContext)
 
 	t.Run("Should save context", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		expected := []cache.Context{
 			{
@@ -443,7 +444,7 @@ func TestRegisterWebhook(t *testing.T) {
 	handler.POST(requestURLWebhookRegister, app.registerWebhook)
 
 	t.Run("Should get a valid response with wa", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		managerMock.On("RegisterWebhookInIntegrations", "whatsapp").Return(nil).Once()
 		getApp().ManageManager = managerMock
 
@@ -459,7 +460,7 @@ func TestRegisterWebhook(t *testing.T) {
 	})
 
 	t.Run("Should get a fail response with wa", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		managerMock.On("RegisterWebhookInIntegrations", "whatsapp").Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 
@@ -481,7 +482,7 @@ func TestRemoveWebhook(t *testing.T) {
 	handler.DELETE(requestURLWebhookRemove, app.removeWebhook)
 
 	t.Run("Should get a valid response with whatsapp", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		managerMock.On("RemoveWebhookInIntegrations", "whatsapp").Return(nil).Once()
 		getApp().ManageManager = managerMock
 
@@ -497,7 +498,7 @@ func TestRemoveWebhook(t *testing.T) {
 	})
 
 	t.Run("Should get a fail response with wa", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 		managerMock.On("RemoveWebhookInIntegrations", "whatsapp").Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock
 

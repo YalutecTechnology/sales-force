@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"net/http"
 	"yalochat.com/salesforce-integration/base/events"
 
 	"github.com/sirupsen/logrus"
@@ -163,7 +164,7 @@ type SaleforceInterface interface {
 	Search(string) (*SearchResponse, *helpers.ErrorResponse)
 	SearchID(string) (string, error)
 	SearchContact(string) (*models.SfcContact, *helpers.ErrorResponse)
-	SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse)
+	SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse)
 	SearchAccount(string) (*models.SfcAccount, *helpers.ErrorResponse)
 	//Methods related to upload and associate an image to a case
 	CreateContentVersion(ContentVersionPayload) (string, error)
@@ -397,7 +398,7 @@ func (cc *SalesforceClient) SearchContact(query string) (*models.SfcContact, *he
 	return &contact, nil
 }
 
-func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse) {
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("SearchContactComposite", tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)
@@ -425,6 +426,23 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 			URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, blockedChat, "mobilePhone", phoneNumber)),
 			ReferenceId: "newQueryPhone",
 		})
+	}
+
+	if sfcCustomFieldsToSearchContact != nil {
+		for key, field := range sfcCustomFieldsToSearchContact {
+			value, ok := extraData[key]
+			if ok {
+				logrus.WithFields(logrus.Fields{
+					field: value,
+				}).Info("Searching contact with custom field")
+
+				request.CompositeRequest = append(request.CompositeRequest, Composite{
+					Method:      http.MethodGet,
+					URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, blockedChat, field, value)),
+					ReferenceId: "newQueryCustomField" + field,
+				})
+			}
+		}
 	}
 
 	compositeResponses, err := cc.Composite(span, request)
