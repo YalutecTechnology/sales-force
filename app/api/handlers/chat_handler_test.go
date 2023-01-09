@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	ddrouter "gopkg.in/DataDog/dd-trace-go.v1/contrib/julienschmidt/httprouter"
+	"yalochat.com/salesforce-integration/app/api/handlers/mocks"
 	"yalochat.com/salesforce-integration/app/manage"
 )
 
@@ -38,7 +39,7 @@ func TestCreateChat(t *testing.T) {
 	handler.POST(requestURL, app.createChat)
 
 	t.Run("Should get a valid response", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnectionParams := &manage.NewInterconnectionParams{
 			UserID:      "5217331175599",
@@ -70,7 +71,7 @@ func TestCreateChat(t *testing.T) {
 	})
 
 	t.Run("Should get a valid response with payload error", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnectionParams := &manage.NewInterconnectionParams{
 			BotSlug:     "coppel-bot",
@@ -112,7 +113,7 @@ func TestCreateChat(t *testing.T) {
 	})
 
 	t.Run("Should get a valid response with payload encode error", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		getApp().ManageManager = managerMock
 		var buf bytes.Buffer
@@ -139,7 +140,7 @@ func TestCreateChat(t *testing.T) {
 	})
 
 	t.Run("Should get a error manage service", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		interconnectionParams := &manage.NewInterconnectionParams{
 			UserID:      "5217331175599",
@@ -188,7 +189,7 @@ func TestFinishChat(t *testing.T) {
 	handler.DELETE(fmt.Sprintf("%s/chat/finish/:user_id", apiVersion), app.finishChat)
 
 	t.Run("You must close the user side chat successfully", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		managerMock.On("FinishChat", userID).Return(nil).Once()
 		getApp().ManageManager = managerMock
@@ -204,7 +205,7 @@ func TestFinishChat(t *testing.T) {
 	})
 
 	t.Run("You must close the user side chat error service", func(t *testing.T) {
-		managerMock := new(ManagerI)
+		managerMock := new(mocks.ManagerI)
 
 		managerMock.On("FinishChat", userID).Return(assert.AnError).Once()
 		getApp().ManageManager = managerMock

@@ -294,13 +294,13 @@ func (_m *SaleforceInterface) SearchContact(_a0 string) (*models.SfcContact, *he
 	return r0, r1
 }
 
-// SearchContactComposite provides a mock function with given fields: mainSpan, email, phoneNumber
-func (_m *SaleforceInterface) SearchContactComposite(mainSpan ddtrace.Span, email string, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
-	ret := _m.Called(mainSpan, email, phoneNumber)
+// SearchContactComposite provides a mock function with given fields: mainSpan, email, phoneNumber, sfcCustomFieldsToSearchContact, extraData
+func (_m *SaleforceInterface) SearchContactComposite(mainSpan ddtrace.Span, email string, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse) {
+	ret := _m.Called(mainSpan, email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string) *models.SfcContact); ok {
-		r0 = rf(mainSpan, email, phoneNumber)
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, string, string, map[string]string, map[string]interface{}) *models.SfcContact); ok {
+		r0 = rf(mainSpan, email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -308,8 +308,8 @@ func (_m *SaleforceInterface) SearchContactComposite(mainSpan ddtrace.Span, emai
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string) *helpers.ErrorResponse); ok {
-		r1 = rf(mainSpan, email, phoneNumber)
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, string, string, map[string]string, map[string]interface{}) *helpers.ErrorResponse); ok {
+		r1 = rf(mainSpan, email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)

@@ -169,13 +169,13 @@ func (_m *SalesforceServiceInterface) RefreshToken() {
 	_m.Called()
 }
 
-// SearchContactComposite provides a mock function with given fields: email, phoneNumber
-func (_m *SalesforceServiceInterface) SearchContactComposite(email string, phoneNumber string) (*models.SfcContact, *helpers.ErrorResponse) {
-	ret := _m.Called(email, phoneNumber)
+// SearchContactComposite provides a mock function with given fields: email, phoneNumber, sfcCustomFieldsToSearchContact, extraData
+func (_m *SalesforceServiceInterface) SearchContactComposite(email string, phoneNumber string, sfcCustomFieldsToSearchContact map[string]string, extraData map[string]interface{}) (*models.SfcContact, *helpers.ErrorResponse) {
+	ret := _m.Called(email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 
 	var r0 *models.SfcContact
-	if rf, ok := ret.Get(0).(func(string, string) *models.SfcContact); ok {
-		r0 = rf(email, phoneNumber)
+	if rf, ok := ret.Get(0).(func(string, string, map[string]string, map[string]interface{}) *models.SfcContact); ok {
+		r0 = rf(email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.SfcContact)
@@ -183,8 +183,8 @@ func (_m *SalesforceServiceInterface) SearchContactComposite(email string, phone
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(string, string) *helpers.ErrorResponse); ok {
-		r1 = rf(email, phoneNumber)
+	if rf, ok := ret.Get(1).(func(string, string, map[string]string, map[string]interface{}) *helpers.ErrorResponse); ok {
+		r1 = rf(email, phoneNumber, sfcCustomFieldsToSearchContact, extraData)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*helpers.ErrorResponse)

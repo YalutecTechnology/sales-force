@@ -43,7 +43,7 @@ func (c *cron) setCron() error {
 	crons := cronV3.New()
 
 	_, err := crons.AddFunc(c.SpecSchedule, func() {
-		_, err := c.salesforceService.SearchContactComposite(c.ContactEmail, "")
+		_, err := c.salesforceService.SearchContactComposite(c.ContactEmail, "", nil, nil)
 		if err != nil {
 			if err.StatusCode == http.StatusUnauthorized {
 				c.salesforceService.RefreshToken()

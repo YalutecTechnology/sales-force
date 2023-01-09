@@ -5,14 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 	"io/ioutil"
 	"net/http"
 	"testing"
-	"yalochat.com/salesforce-integration/base/constants"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"yalochat.com/salesforce-integration/base/clients/salesforce/mocks"
+	"yalochat.com/salesforce-integration/base/constants"
 	"yalochat.com/salesforce-integration/base/models"
 )
 
@@ -32,10 +35,10 @@ var (
 func TestSfcData_CreateContentVersion(t *testing.T) {
 
 	t.Run("Create ContentVersion Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -52,10 +55,10 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion Error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -72,10 +75,10 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := ContentVersionPayload{
 			Title:           "test image",
 			Description:     "A new image",
@@ -90,10 +93,10 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion error status and unmarshallError", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -112,11 +115,11 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, `[]map[string]interface {}{map[string]interface {}{"id":"Error create content version"}}`)
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"Error create content version"}]`))),
 		}, nil)
@@ -138,10 +141,10 @@ func TestSfcData_CreateContentVersion(t *testing.T) {
 func TestSfcData_SearchDocumentID(t *testing.T) {
 
 	t.Run("SearchDocumentID Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{ "totalSize": 1,"done": true, "records": [{"attributes": {},"ContentDocumentId": "AA0"}]}`))),
 		}, nil)
@@ -156,10 +159,10 @@ func TestSfcData_SearchDocumentID(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID Error validation query", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -170,10 +173,10 @@ func TestSfcData_SearchDocumentID(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		id, err := salesforceClient.SearchDocumentID("query")
 
@@ -182,10 +185,10 @@ func TestSfcData_SearchDocumentID(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -195,10 +198,10 @@ func TestSfcData_SearchDocumentID(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID Not found", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{ "totalSize": 1,"done": true, "records": []}`))),
 		}, nil)
@@ -213,10 +216,10 @@ func TestSfcData_SearchDocumentID(t *testing.T) {
 func TestSfcData_Search(t *testing.T) {
 
 	t.Run("Search Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{ "totalSize": 1,"done": true, "records": [{"attributes": {},"ContentDocumentId": "AA0"}]}`))),
 		}, nil)
@@ -242,10 +245,10 @@ func TestSfcData_Search(t *testing.T) {
 	})
 
 	t.Run("Search Error validation query", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -256,10 +259,10 @@ func TestSfcData_Search(t *testing.T) {
 	})
 
 	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		id, err := salesforceClient.Search("query")
 
@@ -268,10 +271,10 @@ func TestSfcData_Search(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID error status whit unmasrhall error", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -281,10 +284,10 @@ func TestSfcData_Search(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
 		}, nil)
@@ -297,10 +300,10 @@ func TestSfcData_Search(t *testing.T) {
 func TestSfcData_SearchId(t *testing.T) {
 
 	t.Run("SearchId Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":7,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qn8e5AAB"},"Name":"Mauricio Ruiz","LastName":"Ruiz","Id":"0032300000Qn8e5AAB"}]}`))),
 		}, nil)
@@ -315,10 +318,10 @@ func TestSfcData_SearchId(t *testing.T) {
 	})
 
 	t.Run("Search Error validation query", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -329,10 +332,10 @@ func TestSfcData_SearchId(t *testing.T) {
 	})
 
 	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		id, err := salesforceClient.SearchID("query")
 
@@ -341,10 +344,10 @@ func TestSfcData_SearchId(t *testing.T) {
 	})
 
 	t.Run("SearchDocumentID error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -354,10 +357,10 @@ func TestSfcData_SearchId(t *testing.T) {
 	})
 
 	t.Run("SearchId Not found", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
 		}, nil)
@@ -372,10 +375,10 @@ func TestSfcData_SearchId(t *testing.T) {
 func TestSfcData_SearchContact(t *testing.T) {
 
 	t.Run("SearchContact Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":1,"done":true,"records":[{"attributes":{"type":"Contact","url":"/services/data/v52.0/sobjects/Contact/0032300000Qzu1iAAB"},"Id":"0032300000Qzu1iAAB","FirstName":"name","LastName":"lastname","MobilePhone":"55555","Email":"user@example.com"}]}`))),
 		}, nil)
@@ -397,10 +400,10 @@ func TestSfcData_SearchContact(t *testing.T) {
 	})
 
 	t.Run("Search Error validation query", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -411,10 +414,10 @@ func TestSfcData_SearchContact(t *testing.T) {
 	})
 
 	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		id, err := salesforceClient.SearchContact("query")
 
@@ -423,10 +426,10 @@ func TestSfcData_SearchContact(t *testing.T) {
 	})
 
 	t.Run("SearchContact error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -436,10 +439,10 @@ func TestSfcData_SearchContact(t *testing.T) {
 	})
 
 	t.Run("SearchContact not found", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"totalSize":0,"done":true,"records":[]}`))),
 		}, nil)
@@ -455,10 +458,10 @@ func TestSfcData_SearchContact(t *testing.T) {
 func TestSfcData_SearchAccount(t *testing.T) {
 
 	t.Run("SearchAccount Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{
 				"totalSize": 1,
@@ -494,10 +497,10 @@ func TestSfcData_SearchAccount(t *testing.T) {
 	})
 
 	t.Run("Search Error validation query", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -508,10 +511,10 @@ func TestSfcData_SearchAccount(t *testing.T) {
 	})
 
 	t.Run("Search error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		account, err := salesforceClient.SearchAccount("query")
 
@@ -520,10 +523,10 @@ func TestSfcData_SearchAccount(t *testing.T) {
 	})
 
 	t.Run("SearchContact error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -533,10 +536,10 @@ func TestSfcData_SearchAccount(t *testing.T) {
 	})
 
 	t.Run("SearchAccount Not Found", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body: ioutil.NopCloser(bytes.NewReader([]byte(`{
 				"totalSize": 0,
@@ -555,10 +558,10 @@ func TestSfcData_SearchAccount(t *testing.T) {
 func TestSfcData_LinkDocumentToCase(t *testing.T) {
 
 	t.Run("LinkDocumentToCase Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -578,10 +581,10 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion Error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -597,10 +600,10 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 	})
 
 	t.Run("Create ContentVersion error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := LinkDocumentPayload{
 			ContentDocumentID: "g00",
 			LinkedEntityID:    "AAZ",
@@ -615,10 +618,10 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 
 	t.Run("Create ContentVersion error status", func(t *testing.T) {
 		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, `[]map[string]interface {}{map[string]interface {}{"id":"LinkDocument error"}}`)
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"LinkDocument error"}]`))),
 		}, nil)
@@ -639,10 +642,10 @@ func TestSfcData_LinkDocumentToCase(t *testing.T) {
 func TestSfcData_CreateCase(t *testing.T) {
 
 	t.Run("Create case Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -666,10 +669,10 @@ func TestSfcData_CreateCase(t *testing.T) {
 	})
 
 	t.Run("Create case  error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := CaseRequest{
 			ContactID:   "contact id",
 			Status:      "New",
@@ -687,10 +690,10 @@ func TestSfcData_CreateCase(t *testing.T) {
 	})
 
 	t.Run("Create case Unmarshall response", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
 		}, nil)
@@ -712,10 +715,10 @@ func TestSfcData_CreateCase(t *testing.T) {
 
 	t.Run("Create case error status", func(t *testing.T) {
 		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "[map[id:Create case error status]]")
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"Create case error status"}]`))),
 		}, nil)
@@ -741,10 +744,10 @@ func TestSfcData_CreateContact(t *testing.T) {
 	span, _ := tracer.SpanFromContext(context.Background())
 
 	t.Run("Create contact Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil).Once()
@@ -764,10 +767,10 @@ func TestSfcData_CreateContact(t *testing.T) {
 	})
 
 	t.Run("Create contact error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := ContactRequest{
 			FirstName:   "firstname",
 			LastName:    "lasrname",
@@ -781,10 +784,10 @@ func TestSfcData_CreateContact(t *testing.T) {
 	})
 
 	t.Run("Create contact Unmarshal response", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`error`))),
 		}, nil)
@@ -802,10 +805,10 @@ func TestSfcData_CreateContact(t *testing.T) {
 	})
 
 	t.Run("Create contact error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -825,10 +828,10 @@ func TestSfcData_CreateContact(t *testing.T) {
 func TestSfcData_CreateAccount(t *testing.T) {
 
 	t.Run("Create account Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil).Once()
@@ -846,10 +849,10 @@ func TestSfcData_CreateAccount(t *testing.T) {
 	})
 
 	t.Run("Create account  error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -863,10 +866,10 @@ func TestSfcData_CreateAccount(t *testing.T) {
 	})
 
 	t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := AccountRequest{
 			FirstName:       &name,
 			PersonEmail:     &name,
@@ -881,10 +884,10 @@ func TestSfcData_CreateAccount(t *testing.T) {
 	})
 
 	t.Run("Create account error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -906,9 +909,9 @@ func TestSfcData_CreateAccount(t *testing.T) {
 func TestSfcData_Composite(t *testing.T) {
 	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Create Composite Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		expected := CompositeResponses{
 			CompositeResponse: []CompositeResponse{
@@ -925,7 +928,7 @@ func TestSfcData_Composite(t *testing.T) {
 		expectedBin, err := json.Marshal(expected)
 		assert.NoError(t, err)
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader(expectedBin)),
 		}, nil).Once()
@@ -953,9 +956,9 @@ func TestSfcData_Composite(t *testing.T) {
 	})
 
 	t.Run("Create Composite error validation", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		payload := CompositeRequest{
 			AllOrNone:          true,
@@ -968,9 +971,9 @@ func TestSfcData_Composite(t *testing.T) {
 	})
 
 	t.Run("Create Composite error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		expected := CompositeResponse{
 			Body: "test",
@@ -983,7 +986,7 @@ func TestSfcData_Composite(t *testing.T) {
 		expectedBin, err := json.Marshal(expected)
 		assert.NoError(t, err)
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       ioutil.NopCloser(bytes.NewReader(expectedBin)),
 		}, nil).Once()
@@ -1025,9 +1028,9 @@ func TestSfcData_UpdateToken(t *testing.T) {
 func TestSfcData_SearchContactComposite(t *testing.T) {
 	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("SearchContactComposite Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 		salesforceClient.SfcBlockedChatField = true
 
 		response := CompositeResponses{
@@ -1060,10 +1063,24 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
-		mock.On("SendHTTPRequest").Return(&http.Response{
+
+		stringPayload := `{"allOrNone":false,"collateSubrequests":false,"compositeRequest":[{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+email+=+'email@example'","body":null,"referenceId":"newQueryEmail"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+mobilePhone+=+'111111'","body":null,"referenceId":"newQueryPhone"}]}`
+		header := make(map[string]string)
+		header["Content-Type"] = "application/json"
+		header["Authorization"] = fmt.Sprintf("Bearer %s", token)
+
+		expectedPayload := &proxy.Request{
+			Body:      []byte(stringPayload),
+			Method:    http.MethodPost,
+			URI:       "/services/data/v.0/composite",
+			HeaderMap: header,
+		}
+
+		proxyMock.On("SendHTTPRequest", mock.Anything, expectedPayload).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil)
+
 		contactExpected := &models.SfcContact{
 			ID:          "0032300000Qzu1iAAB",
 			FirstName:   "name",
@@ -1073,16 +1090,159 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 			Blocked:     true,
 		}
 
-		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, nil, nil)
+
+		assert.Nil(t, errResponse)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("SearchContactComposite with custom fields", func(t *testing.T) {
+		proxyMock := new(mocks.ProxyInterface)
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = proxyMock
+		salesforceClient.SfcBlockedChatField = true
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 1,
+						Done:      true,
+						Records: []recordResponse{
+							{
+								Id:              "0032300000Qzu1iAAB",
+								FirstName:       "name",
+								LastName:        "lastname",
+								Email:           "another@email.com",
+								MobilePhone:     "12345",
+								BlockedChatYalo: true,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		stringPayload := `{"allOrNone":false,"collateSubrequests":false,"compositeRequest":[{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+email+=+'email@example'","body":null,"referenceId":"newQueryEmail"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+mobilePhone+=+'111111'","body":null,"referenceId":"newQueryPhone"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+Customer__ID__SF+=+'333333'","body":null,"referenceId":"newQueryCustomFieldCustomer__ID__SF"}]}`
+		header := make(map[string]string)
+		header["Content-Type"] = "application/json"
+		header["Authorization"] = fmt.Sprintf("Bearer %s", token)
+
+		expectedPayload := &proxy.Request{
+			Body:      []byte(stringPayload),
+			Method:    http.MethodPost,
+			URI:       "/services/data/v.0/composite",
+			HeaderMap: header,
+		}
+
+		proxyMock.On("SendHTTPRequest", mock.Anything, expectedPayload).Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil)
+		contactExpected := &models.SfcContact{
+			ID:          "0032300000Qzu1iAAB",
+			FirstName:   "name",
+			LastName:    "lastname",
+			Email:       "another@email.com",
+			MobilePhone: "12345",
+			Blocked:     true,
+		}
+
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, map[string]string{"customerId": "Customer__ID__SF", "customerAnotherId": "Customer__Another__ID__SF"}, map[string]interface{}{"customerId": "333333", "name": "my name", "address": "my address"})
+
+		assert.Nil(t, errResponse)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("SearchContactComposite could not find custom field data on extraData", func(t *testing.T) {
+		proxyMock := new(mocks.ProxyInterface)
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = proxyMock
+		salesforceClient.SfcBlockedChatField = true
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 1,
+						Done:      true,
+						Records: []recordResponse{
+							{
+								Id:              "0032300000Qzu1iAAB",
+								FirstName:       "name",
+								LastName:        "lastname",
+								Email:           "another@email.com",
+								MobilePhone:     "12345",
+								BlockedChatYalo: true,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		stringPayload := `{"allOrNone":false,"collateSubrequests":false,"compositeRequest":[{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+email+=+'email@example'","body":null,"referenceId":"newQueryEmail"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+mobilePhone+=+'111111'","body":null,"referenceId":"newQueryPhone"}]}`
+		header := make(map[string]string)
+		header["Content-Type"] = "application/json"
+		header["Authorization"] = fmt.Sprintf("Bearer %s", token)
+
+		expectedPayload := &proxy.Request{
+			Body:      []byte(stringPayload),
+			Method:    http.MethodPost,
+			URI:       "/services/data/v.0/composite",
+			HeaderMap: header,
+		}
+
+		proxyMock.On("SendHTTPRequest", mock.Anything, expectedPayload).Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil)
+		contactExpected := &models.SfcContact{
+			ID:          "0032300000Qzu1iAAB",
+			FirstName:   "name",
+			LastName:    "lastname",
+			Email:       "another@email.com",
+			MobilePhone: "12345",
+			Blocked:     true,
+		}
+
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, map[string]string{"customerId": "Customer__ID__SF"}, map[string]interface{}{"email": "my@mail.com", "name": "my name", "address": "my address"})
 
 		assert.Nil(t, errResponse)
 		assert.Equal(t, contactExpected, contact)
 	})
 
 	t.Run("SearchContactComposite notFount", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		response := CompositeResponses{
 			CompositeResponse: []CompositeResponse{},
@@ -1090,12 +1250,12 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil)
 
-		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, nil, nil)
 
 		assert.NotNil(t, errResponse)
 		assert.Empty(t, contact)
@@ -1103,16 +1263,16 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 
 	t.Run("SearchContactComposite request error", func(t *testing.T) {
 		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusNotFound, "[map[compositeResponse:[]]]")
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"compositeResponse":[]}]`))),
 		}, nil)
 
-		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber)
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, nil, nil)
 
 		assert.NotNil(t, errResponse)
 		assert.Empty(t, contact)
@@ -1123,9 +1283,9 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 func TestSfcData_CreateAccountComposite(t *testing.T) {
 	span, _ := tracer.SpanFromContext(context.Background())
 	t.Run("Create account Succesfull", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		response := CompositeResponses{
 			CompositeResponse: []CompositeResponse{
@@ -1158,7 +1318,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil).Once()
@@ -1185,9 +1345,9 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	})
 
 	t.Run("Create account error account not found ", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		response := CompositeResponses{
 			CompositeResponse: []CompositeResponse{
@@ -1211,7 +1371,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil).Once()
@@ -1230,9 +1390,9 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	})
 
 	t.Run("Create account error account not found ", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
+		salesforceClient.Proxy = proxyMock
 
 		response := CompositeResponses{
 			CompositeResponse: []CompositeResponse{
@@ -1256,7 +1416,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
 
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
 		}, nil).Once()
@@ -1275,10 +1435,10 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	})
 
 	t.Run("Create account  error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"dasfasfasd"}`))),
 		}, nil)
@@ -1292,10 +1452,10 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	})
 
 	t.Run("Create account  error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := AccountRequest{
 			Name:  &name,
 			Phone: &phoneNumber,
@@ -1309,10 +1469,10 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 	t.Run("Create account error status", func(t *testing.T) {
 		expectedError := fmt.Sprintf("%s-[%d] : %s", constants.StatusError, http.StatusInternalServerError, "[map[id:dasfasfasd]]")
 
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester("test", token)
-		salesforceClient.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		salesforceClient.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`[{"id":"dasfasfasd"}]`))),
 		}, nil)

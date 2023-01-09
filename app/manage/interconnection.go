@@ -164,7 +164,6 @@ func (in *Interconnection) handleLongPolling() {
 		events.UserID:        in.UserID,
 	}
 	logrus.WithFields(logFields).Info("Starting long polling service from salesforce...")
-	// ---
 
 	in.runnigLongPolling = true
 	for in.runnigLongPolling {

@@ -117,7 +117,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		}
 		mockSfcChatInterface.On("CreateChat", mock.Anything, sessionExpected.AffinityToken, sessionExpected.Key, request).Return(false, nil).Once()
 
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcChatClient = mockSfcChatInterface
 
 		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
@@ -137,7 +137,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		}
 		mockSfcChatInterface.On("CreateSession", mock.Anything).Return(sessionExpected, assert.AnError).Once()
 
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, nil, nil)
 		salesforceService.SfcChatClient = mockSfcChatInterface
 
 		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
@@ -160,7 +160,7 @@ func TestSalesforceService_CreatChat(t *testing.T) {
 		request := chat.ChatRequest{OrganizationId: "organizationID", DeploymentId: "deploymentID", ButtonId: buttonID, SessionId: "ec550263-354e-477c-b773-7747ebce3f5e", UserAgent: "Yalo Bot", Language: "es-MX", ScreenResolution: "1900x1080", VisitorName: "contactName", PrechatDetails: []chat.PreChatDetailsObject{{Label: "CaseId", Value: "caseId", DisplayToAgent: true, TranscriptFields: []string{"CaseId"}}, {Label: "ContactId", Value: "contactId", DisplayToAgent: true, TranscriptFields: []string{"ContactId"}}}, PrechatEntities: []chat.PrechatEntitiesObject{{EntityName: "Case", LinkToEntityName: "Case", LinkToEntityField: "Id", SaveToTranscript: "Case", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{{FieldName: "Id", Label: "CaseId", DoFind: true, IsExactMatch: true, DoCreate: false}}}, {EntityName: "Contact", LinkToEntityName: "Contact", LinkToEntityField: "Id", SaveToTranscript: "Contact", ShowOnCreate: true, EntityFieldsMaps: []chat.EntityField{{FieldName: "Id", Label: "ContactId", DoFind: true, IsExactMatch: true, DoCreate: false}}}}, ReceiveQueueUpdates: true, IsPost: true}
 		mockSfcChatInterface.On("CreateChat", mock.Anything, sessionExpected.AffinityToken, sessionExpected.Key, request).Return(false, assert.AnError).Once()
 
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcChatClient = mockSfcChatInterface
 
 		session, err := salesforceService.CreatChat(context.Background(), contactName, organizationID, deploymentID, buttonID, "caseId", "contactId")
@@ -178,7 +178,7 @@ func TestSalesforceService_EndChat(t *testing.T) {
 
 	t.Run("End Chat Succesfull", func(t *testing.T) {
 		mock := new(mocks.SfcChatInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcChatClient = mock
 
 		mock.On("ChatEnd", affinityToken, sessionKey).Return(nil)
@@ -200,10 +200,10 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Get Contact by email Succesfull", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(contactExpected, nil).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(contactExpected, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{})
 
@@ -213,10 +213,10 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Get Contact by phone Succesfull", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(contactExpected, nil).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(contactExpected, nil).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{})
 
@@ -224,13 +224,26 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		assert.Equal(t, contactExpected, contact)
 	})
 
+	t.Run("Get Contact by custom field", func(t *testing.T) {
+		mockSalesforceService := new(mocks.SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), map[string]string{"customerId": "Customer__ID__SF"})
+		salesforceService.SfcClient = mockSalesforceService
+
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{"customerId": "Customer__ID__SF"}, map[string]interface{}{"customerId": "1234"}).Return(contactExpected, nil).Once()
+
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{"customerId": "1234"})
+
+		assert.NoError(t, err)
+		assert.Equal(t, contactExpected, contact)
+	})
+
 	t.Run("Create Contact Succesfull with custom fields", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, map[string]string{"document": "SF_Document"})
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, map[string]string{"document": "SF_Document"}, make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{"document": "123456"}).Return(nil, errorResponse).Once()
 
 		payload := map[string]interface{}{"FirstName": contactExpected.FirstName, "LastName": contactExpected.LastName, "MobilePhone": phoneNumber, "Email": email, "SF_Document": "123456"}
 		mockSalesforceService.On("CreateContact", mock.Anything, payload).Return(contactExpected.ID, nil).Once()
@@ -243,11 +256,11 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Create Contact Succesfull without custom fields", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		payload := map[string]interface{}{"FirstName": contactExpected.FirstName, "LastName": contactExpected.LastName, "MobilePhone": phoneNumber, "Email": email}
 		mockSalesforceService.On("CreateContact", mock.Anything, payload).Return(contactExpected.ID, nil).Once()
@@ -260,12 +273,12 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
 		mockSalesforce := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.AccountRecordTypeId = "recordTypeID"
 		salesforceService.SfcClient = mockSalesforce
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		accountFound := &models.SfcAccount{
 			FirstName:         contactExpected.FirstName,
@@ -286,12 +299,12 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Create Contact with account Error service", func(t *testing.T) {
 		mockSalesforce := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.AccountRecordTypeId = "recordTypeID"
 		salesforceService.SfcClient = mockSalesforce
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		contactExpected.AccountID = "accountID"
 		mockSalesforce.On("CreateAccountComposite", mock.Anything, mock.Anything).Return(nil, &helpers.ErrorResponse{
@@ -307,11 +320,11 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Should not create contact the token is expired", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		payload := map[string]interface{}{"FirstName": contactExpected.FirstName, "LastName": contactExpected.LastName, "MobilePhone": phoneNumber, "Email": email}
 
@@ -328,11 +341,11 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Should return error invalid payload - name is empty", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(context.Background(), "", email, phoneNumber, map[string]interface{}{})
 
@@ -343,11 +356,11 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 
 	t.Run("Should return error invalid payload - email is empty", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, "", phoneNumber).Return(nil, errorResponse).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, "", phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
 
 		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, "", phoneNumber, map[string]interface{}{})
 
@@ -362,7 +375,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 	t.Run("Create case Succesfull", func(t *testing.T) {
 		caseIDExpected := "14224111"
 		mockSaleforceInterface := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSaleforceInterface
 
 		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "Caso creado por yalo : subject", "Origin": "whatsapp", "OwnerId": "ownerWAID", "Priority": "low", "RecordTypeId": "recordTypeID", "Status": "Novo", "Subject": "subject"}
@@ -378,7 +391,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 	t.Run("Create case Succesfull description", func(t *testing.T) {
 		caseIDExpected := "14224111"
 		mockSalesforce := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforce
 
 		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "description", "Origin": "whatsapp", "OwnerId": "ownerWAID", "Priority": "Medium", "RecordTypeId": "recordTypeID", "Status": "Nuevo", "Subject": "subject"}
@@ -394,7 +407,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 	t.Run("Create case Error service", func(t *testing.T) {
 		caseIDExpected := "14224111"
 		mockSaleforceInterface := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSaleforceInterface
 
 		payload := map[string]interface{}{"CP__source_flow_bot__c": "SFB001", "ContactId": "contactId", "Description": "Caso creado por yalo : subject", "Origin": "whatsapp", "OwnerId": "ownerWAID", "Priority": "Medium", "RecordTypeId": "recordTypeID", "Status": "Nuevo", "Subject": "subject"}
@@ -413,7 +426,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 	t.Run("Create case Error payload", func(t *testing.T) {
 
 		mock := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), "", firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), "", firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mock
 
 		salesforceService.SfcCustomFieldsCase = map[string]string{"source_flow_bot": "CP__source_flow_bot__c"}
@@ -427,7 +440,7 @@ func TestSalesforceService_CreatCase(t *testing.T) {
 func TestSalesforceService_SendMessage(t *testing.T) {
 	t.Run("Send message Succesfull", func(t *testing.T) {
 		mockSfcChatInterface := new(mocks.SfcChatInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcChatClient = mockSfcChatInterface
 
 		message := chat.MessagePayload{
@@ -446,7 +459,7 @@ func TestSalesforceService_SendMessage(t *testing.T) {
 func TestSalesforceService_GetMessages(t *testing.T) {
 	t.Run("Get message Succesfull", func(t *testing.T) {
 		mocksalesforceService := new(mocks.SfcChatInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcChatClient = mocksalesforceService
 
 		message := &chat.MessagesResponse{
@@ -473,7 +486,7 @@ func TestSalesforceService_InsertFileInCase(t *testing.T) {
 
 	t.Run("Insert file in case success", func(t *testing.T) {
 		salesforceMock := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
 
 		salesforceMock.On("GetContentVersionURL").Return("contentVersionURL").Once()
@@ -524,7 +537,7 @@ func TestSalesforceService_InsertFileInCase(t *testing.T) {
 
 	t.Run("Insert file in case error get image", func(t *testing.T) {
 		salesforceMock := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
 
 		contentVersion := salesforce.ContentVersionPayload{
@@ -542,7 +555,7 @@ func TestSalesforceService_InsertFileInCase(t *testing.T) {
 
 	t.Run("File not found error", func(t *testing.T) {
 		expectedError := "file not found"
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		err := salesforceService.InsertFileInCase("https://google.com/errr", title, mimeType, caseID)
 
 		assert.Error(t, err)
@@ -551,7 +564,7 @@ func TestSalesforceService_InsertFileInCase(t *testing.T) {
 
 	t.Run("Insert file in case error composite", func(t *testing.T) {
 		salesforceMock := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
 
 		salesforceMock.On("GetContentVersionURL").Return("contentVersionURL").Once()
@@ -603,7 +616,7 @@ func TestSalesforceService_InsertFileInCase(t *testing.T) {
 
 	t.Run("Insert file in case success without mimetype", func(t *testing.T) {
 		salesforceMock := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = salesforceMock
 
 		salesforceMock.On("GetContentVersionURL").Return("contentVersionURL").Once()
@@ -665,7 +678,7 @@ func TestSalesforceService_RefreshToken(t *testing.T) {
 			Password:     "password",
 		}
 		mock := new(mocks.SfcLoginInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{Proxy: &proxy.Proxy{}}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, tokenPayload, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{Proxy: &proxy.Proxy{}}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, tokenPayload, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcLoginClient = mock
 		mock.On("GetToken", tokenPayload).Return(accessToken, nil).Once()
 
@@ -685,7 +698,7 @@ func TestSalesforceService_RefreshToken(t *testing.T) {
 func TestSalesforceService_SearchContactComposite(t *testing.T) {
 	t.Run("Get message Succesfull", func(t *testing.T) {
 		mockSalesforceService := new(mocks.SaleforceInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.SfcClient = mockSalesforceService
 
 		contact := &models.SfcContact{
@@ -693,9 +706,9 @@ func TestSalesforceService_SearchContactComposite(t *testing.T) {
 			Email:       email,
 			MobilePhone: phoneNumber,
 		}
-		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, "").Return(contact, nil).Once()
+		mockSalesforceService.On("SearchContactComposite", mock.Anything, email, "", map[string]string(nil), map[string]interface{}(nil)).Return(contact, nil).Once()
 
-		searchResponse, err := salesforceService.SearchContactComposite(email, "")
+		searchResponse, err := salesforceService.SearchContactComposite(email, "", nil, nil)
 
 		assert.Nil(t, err)
 		assert.Equal(t, contact, searchResponse)
@@ -706,7 +719,7 @@ func TestSalesforceService_ReconnectSession(t *testing.T) {
 
 	t.Run("Get reconnect Succesfull", func(t *testing.T) {
 		mock := new(mocks.SfcChatInterface)
-		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string))
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 
 		salesforceService.SfcChatClient = mock
 		message := &chat.MessagesResponse{

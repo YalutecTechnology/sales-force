@@ -95,67 +95,68 @@ type Manager struct {
 
 // ManagerOptions holds configurations for the interactions manager
 type ManagerOptions struct {
-	AppName                    string
-	Client                     string
-	BlockedUserState           map[string]string
-	TimeoutState               map[string]string
-	SuccessState               map[string]string
-	RedisOptions               cache.RedisOptions
-	BotrunnerUrl               string
-	BotrunnerToken             string
-	BotrunnerTimeout           int
-	SfcClientID                string
-	SfcClientSecret            string
-	SfcUsername                string
-	SfcPassword                string
-	SfcSecurityToken           string
-	SfcBaseUrl                 string
-	SfcChatUrl                 string
-	SfcLoginUrl                string
-	SfcApiVersion              string
-	SfcOrganizationID          string
-	SfcDeploymentID            string
-	SfcRecordTypeID            string
-	SfcAccountRecordTypeID     string
-	SfcDefaultBirthDateAccount string
-	SfcCustomFieldsCase        map[string]string
-	SfcCustomFieldsContact     map[string]string
-	SfcCodePhoneRemove         []string
-	IntegrationsUrl            string
-	IntegrationsWAChannel      string
-	IntegrationsFBChannel      string
-	IntegrationsWAToken        string
-	IntegrationsFBToken        string
-	IntegrationsWABotID        string
-	IntegrationsFBBotID        string
-	IntegrationsSignature      string
-	IntegrationsWABotPhone     string
-	IntegrationsFBBotPhone     string
-	WebhookBaseUrl             string
-	WebhookWhatsapp            string
-	WebhookFacebook            string
-	Environment                string
-	KeywordsRestart            []string
-	SfcSourceFlowBot           envs.SfcSourceFlowBot
-	SfcSourceFlowField         string
-	SfcBlockedChatField        bool
-	StudioNGUrl                string
-	StudioNGToken              string
-	StudioNGTimeout            int
-	SpecSchedule               string
-	MaxRetries                 int
-	CleanContextSchedule       string
-	IntegrationsRateLimit      float64
-	SalesforceRateLimit        float64
-	Messages                   models.MessageTemplate
-	Timezone                   string
-	SendImageNameInMessage     bool
-	KafkaHost                  string
-	KafkaPort                  string
-	KafkaUser                  string
-	KafkaPassword              string
-	KafkaTopic                 string
-	SleepLongPollling          time.Duration
+	AppName                        string
+	Client                         string
+	BlockedUserState               map[string]string
+	TimeoutState                   map[string]string
+	SuccessState                   map[string]string
+	RedisOptions                   cache.RedisOptions
+	BotrunnerUrl                   string
+	BotrunnerToken                 string
+	BotrunnerTimeout               int
+	SfcClientID                    string
+	SfcClientSecret                string
+	SfcUsername                    string
+	SfcPassword                    string
+	SfcSecurityToken               string
+	SfcBaseUrl                     string
+	SfcChatUrl                     string
+	SfcLoginUrl                    string
+	SfcApiVersion                  string
+	SfcOrganizationID              string
+	SfcDeploymentID                string
+	SfcRecordTypeID                string
+	SfcAccountRecordTypeID         string
+	SfcDefaultBirthDateAccount     string
+	SfcCustomFieldsCase            map[string]string
+	SfcCustomFieldsContact         map[string]string
+	SfcCodePhoneRemove             []string
+	IntegrationsUrl                string
+	IntegrationsWAChannel          string
+	IntegrationsFBChannel          string
+	IntegrationsWAToken            string
+	IntegrationsFBToken            string
+	IntegrationsWABotID            string
+	IntegrationsFBBotID            string
+	IntegrationsSignature          string
+	IntegrationsWABotPhone         string
+	IntegrationsFBBotPhone         string
+	WebhookBaseUrl                 string
+	WebhookWhatsapp                string
+	WebhookFacebook                string
+	Environment                    string
+	KeywordsRestart                []string
+	SfcSourceFlowBot               envs.SfcSourceFlowBot
+	SfcSourceFlowField             string
+	SfcBlockedChatField            bool
+	StudioNGUrl                    string
+	StudioNGToken                  string
+	StudioNGTimeout                int
+	SpecSchedule                   string
+	MaxRetries                     int
+	CleanContextSchedule           string
+	IntegrationsRateLimit          float64
+	SalesforceRateLimit            float64
+	Messages                       models.MessageTemplate
+	Timezone                       string
+	SendImageNameInMessage         bool
+	KafkaHost                      string
+	KafkaPort                      string
+	KafkaUser                      string
+	KafkaPassword                  string
+	KafkaTopic                     string
+	SleepLongPollling              time.Duration
+	SfcCustomFieldsToSearchContact map[string]string
 }
 
 type ManagerI interface {
@@ -259,6 +260,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		SfcRecordTypeID,
 		Messages.FirstNameContact,
 		config.SfcCustomFieldsContact,
+		config.SfcCustomFieldsToSearchContact,
 	)
 
 	if config.SpecSchedule != "" {

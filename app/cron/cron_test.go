@@ -44,7 +44,7 @@ func Test_crons_setCron(t *testing.T) {
 			Email:   email,
 			Blocked: true,
 		}
-		saleforceService.On("SearchContactComposite", email, "").Return(contact, nil).Times(10)
+		saleforceService.On("SearchContactComposite", email, "", map[string]string(nil), map[string]interface{}(nil)).Return(contact, nil).Times(10)
 
 		contextCacheMock := new(mocks.IContextCache)
 		contextCacheMock.On("CleanContextToDate", client, mock.Anything).Return(nil).Times(10)
@@ -66,7 +66,7 @@ func Test_crons_setCron(t *testing.T) {
 
 		saleforceService := new(mocks.SalesforceServiceInterface)
 		contact := &models.SfcContact{}
-		saleforceService.On("SearchContactComposite", email, "").Return(contact, &helpers.ErrorResponse{
+		saleforceService.On("SearchContactComposite", email, "", map[string]string(nil), map[string]interface{}(nil)).Return(contact, &helpers.ErrorResponse{
 			StatusCode: http.StatusUnauthorized,
 		}).Times(10)
 

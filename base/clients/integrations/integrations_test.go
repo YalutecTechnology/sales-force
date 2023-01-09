@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"yalochat.com/salesforce-integration/base/clients/proxy"
+	"github.com/stretchr/testify/mock"
+	"yalochat.com/salesforce-integration/base/clients/integrations/mocks"
 	"yalochat.com/salesforce-integration/base/constants"
 )
 
@@ -27,10 +28,10 @@ const (
 func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 
 	t.Run("Webhook WA Register Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botWAID_test","channel": "channel_wa_test","webhook": "https://webhook.site/test"}`))),
 		}, nil)
@@ -55,10 +56,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 	})
 
 	t.Run("Webhook FB Register Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id": "botFBID_test","channel": "channel_fb_test","webhook": "https://webhook.site/test"}`))),
 		}, nil)
@@ -83,10 +84,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 	})
 
 	t.Run("Webhook Register Error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"bot_id":"dasfasfasd","channel":"c","webhook":"http://"}`))),
 		}, nil)
@@ -101,10 +102,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 	})
 
 	t.Run("Webhook Register error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := HealthcheckPayload{
 			Phone:    phone,
 			Webhook:  webhook,
@@ -117,10 +118,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 	})
 
 	t.Run("Webhook Register error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
@@ -136,10 +137,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 	})
 
 	t.Run("Webhook Register error response", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`ok`))),
 		}, nil)
@@ -158,10 +159,10 @@ func TestIntegrationsClient_WebhookRegister(t *testing.T) {
 func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 	t.Run("Webhook Remove Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusNoContent,
 		}, nil)
 		payload := RemoveWebhookPayload{
@@ -178,10 +179,10 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 	})
 
 	t.Run("Webhook Remove Error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusNoContent,
 		}, nil)
 		payload := RemoveWebhookPayload{
@@ -195,10 +196,10 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 	})
 
 	t.Run("Webhook Remove error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 		payload := RemoveWebhookPayload{
 			Phone:    phone,
 			Provider: constants.WhatsappProvider,
@@ -210,10 +211,10 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 	})
 
 	t.Run("Webhook Remove error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
@@ -231,10 +232,10 @@ func TestIntegrationsClient_WebhookRemove(t *testing.T) {
 
 func TestIntegrationsClient_SendMessage(t *testing.T) {
 	t.Run("Send Text Message Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -259,10 +260,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Send Image Message Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -288,10 +289,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Send Audio Message Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -317,10 +318,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Send Video Message Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -346,10 +347,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Send Document Message Successful", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -375,10 +376,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Webhook Register Error validation payload", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"messages":[{"id": "gBGHUhVRI2ACTwIJQht5EEKBBQyz"}]}`))),
 		}, nil)
@@ -396,10 +397,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Webhook Register error SendHTTPRequest", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{}, assert.AnError)
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{}, assert.AnError)
 
 		payload := &SendTextPayload{
 			Id:     "212222222222",
@@ -414,10 +415,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Webhook Register error status", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"errors": { "message": "XXXX"}`))),
 		}, nil)
@@ -434,10 +435,10 @@ func TestIntegrationsClient_SendMessage(t *testing.T) {
 	})
 
 	t.Run("Send Message error response", func(t *testing.T) {
-		mock := &proxy.Mock{}
+		proxyMock := new(mocks.ProxyInterface)
 		client := NewIntegrationsClient(url, tokenWA, tokenFB, channelWA, channelFB, botWAID, botFBID)
-		client.Proxy = mock
-		mock.On("SendHTTPRequest").Return(&http.Response{
+		client.Proxy = proxyMock
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
 			StatusCode: http.StatusCreated,
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte(`ok`))),
 		}, nil)
