@@ -78,10 +78,10 @@ func TestHandleLongPolling_test(t *testing.T) {
 		expectedLog := "Not content events"
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		botrunnerMock := new(mocks.BotRunnerInterface)
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusNoContent,
 		}).Once()
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatRequestFail,
@@ -109,11 +109,11 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		studioNGMock := new(mocks.StudioNGInterface)
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusNoContent,
 			}).Once()
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatEnded,
@@ -122,7 +122,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 			Sequence: 0,
 		}, nil).Once()
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, 0).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusNoContent,
 			})
@@ -152,12 +152,12 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		studioNGMock := new(mocks.StudioNGInterface)
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusNoContent,
 			}).Once()
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{
 				Messages: []chat.MessageObject{
 					{
@@ -167,7 +167,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 				Sequence: 0,
 			}, nil).Once()
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, 0).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusNoContent,
 			})
@@ -198,7 +198,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		interconnection.SalesforceService = mockSalesforceServiceInterface
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusForbidden,
 			})
@@ -229,7 +229,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		interconnection.SalesforceService = mockSalesforceServiceInterface
 
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(
 				&chat.MessagesResponse{},
 				&helpers.ErrorResponse{
@@ -251,7 +251,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 			}, nil).
 			Once()
 		mockSalesforceServiceInterface.
-			On("GetMessages", mock.Anything, expectedAffinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, expectedAffinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 				StatusCode: http.StatusInternalServerError,
 				Error:      assert.AnError,
@@ -292,7 +292,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		interconnection.SalesforceService = mockSalesforceServiceInterface
 
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusServiceUnavailable,
 			Error:      assert.AnError,
 		}).Once().
@@ -324,7 +324,7 @@ func TestHandleLongPolling_test(t *testing.T) {
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		interconnection.SalesforceService = mockSalesforceServiceInterface
 
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusBadGateway,
 			Error:      assert.AnError,
 		}).Once()
@@ -349,10 +349,10 @@ func TestHandleLongPolling_test(t *testing.T) {
 		expectedLog := "Duplicate Long Polling"
 		mockSalesforceServiceInterface := new(mocks.SalesforceServiceInterface)
 		studioNGMock := new(mocks.StudioNGInterface)
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{}, &helpers.ErrorResponse{
 			StatusCode: http.StatusConflict,
 		}).Once()
-		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).Return(&chat.MessagesResponse{
+		mockSalesforceServiceInterface.On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).Return(&chat.MessagesResponse{
 			Messages: []chat.MessageObject{
 				{
 					Type: chat.ChatEnded,
@@ -391,17 +391,17 @@ func TestHandleLongPolling_test(t *testing.T) {
 		interconnection.ack = -1
 
 		salesforceServiceMock.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, -1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{Sequence: 1}, nil).
 			Once()
 
 		salesforceServiceMock.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, 1).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{Sequence: 2}, nil).
 			Once()
 
 		salesforceServiceMock.
-			On("GetMessages", mock.Anything, affinityToken, sessionKey, 2).
+			On("GetMessages", mock.Anything, affinityToken, sessionKey, mock.Anything).
 			Return(&chat.MessagesResponse{Sequence: 3}, nil).
 			Once()
 
