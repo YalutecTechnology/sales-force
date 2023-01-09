@@ -72,6 +72,13 @@ func API(srv *ddrouter.Router, managerOptions *manage.ManagerOptions, apiConfig 
 		IntegrationsSignature: apiConfig.IntegrationsSignature,
 		IgnoreMessageTypes:    apiConfig.IgnoreMessageTypes,
 	}
+
+	if len(apiConfig.IgnoreMessageTypes) > 0 {
+		logrus.WithFields(logrus.Fields{
+			"types": apiConfig.IgnoreMessageTypes,
+		}).Info("App configured to ignore messages of some types")
+	}
+
 	setApp(*app)
 
 	srv.GET(fmt.Sprintf("%s/welcome", apiVersion), app.welcomeAPI)

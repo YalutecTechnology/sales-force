@@ -35,16 +35,7 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 		constants.SpanIdKey:  span.Context().SpanID(),
 		events.Params:        params,
 	}
-	/*signature := r.Header.Get("x-yalochat-signature")
-	if signature == "" {
-		helpers.WriteFailedResponse(w, http.StatusUnauthorized, "x-yalochat-signature required, header invalid.")
-		return
-	}
 
-	if signature != app.IntegrationsSignature {
-		helpers.WriteFailedResponse(w, http.StatusUnauthorized, "x-yalochat-signature invalid, header invalid.")
-		return
-	}*/
 	var integrationsRequest models.IntegrationsRequest
 	if err := json.NewDecoder(r.Body).Decode(&integrationsRequest); err != nil {
 		errorMessage := helpers.ErrorMessage(helpers.InvalidPayload, err)
@@ -57,9 +48,6 @@ func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httproute
 	}
 
 	if strings.Contains(app.IgnoreMessageTypes, integrationsRequest.Type) {
-		logrus.WithFields(logrus.Fields{
-			"integrationsRequest": integrationsRequest,
-		}).Info("Ignoring message")
 		span.SetTag("typeMessage", integrationsRequest.Type)
 		span.SetTag(ext.HTTPCode, http.StatusOK)
 		message := fmt.Sprintf("message type: %s was skipped", integrationsRequest.Type)
