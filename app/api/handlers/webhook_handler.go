@@ -22,9 +22,7 @@ const insertError = "There was an error inserting integration message"
 
 // webhook to save messages from integrations API
 func (app *App) webhook(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	// datadog tracing
-	span, _ := tracer.SpanFromContext(r.Context())
-	span.SetOperationName("receive_message_wa")
+	span := tracer.StartSpan("receive_message_wa")
 	span.SetTag(ext.ResourceName, fmt.Sprintf("%s %s", r.Method, r.URL.RequestURI()))
 	span.SetTag(ext.AnalyticsEvent, true)
 	span.SetTag(events.Client, app.Client)
