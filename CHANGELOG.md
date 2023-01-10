@@ -1,4 +1,17 @@
 
+<a name="v2.1.0"></a>
+## [v2.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.1.0..v2.0.1) (2023-01-10)
+
+### Chore
+
+* **Documentation:** prepare documentation into the repo to have it available with no other deps. Close #CS-2216
+
+### Feat
+
+* **searchContact:** update service to search contacts by custom fields
+* **version:** upgrade version for changes in documentation. Closes #CS-2216
+
+
 <a name="v2.0.1"></a>
 ## [v2.0.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.1..v2.0.0) (2023-01-06)
 
@@ -8,11 +21,35 @@
 
 
 <a name="v2.0.0"></a>
-## [v2.0.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.0..v1.1.8) (2023-01-05)
+## [v2.0.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.0..v1.1.9) (2023-01-05)
 
 ### Feature
 
 * **get-messages:** adds the ack query parameters to get message requests. Closes #CS-2170
+
+
+<a name="v1.1.9"></a>
+## [v1.1.9](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.9..v1.1.8) (2023-01-03)
+
+### Feat
+
+* **General-improvements:** Clean legacy cache on redis when deploy reply improvement. Add process to legacy cache Redis structs when change set to hash. Closes #UI-55
+* **Improve Salesforce implementation:** Send reply messages on active chats. Closes #UI-44
+* **Improve Salesforce implementation:** Saves reply messages in context with reply message. Closes #UI-43
+* **Improve Salesforce implementation:** Change redis context from set to hashes. We need to change the saved user context in redis from sets to hashes, so we can receive messages by their id. Closes #UI-42
+* **Integration-interconnection:** Save active chat messages in context. Add logic to save all active chat messages in context. Closes #UI-45
+
+### Feature
+
+* **get-messages:** adds the ack query parameters to get message requests. Closes #CS-2170
+
+### Fix
+
+* **interconnection:** Fix the log message when Studio NG is enabled
+
+### Hotfix
+
+* **webhook integrations:** Add the possibility to filter the messages types
 
 
 <a name="v1.1.8"></a>
