@@ -448,7 +448,7 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 	compositeResponses, err := cc.Composite(span, request)
 	if err != nil {
 		if err.StatusCode != http.StatusUnauthorized {
-			span.SetTag("Unauthorized error", err)
+			span.SetTag("unauthorized-error", err)
 		} else {
 			span.SetTag(ext.Error, err)
 		}
