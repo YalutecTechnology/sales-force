@@ -884,7 +884,9 @@ func defineFileName(interconnection *Interconnection, integration *models.Integr
 		return strings.Trim(captionName, " ")
 	}
 
-	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+-.+-.+-.+)")
+	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+)")
+	// Original URL: https://api-global.yalochat.com/media-proxy/whatsapp/compra-agora-ng-wa-br-staging/media/920518159314377
+	// Final result: 920518159314377
 	imageId := regexToFindImageId.FindStringSubmatch(url)
 	if len(imageId) > 0 && imageId[1] != "" {
 		return imageId[1]
