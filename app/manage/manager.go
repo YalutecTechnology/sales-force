@@ -781,11 +781,10 @@ func (m *Manager) salesforceComunication(mainSpan tracer.Span, integration *mode
 
 func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection *Interconnection, integration *models.IntegrationsRequest) {
 	logFields := logrus.Fields{
-		constants.TraceIdKey:   mainSpan.Context().TraceID(),
-		constants.SpanIdKey:    mainSpan.Context().SpanID(),
-		events.UserID:          interconnection.UserID,
-		events.Interconnection: interconnection,
-		"messageWhatsapp":      integration,
+		constants.TraceIdKey: mainSpan.Context().TraceID(),
+		constants.SpanIdKey:  mainSpan.Context().SpanID(),
+		events.UserID:        interconnection.UserID,
+		"messageWhatsapp":    integration,
 	}
 	switch integration.Type {
 	case constants.TextType:
