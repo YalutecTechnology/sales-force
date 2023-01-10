@@ -202,7 +202,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 
 	contact, err := s.SfcClient.SearchContactComposite(span, email, phoneNumber, s.SfcCustomFieldsToSearchContact, extraData)
 	if err != nil {
-		logrus.Errorf("Not found contact search by email or phoneNumber: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
+		logrus.Warnf("Not found contact search by email, phoneNumber or custom field: [%s]-[%s]-[%s]", email, phoneNumber, err.Error.Error())
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()
 		}

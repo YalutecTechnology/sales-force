@@ -223,7 +223,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcChatClient := &chat.SfcChatClient{
-		Proxy:      proxy.NewProxy(config.SfcChatUrl, 30, 3, 1, 30),
+		Proxy:      proxy.NewProxy(config.SfcChatUrl, 60, 3, 1, 30),
 		ApiVersion: config.SfcApiVersion,
 	}
 
@@ -781,11 +781,10 @@ func (m *Manager) salesforceComunication(mainSpan tracer.Span, integration *mode
 
 func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection *Interconnection, integration *models.IntegrationsRequest) {
 	logFields := logrus.Fields{
-		constants.TraceIdKey:   mainSpan.Context().TraceID(),
-		constants.SpanIdKey:    mainSpan.Context().SpanID(),
-		events.UserID:          interconnection.UserID,
-		events.Interconnection: interconnection,
-		"messageWhatsapp":      integration,
+		constants.TraceIdKey: mainSpan.Context().TraceID(),
+		constants.SpanIdKey:  mainSpan.Context().SpanID(),
+		events.UserID:        interconnection.UserID,
+		"messageWhatsapp":    integration,
 	}
 	switch integration.Type {
 	case constants.TextType:
@@ -885,7 +884,9 @@ func defineFileName(interconnection *Interconnection, integration *models.Integr
 		return strings.Trim(captionName, " ")
 	}
 
-	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+-.+-.+-.+)")
+	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+)")
+	// Original URL: https://api-global.yalochat.com/media-proxy/whatsapp/compra-agora-ng-wa-br-staging/media/920518159314377
+	// Final result: 920518159314377
 	imageId := regexToFindImageId.FindStringSubmatch(url)
 	if len(imageId) > 0 && imageId[1] != "" {
 		return imageId[1]
