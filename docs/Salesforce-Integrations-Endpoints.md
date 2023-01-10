@@ -12,12 +12,12 @@ This endpoint will be invoked by a Yalo Studio lambda or Webhook when the Yalo b
 
 | Name  | Value                                                                                                                                                                                                                                  |
 |-------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| token | eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjgxZjU4ODM1OTBjMTMyNTEyZTRiYTEwNmYwYTQyYzk0NDAzM2I0NzMiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.dazXFrbGwFDYFvAFtnx2vCZOWClixsgOPgGLyL2pf1IKaHcz8eqvX-r0z_sQbGB_ |
+| token | ${token} |
 
 **Headers**: 
 
 - **Content-Type :**  application/json
-- **Authorization:** Bearer eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjgxZjU4ODM1OTBjMTMyNTEyZTRiYTEwNmYwYTQyYzk0NDAzM2I0NzMiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.dazXFrbGwFDYFvAFtnx2vCZOWClixsgOPgGLyL2pf1IKaHcz8eqvX-r0z_sQbGB_
+- **Authorization:** Bearer ${token}
 
 Note: If the JWT is sent as Header Authorization it does not need to be sent as query param, or if it is sent as query param it does not need to be sent as header.
 
@@ -110,8 +110,8 @@ Note: The only resources that this token cannot access are webhooks registered i
 
 ```json
 {
-  "username" : "yaloUser",
-  "password" : "passwordYaloUser"
+  "username" : "${username}",
+  "password" : "${password}"
 }
 ```
 
@@ -121,7 +121,7 @@ Note: The only resources that this token cannot access are webhooks registered i
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjgxZjU4ODM1OTBjMTMyNTEyZTRiYTEwNmYwYTQyYzk0NDAzM2I0NzMiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.dazXFrbGwFDYFvAFtnx2vCZOWClixsgOPgGLyL2pf1IKaHcz8eqvX-r0z_sQbGB_"  
+  "token": "${token}"  
 }
 ```
 
@@ -145,12 +145,12 @@ This endpoint allows us to validate the JWT, returning the ROLE type of the JWT 
 
 | Name  | Value                                                                                                                                                                                                                                  |
 |-------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| token | eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjgxZjU4ODM1OTBjMTMyNTEyZTRiYTEwNmYwYTQyYzk0NDAzM2I0NzMiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.dazXFrbGwFDYFvAFtnx2vCZOWClixsgOPgGLyL2pf1IKaHcz8eqvX-r0z_sQbGB_ |
+| token | ${token} |
 
 **Headers**: 
 
 - **Content-Type :**  application/json
-- **Authorization:** Bearer eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6IjgxZjU4ODM1OTBjMTMyNTEyZTRiYTEwNmYwYTQyYzk0NDAzM2I0NzMiLCJyb2xlIjoiWUFMT19ST0xFIiwidXNlcm5hbWUiOiJ5YWxvVXNlciJ9.dazXFrbGwFDYFvAFtnx2vCZOWClixsgOPgGLyL2pf1IKaHcz8eqvX-r0z_sQbGB_
+- **Authorization:** Bearer ${token}
 
 **Note**: If the JWT is sent as Header Authorization it does not need to be sent as query param, or if it is sent as query param it does not need to be sent as header.
 
@@ -160,8 +160,8 @@ This endpoint allows us to validate the JWT, returning the ROLE type of the JWT 
 
 ```json
 {
-  "username": "yaloUser",
-  "role" : "YALO_ROLE"
+  "username": "${username}",
+  "role" : "${role}"
 }
 ```
 
@@ -181,7 +181,7 @@ This resource will be the webhook registered in API integrations through the fol
 ```JSON
 POST /api/{{channel}}/bots/{{botId}}/healthcheck
 Headers
-Authorization: Bearer <token>
+Authorization: Bearer ${token}
 ```
 ```JSON
 {

@@ -160,10 +160,10 @@ If the data is correct or we want to make a test, we can make a request to obtai
 curl --location --request POST '[https://login.salesforce.com/services/oauth2/token](https://login.salesforce.com/services/oauth2/token)' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
 --data-urlencode 'grant_type=password' \
---data-urlencode 'client_id=3MVG9l2zHsylwlpTN3u6DOzugoBqNTx4GI9eApfv5dEjK6tq.OAiafbg9RZJIlnYT9L_he1P7cO7sUHhLG.zu' \
---data-urlencode 'client_secret=E81BCA02EFCAFC59201FE0728DD0D78DEA92008B24FE0979D734DA02618029B4' \
---data-urlencode 'username=yalo.standar_u@yalochat.com' \
---data-urlencode 'password=jbh6hqy_AX34J4ykz5fpzZIYimtlDnR1W2HiVtvGMZIMnP'
+--data-urlencode 'client_id=${client_id}' \
+--data-urlencode 'client_secret=${client_secret}' \
+--data-urlencode 'username=${username}' \
+--data-urlencode 'password=${password}'
 ```
 
 **Note**: The values must be replaced with the values of the payload that are in the Datadog registry. Also validate this URL [https://login.salesforce.com](https://login.salesforce.com/) , you can change by client or environment.
@@ -263,5 +263,5 @@ Example:
 ``` JSON
 GET 'https://d.la4-c1-ia4.salesforceliveagent.com/chat/rest/System/SessionId'
  
-{"msg":"Get Session sucessfully","response":{"clientPollTimeout":40,"key":"8ec7320d-66b2-4fe5-be36-28f9a6cd2d26!1647898287445!4TlVyKF9YFlTNXbRc6puhJDjRfM=","affinityToken":"cb161fa0","id":"8ec7320d-66b2-4fe5-be36-28f9a6cd2d26"},"severity":"info","time":"2022-03-21T21:31:27Z"}
+{"msg":"Get Session sucessfully","response":{"clientPollTimeout":40,"key":"${key}","affinityToken":"${affinityToken}","id":"${id}"},"severity":"info","time":"2022-03-21T21:31:27Z"}
 ```

@@ -37,7 +37,7 @@ Most of the resources can be accessed through the token obtained by this resourc
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJwYXNzd29yZCI6ImEyZWY5N2RjNWQ3MWYzNjUwM2NjY2UzYTE3NjRmYmQyYzAyNjgxNDQiLCJyb2xlIjoiQURNSU5fUk9MRSIsInVzZXJuYW1lIjoiYWRtaW5Vc2VyIn0.2-CDkQwBwiAjsC5APT356Xn5TeZwSEG6LHL7Da8hBSK--qJVzMcKe4pUTbCNtlr8"  
+  "token": ${token}  
 }
 ```
 
