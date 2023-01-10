@@ -223,7 +223,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 	}
 
 	sfcChatClient := &chat.SfcChatClient{
-		Proxy:      proxy.NewProxy(config.SfcChatUrl, 30, 3, 1, 30),
+		Proxy:      proxy.NewProxy(config.SfcChatUrl, 60, 3, 1, 30),
 		ApiVersion: config.SfcApiVersion,
 	}
 
