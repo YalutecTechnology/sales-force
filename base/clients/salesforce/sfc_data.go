@@ -447,7 +447,11 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 
 	compositeResponses, err := cc.Composite(span, request)
 	if err != nil {
-		span.SetTag(ext.Error, err)
+		if err.StatusCode != http.StatusUnauthorized {
+			span.SetTag("unauthorized-error", err)
+		} else {
+			span.SetTag(ext.Error, err)
+		}
 		return nil, err
 	}
 
@@ -474,10 +478,10 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 	}
 
 	if contact.ID == "" {
-		errorMessage := fmt.Sprintf("%s : %s", "contact not found", helpers.EmptyResponse)
-		logrus.Error(errorMessage)
-		errorResponse := &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: http.StatusNotFound}
-		span.SetTag(ext.Error, errorResponse.Error)
+		message := fmt.Sprintf("%s : %s", "contact not found", helpers.EmptyResponse)
+		logrus.Info(message)
+		errorResponse := &helpers.ErrorResponse{Error: errors.New(message), StatusCode: http.StatusNotFound}
+		span.SetTag(ext.ResourceName, errorResponse.Error)
 		return nil, errorResponse
 	}
 

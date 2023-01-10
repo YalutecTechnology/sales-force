@@ -1,4 +1,21 @@
 
+<a name="v2.0.3"></a>
+## [v2.0.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.3..v2.0.2) (2023-01-10)
+
+### Fix
+
+fix(manager): update regex that defines the attach name
+fix(manager): remove interconnection from logrus
+fix: stop sending span error to DD if didn't find the contact
+fix(long-polling-loop): increase long polling timeout to 60s
+
+<a name="v2.0.2"></a>
+## [v2.0.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.2..v2.0.1) (2023-01-06)
+
+### Feature
+
+* **search-contacts:** add the possibility to filter contacts by custom fields
+
 <a name="v2.1.0"></a>
 ## [v2.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.1.0..v2.0.1) (2023-01-10)
 
@@ -304,4 +321,3 @@
 * **Integration-interconnection:** Interconnection for Message Handler(image). Add handler to send message to salesforce. Closes #CSF-82
 * **Integration-interconnection:** Interconnection for Message Handler. Add handler to send message to salesforce . Closes #CSF-82
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
-
