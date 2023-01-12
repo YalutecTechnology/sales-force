@@ -41,6 +41,7 @@ var (
 	email            = "user@example.com"
 	phoneNumber      = "5512345678"
 	firstNameDefault = "Contacto Bot"
+	personBirthDate  = "2023-01-12T17:11:22"
 )
 
 func TestSalesforceService_CreatChat(t *testing.T) {
@@ -271,14 +272,15 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 		assert.Equal(t, contactExpected, contact)
 	})
 
-	t.Run("Create Contact with account Succesfull", func(t *testing.T) {
+	t.Run("Create contact and account using the accountRecordTypeID from enviroment variable", func(t *testing.T) {
 		mockSalesforce := new(mocks.SaleforceInterface)
 		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
 		salesforceService.AccountRecordTypeId = "recordTypeID"
+		salesforceService.DefaultBirthDateAccount = "2023-01-12T17:11:22"
 		salesforceService.SfcClient = mockSalesforce
 
 		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusUnauthorized}
-		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{}).Return(nil, errorResponse).Once()
+		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{"anyExtraData": "anyValue"}).Return(nil, errorResponse).Once()
 
 		accountFound := &models.SfcAccount{
 			FirstName:         contactExpected.FirstName,
@@ -289,9 +291,53 @@ func TestSalesforceService_GetOrCreateContact(t *testing.T) {
 			PersonContactId:   contactExpected.ID,
 		}
 		contactExpected.AccountID = "accountID"
-		mockSalesforce.On("CreateAccountComposite", mock.Anything, mock.Anything).Return(accountFound, nil).Once()
+		mockSalesforce.On("CreateAccountComposite", mock.Anything, salesforce.AccountRequest{
+			FirstName:         &contactExpected.FirstName,
+			LastName:          &contactExpected.LastName,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			PersonBirthDate:   &personBirthDate,
+			RecordTypeID:      &salesforceService.AccountRecordTypeId,
+		}).Return(accountFound, nil).Once()
 
-		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{})
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{"anyExtraData": "anyValue"})
+
+		assert.NoError(t, err)
+		assert.Equal(t, contactExpected, contact)
+	})
+
+	t.Run("Create contact and account getting accountRecordTypeID from extraData", func(t *testing.T) {
+		mockSalesforce := new(mocks.SaleforceInterface)
+		salesforceService := NewSalesforceService(login.SfcLoginClient{}, chat.SfcChatClient{}, salesforce.SalesforceClient{}, login.TokenPayload{}, make(map[string]string), recordTypeID, firstNameDefault, make(map[string]string), make(map[string]string))
+		salesforceService.AccountRecordTypeId = "defaultAccountRecordTypeID"
+		salesforceService.DefaultBirthDateAccount = "2023-01-12T17:11:22"
+		salesforceService.SfcClient = mockSalesforce
+
+		errorResponse := &helpers.ErrorResponse{Error: assert.AnError, StatusCode: http.StatusNotFound}
+		mockSalesforce.On("SearchContactComposite", mock.Anything, email, phoneNumber, map[string]string{}, map[string]interface{}{"AccountRecordTypeId": "extraDataAccountRecordTypeID"}).Return(nil, errorResponse).Once()
+
+		accountCreated := &models.SfcAccount{
+			FirstName:         contactExpected.FirstName,
+			LastName:          contactExpected.LastName,
+			PersonMobilePhone: phoneNumber,
+			PersonEmail:       email,
+			ID:                "accountID",
+			PersonContactId:   contactExpected.ID,
+		}
+		contactExpected.AccountID = "accountID"
+
+		var recordTypeID = "extraDataAccountRecordTypeID"
+
+		mockSalesforce.On("CreateAccountComposite", mock.Anything, salesforce.AccountRequest{
+			FirstName:         &contactExpected.FirstName,
+			LastName:          &contactExpected.LastName,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			PersonBirthDate:   &personBirthDate,
+			RecordTypeID:      &recordTypeID,
+		}).Return(accountCreated, nil).Once()
+
+		contact, err := salesforceService.GetOrCreateContact(context.Background(), contactName, email, phoneNumber, map[string]interface{}{"AccountRecordTypeId": "extraDataAccountRecordTypeID"})
 
 		assert.NoError(t, err)
 		assert.Equal(t, contactExpected, contact)
