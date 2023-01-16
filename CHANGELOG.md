@@ -1,4 +1,12 @@
 
+<a name="v2.1.0"></a>
+## [v2.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.1.0..v2.0.3) (2023-01-16)
+
+### Feature
+
+* **create-accounts:** add the possibility to send the AccountRecordTypeId on extraData
+* **docs:** improve salesforce integration tech documentation
+
 <a name="v2.0.3"></a>
 ## [v2.0.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.3..v2.0.2) (2023-01-10)
 
