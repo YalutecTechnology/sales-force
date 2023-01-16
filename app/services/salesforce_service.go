@@ -219,7 +219,13 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 		MobilePhone: phoneNumber,
 	}
 
-	if s.AccountRecordTypeId != "" {
+	if s.AccountRecordTypeId != "" || extraData["AccountRecordTypeId"] != nil {
+		accountRecordTypeId := s.AccountRecordTypeId
+
+		if extraData["AccountRecordTypeId"] != nil {
+			accountRecordTypeId = extraData["AccountRecordTypeId"].(string)
+		}
+
 		firstName := s.FirstNameContact
 		account, err := s.SfcClient.CreateAccountComposite(span, salesforce.AccountRequest{
 			FirstName:         &firstName,
@@ -227,7 +233,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 			PersonEmail:       &email,
 			PersonMobilePhone: &phoneNumber,
 			PersonBirthDate:   &s.DefaultBirthDateAccount,
-			RecordTypeID:      &s.AccountRecordTypeId,
+			RecordTypeID:      &accountRecordTypeId,
 		})
 
 		if err != nil {
