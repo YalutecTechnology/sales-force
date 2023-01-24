@@ -31,6 +31,6 @@ jobs:
           TAG: ${{github.ref_name}}
           GITHUB_TOKEN: ${{steps.get_workflow_token.outputs.token}}
         run: |
-          export IMAGE_NAME=yalochat/${{ github.event.repository.name }}:staging
+          export IMAGE_NAME=yalochat/${{ github.event.repository.name }}:latest
           docker build -t $IMAGE_NAME -f app/build/Dockerfile .
           docker push $IMAGE_NAME
