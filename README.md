@@ -1,3 +1,5 @@
+[![Development strategy](https://img.shields.io/static/v1?label=DEVELOPMENT%20STRATEGY&message=GITHUB%20FLOW&color=blue)](https://docs.github.com/en/get-started/quickstart/github-flow)
+
 # salesforce-integration #
 
 Salesforce-Integration is a micro service meant to be a middleware that will allow communication between users of WhatsApp or Facebook bots and Coppel's human advisor through a live chat on the Salesforce platform.
@@ -318,7 +320,7 @@ Before initializing skaffold we need to add in the ***hello.deployment.yaml*** f
           value: "mymaster"
         - name: SALESFORCE-INTEGRATION_REDIS_SENTINEL_ADDRESS
           value: "{{redis-address}}"
-        #Redis Sentinel Instance 
+        #Redis Sentinel Instance
         #- name: SALESFORCE_INTEGRATION_REDIS_SENTINEL_ADDRESS
         #  value: "{{redisAdress}}"
         - name: SALESFORCE_INTEGRATION_REDIS_ADDRESS
@@ -457,7 +459,7 @@ Regarding input-output messages, looks like the response rate from the agents is
 
 ![input-output-messages.png](/docs/images/input-output-messages.png)
 
-**NOTE**: 
+**NOTE**:
 
 In the future, it will be necessary to perform stress tests, in order to have a configuration based on accurate data and not so empirical.
 It should be noted that such stress testing must be well designed because the long polling in the Salesforce service makes it difficult to automate. In addition, the requested test agent must have a higher number of incoming chats configured, since the current test agent only accepts 3 chats.
