@@ -1140,7 +1140,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 		responseBin, err := json.Marshal(response)
 		assert.NoError(t, err)
 
-		stringPayload := `{"allOrNone":false,"collateSubrequests":false,"compositeRequest":[{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+email+=+'email@example'","body":null,"referenceId":"newQueryEmail"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+mobilePhone+=+'111111'","body":null,"referenceId":"newQueryPhone"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+Customer__ID__SF+=+'333333'","body":null,"referenceId":"newQueryCustomFieldCustomer__ID__SF"}]}`
+		stringPayload := `{"allOrNone":false,"collateSubrequests":false,"compositeRequest":[{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+email+=+'email@example'","body":null,"referenceId":"newQueryEmail"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+mobilePhone+=+'111111'","body":null,"referenceId":"newQueryPhone"},{"method":"GET","url":"/services/data/v.0/query/?q=SELECT+id+,+firstName+,+lastName+,+mobilePhone+,+email+,+CP_BlockedChatYalo__c+FROM+Contact+WHERE+Account.Customer__ID__SF+=+'333333'","body":null,"referenceId":"newQueryCustomField_Account_Customer_ID_SF"}]}`
 		header := make(map[string]string)
 		header["Content-Type"] = "application/json"
 		header["Authorization"] = fmt.Sprintf("Bearer %s", token)
@@ -1165,7 +1165,7 @@ func TestSfcData_SearchContactComposite(t *testing.T) {
 			Blocked:     true,
 		}
 
-		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, map[string]string{"customerId": "Customer__ID__SF", "customerAnotherId": "Customer__Another__ID__SF"}, map[string]interface{}{"customerId": "333333", "name": "my name", "address": "my address"})
+		contact, errResponse := salesforceClient.SearchContactComposite(span, email, phoneNumber, map[string]string{"customerId": "Account.Customer__ID__SF", "customerAnotherId": "Customer__Another__ID__SF"}, map[string]interface{}{"customerId": "333333", "name": "my name", "address": "my address"})
 
 		assert.Nil(t, errResponse)
 		assert.Equal(t, contactExpected, contact)

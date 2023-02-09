@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -436,10 +437,13 @@ func (cc *SalesforceClient) SearchContactComposite(mainSpan tracer.Span, email, 
 					field: value,
 				}).Info("Searching contact with custom field")
 
+				reg, _ := regexp.Compile("[^a-zA-Z0-9]+")
+				fieldForReference := reg.ReplaceAllString(field, "_")
+
 				request.CompositeRequest = append(request.CompositeRequest, Composite{
 					Method:      http.MethodGet,
 					URL:         fmt.Sprintf("/services/data/v%s.0/query/?q=%s", cc.APIVersion, fmt.Sprintf(queryForContactByField, blockedChat, field, value)),
-					ReferenceId: "newQueryCustomField" + field,
+					ReferenceId: "newQueryCustomField_" + fieldForReference,
 				})
 			}
 		}
