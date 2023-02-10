@@ -241,7 +241,7 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 				s.RefreshToken()
 			}
 			span.SetTag(ext.Error, err.Error)
-			return nil, errors.New(helpers.ErrorMessage("not create account", err.Error))
+			return nil, errors.New(helpers.ErrorMessage("Create account has failed", err.Error))
 		}
 
 		contact.ID = account.PersonContactId

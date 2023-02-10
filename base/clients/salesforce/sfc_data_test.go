@@ -1295,6 +1295,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
+					HTTPStatusCode: 200,
 				},
 				{
 					Body: SearchResponse{
@@ -1311,6 +1312,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 							},
 						},
 					},
+					HTTPStatusCode: 200,
 				},
 			},
 		}
@@ -1344,7 +1346,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 		assert.Equal(t, contactExpected, contact)
 	})
 
-	t.Run("Create account error account not found ", func(t *testing.T) {
+	t.Run("Could not create the account", func(t *testing.T) {
 		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = proxyMock
@@ -1357,6 +1359,54 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
+					HTTPStatusCode: 400,
+				},
+				{
+					Body: SearchResponse{
+						TotalSize: 1,
+						Done:      true,
+						Records:   []recordResponse{},
+					},
+					HTTPStatusCode: 400,
+				},
+			},
+		}
+
+		responseBin, err := json.Marshal(response)
+		assert.NoError(t, err)
+
+		proxyMock.On("SendHTTPRequest", mock.Anything, mock.Anything).Return(&http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(bytes.NewReader(responseBin)),
+		}, nil).Once()
+		payload := AccountRequest{
+			FirstName:         &name,
+			LastName:          &name,
+			PersonEmail:       &email,
+			PersonMobilePhone: &phoneNumber,
+			RecordTypeID:      &recordTypeID,
+			PersonBirthDate:   &dateBirth,
+		}
+
+		contact, errResponse := salesforceClient.CreateAccountComposite(span, payload)
+		assert.Error(t, errResponse.Error)
+		assert.Empty(t, contact)
+	})
+
+	t.Run("Create account error account not found", func(t *testing.T) {
+		proxyMock := new(mocks.ProxyInterface)
+		salesforceClient := NewSalesforceRequester(caseURL, token)
+		salesforceClient.Proxy = proxyMock
+
+		response := CompositeResponses{
+			CompositeResponse: []CompositeResponse{
+				{
+					Body: SearchResponse{
+						TotalSize: 0,
+						Done:      false,
+						Records:   []recordResponse{},
+					},
+					HTTPStatusCode: 200,
 				},
 				{
 					Body: SearchResponse{
@@ -1364,6 +1414,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      true,
 						Records:   []recordResponse{},
 					},
+					HTTPStatusCode: 200,
 				},
 			},
 		}
@@ -1402,6 +1453,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
+					HTTPStatusCode: 200,
 				},
 				{
 					Body: SearchResponse{
@@ -1409,6 +1461,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      true,
 						Records:   []recordResponse{},
 					},
+					HTTPStatusCode: 200,
 				},
 			},
 		}
@@ -1434,7 +1487,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 		assert.Empty(t, contact)
 	})
 
-	t.Run("Create account  error validation payload", func(t *testing.T) {
+	t.Run("Create account error validation payload", func(t *testing.T) {
 		proxyMock := new(mocks.ProxyInterface)
 		salesforceClient := NewSalesforceRequester(caseURL, token)
 		salesforceClient.Proxy = proxyMock

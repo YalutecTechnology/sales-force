@@ -821,6 +821,14 @@ func (cc *SalesforceClient) CreateAccountComposite(mainSpan tracer.Span, payload
 		return nil, err
 	}
 
+	createAccountRequest := compositeResponses.CompositeResponse[0]
+	if createAccountRequest.HTTPStatusCode != http.StatusOK {
+		errorMessage := "Could not create the account"
+		span.SetTag("salesforce-response", fmt.Sprintf("%+v", compositeResponses.CompositeResponse))
+		span.SetTag(ext.Error, errorMessage)
+		return nil, &helpers.ErrorResponse{Error: errors.New(errorMessage), StatusCode: int(createAccountRequest.HTTPStatusCode)}
+	}
+
 	response := SearchResponse{}
 	responseMap := compositeResponses.CompositeResponse[1].Body.(map[string]interface{})
 	responseBin, _ := json.Marshal(responseMap)
