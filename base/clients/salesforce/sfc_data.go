@@ -822,7 +822,7 @@ func (cc *SalesforceClient) CreateAccountComposite(mainSpan tracer.Span, payload
 	}
 
 	createAccountRequest := compositeResponses.CompositeResponse[0]
-	if createAccountRequest.HTTPStatusCode != http.StatusOK {
+	if createAccountRequest.HTTPStatusCode >= http.StatusBadRequest {
 		errorMessage := "Could not create the account"
 		span.SetTag("salesforce-response", fmt.Sprintf("%+v", compositeResponses.CompositeResponse))
 		span.SetTag(ext.Error, errorMessage)

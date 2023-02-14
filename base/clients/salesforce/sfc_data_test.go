@@ -1295,7 +1295,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
-					HTTPStatusCode: 200,
+					HTTPStatusCode: 201,
 				},
 				{
 					Body: SearchResponse{
@@ -1406,7 +1406,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
-					HTTPStatusCode: 200,
+					HTTPStatusCode: 201,
 				},
 				{
 					Body: SearchResponse{
@@ -1453,7 +1453,7 @@ func TestSfcData_CreateAccountComposite(t *testing.T) {
 						Done:      false,
 						Records:   []recordResponse{},
 					},
-					HTTPStatusCode: 200,
+					HTTPStatusCode: 201,
 				},
 				{
 					Body: SearchResponse{
