@@ -93,6 +93,7 @@ func main() {
 		SfcDefaultBirthDateAccount:     envs.SfcDefaultBirthDateAccount,
 		SfcCustomFieldsCase:            envs.SfcCustomFieldsCase,
 		SfcCustomFieldsContact:         envs.SfcCustomFieldsContact,
+		SfcCustomFieldsAccount:         envs.SfcCustomFieldsAccount,
 		SfcSourceFlowField:             envs.SfcSourceFlowField,
 		SfcSourceFlowBot:               envs.SfcSourceFlowBot,
 		SfcCodePhoneRemove:             envs.SfcCodePhoneRemove,

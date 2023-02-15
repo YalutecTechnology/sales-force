@@ -51,6 +51,7 @@ type Envs struct {
 	SfcDefaultBirthDateAccount     string                 `split_words:"true" default:"1921-01-01T00:00:00"`
 	SfcCustomFieldsCase            map[string]string      `split_words:"true"`
 	SfcCustomFieldsContact         map[string]string      `split_words:"true"`
+	SfcCustomFieldsAccount         map[string]string      `split_words:"true"`
 	SfcSourceFlowBot               SfcSourceFlowBot       `required:"true" split_words:"true"`
 	SfcSourceFlowField             string                 `required:"true" split_words:"true" default:"source_flow_bot"`
 	SfcBlockedChatField            bool                   `split_words:"true" default:"false"`

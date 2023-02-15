@@ -173,7 +173,7 @@ type SaleforceInterface interface {
 	LinkDocumentToCase(LinkDocumentPayload) (string, error)
 	CreateContact(mainSpan tracer.Span, payload interface{}) (string, *helpers.ErrorResponse)
 	CreateAccount(payload AccountRequest) (string, *helpers.ErrorResponse)
-	CreateAccountComposite(mainSpan tracer.Span, payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse)
+	CreateAccountComposite(mainSpan tracer.Span, payload interface{}) (*models.SfcAccount, *helpers.ErrorResponse)
 	Composite(mainSpan tracer.Span, compositeRequest CompositeRequest) (CompositeResponses, *helpers.ErrorResponse)
 	GetContentVersionURL() string
 	GetSearchURL(query string) string
@@ -794,7 +794,7 @@ func (cc *SalesforceClient) CreateAccount(payload AccountRequest) (string, *help
 	return response.ID, nil
 }
 
-func (cc *SalesforceClient) CreateAccountComposite(mainSpan tracer.Span, payload AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+func (cc *SalesforceClient) CreateAccountComposite(mainSpan tracer.Span, payload interface{}) (*models.SfcAccount, *helpers.ErrorResponse) {
 	spanContext := events.GetSpanContextFromSpan(mainSpan)
 	span := tracer.StartSpan("CreateAccountComposite", tracer.ChildOf(spanContext))
 	span.SetTag(ext.AnalyticsEvent, true)

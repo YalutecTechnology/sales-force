@@ -37,6 +37,7 @@ type SalesforceService struct {
 	SfcCustomFieldsCase            map[string]string
 	SfcCustomFieldsContact         map[string]string
 	SfcCustomFieldsToSearchContact map[string]string
+	SfcCustomFieldsAccount         map[string]string
 	AccountRecordTypeId            string
 	DefaultBirthDateAccount        string
 	RecordTypeID                   string
@@ -66,6 +67,7 @@ func NewSalesforceService(
 	firsNameContact string,
 	customFieldsContact map[string]string,
 	customFieldsToSearchContact map[string]string,
+	customFieldsAccount map[string]string,
 ) *SalesforceService {
 	salesforceService := &SalesforceService{
 		SfcLoginClient:                 &loginClient,
@@ -75,6 +77,7 @@ func NewSalesforceService(
 		SfcCustomFieldsCase:            customFieldsCase,
 		SfcCustomFieldsContact:         customFieldsContact,
 		SfcCustomFieldsToSearchContact: customFieldsToSearchContact,
+		SfcCustomFieldsAccount:         customFieldsAccount,
 		RecordTypeID:                   recordTypeID,
 		DefaultBirthDateAccount:        time.Now().Format(constants.DateFormatDateTime),
 		FirstNameContact:               firsNameContact,
@@ -226,15 +229,40 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 			accountRecordTypeId = extraData["AccountRecordTypeId"].(string)
 		}
 
+		accountRequestPayload := make(map[string]interface{})
+		for key, value := range extraData {
+			field, ok := s.SfcCustomFieldsAccount[key]
+			if ok {
+				stringValue := value.(string)
+				accountRequestPayload[field] = &stringValue
+			}
+		}
+
 		firstName := s.FirstNameContact
-		account, err := s.SfcClient.CreateAccountComposite(span, salesforce.AccountRequest{
+		accountRequest := salesforce.AccountRequest{
 			FirstName:         &firstName,
 			LastName:          &name,
 			PersonEmail:       &email,
 			PersonMobilePhone: &phoneNumber,
 			PersonBirthDate:   &s.DefaultBirthDateAccount,
 			RecordTypeID:      &accountRecordTypeId,
-		})
+		}
+
+		//validating AccountRequest Payload struct
+		if err := helpers.Govalidator().Struct(accountRequest); err != nil {
+			return nil, errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
+		}
+
+		accountRequestPayload["FirstName"] = accountRequest.FirstName
+		accountRequestPayload["LastName"] = accountRequest.LastName
+		accountRequestPayload["PersonEmail"] = accountRequest.PersonEmail
+		accountRequestPayload["PersonMobilePhone"] = accountRequest.PersonMobilePhone
+		accountRequestPayload["PersonBirthDate"] = accountRequest.PersonBirthDate
+		accountRequestPayload["RecordTypeID"] = accountRequest.RecordTypeID
+
+		span.SetTag("payloadAccount", fmt.Sprintf("%#v", accountRequestPayload))
+
+		account, err := s.SfcClient.CreateAccountComposite(span, accountRequestPayload)
 
 		if err != nil {
 			if err.StatusCode == http.StatusUnauthorized {
@@ -250,11 +278,11 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 		return contact, nil
 	}
 
-	payload := make(map[string]interface{})
+	contactRequestPayload := make(map[string]interface{})
 	for key, value := range extraData {
 		field, ok := s.SfcCustomFieldsContact[key]
 		if ok {
-			payload[field] = value
+			contactRequestPayload[field] = value
 		}
 	}
 
@@ -264,14 +292,14 @@ func (s *SalesforceService) GetOrCreateContact(ctx context.Context, name, email,
 		return nil, errors.New(helpers.ErrorMessage(helpers.InvalidPayload, err))
 	}
 
-	payload["FirstName"] = contactRequest.FirstName
-	payload["LastName"] = contactRequest.LastName
-	payload["MobilePhone"] = contactRequest.MobilePhone
-	payload["Email"] = contactRequest.Email
+	contactRequestPayload["FirstName"] = contactRequest.FirstName
+	contactRequestPayload["LastName"] = contactRequest.LastName
+	contactRequestPayload["MobilePhone"] = contactRequest.MobilePhone
+	contactRequestPayload["Email"] = contactRequest.Email
 
-	span.SetTag("payloadContact", fmt.Sprintf("%#v", payload))
+	span.SetTag("payloadContact", fmt.Sprintf("%#v", contactRequestPayload))
 
-	contactID, err := s.SfcClient.CreateContact(span, payload)
+	contactID, err := s.SfcClient.CreateContact(span, contactRequestPayload)
 	if err != nil {
 		if err.StatusCode == http.StatusUnauthorized {
 			s.RefreshToken()

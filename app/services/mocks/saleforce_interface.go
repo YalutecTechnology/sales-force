@@ -65,11 +65,11 @@ func (_m *SaleforceInterface) CreateAccount(payload salesforce.AccountRequest) (
 }
 
 // CreateAccountComposite provides a mock function with given fields: mainSpan, payload
-func (_m *SaleforceInterface) CreateAccountComposite(mainSpan ddtrace.Span, payload salesforce.AccountRequest) (*models.SfcAccount, *helpers.ErrorResponse) {
+func (_m *SaleforceInterface) CreateAccountComposite(mainSpan ddtrace.Span, payload interface{}) (*models.SfcAccount, *helpers.ErrorResponse) {
 	ret := _m.Called(mainSpan, payload)
 
 	var r0 *models.SfcAccount
-	if rf, ok := ret.Get(0).(func(ddtrace.Span, salesforce.AccountRequest) *models.SfcAccount); ok {
+	if rf, ok := ret.Get(0).(func(ddtrace.Span, interface{}) *models.SfcAccount); ok {
 		r0 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(0) != nil {
@@ -78,7 +78,7 @@ func (_m *SaleforceInterface) CreateAccountComposite(mainSpan ddtrace.Span, payl
 	}
 
 	var r1 *helpers.ErrorResponse
-	if rf, ok := ret.Get(1).(func(ddtrace.Span, salesforce.AccountRequest) *helpers.ErrorResponse); ok {
+	if rf, ok := ret.Get(1).(func(ddtrace.Span, interface{}) *helpers.ErrorResponse); ok {
 		r1 = rf(mainSpan, payload)
 	} else {
 		if ret.Get(1) != nil {

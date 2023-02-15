@@ -120,6 +120,7 @@ type ManagerOptions struct {
 	SfcDefaultBirthDateAccount     string
 	SfcCustomFieldsCase            map[string]string
 	SfcCustomFieldsContact         map[string]string
+	SfcCustomFieldsAccount         map[string]string
 	SfcCodePhoneRemove             []string
 	IntegrationsUrl                string
 	IntegrationsWAChannel          string
@@ -261,6 +262,7 @@ func CreateManager(config *ManagerOptions) *Manager {
 		Messages.FirstNameContact,
 		config.SfcCustomFieldsContact,
 		config.SfcCustomFieldsToSearchContact,
+		config.SfcCustomFieldsAccount,
 	)
 
 	if config.SpecSchedule != "" {
