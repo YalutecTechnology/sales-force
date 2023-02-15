@@ -612,6 +612,4 @@ It can be used to validate that we are saving the chat with the bot in Redis and
 
 ## Reference:
 
-[Atlassian](https://bitbucket.org/yalochat/salesforce-integration/src/83c6a1757f36ab010d55c01eae897cccd718984e/app/api/handlers/README.md?at=feature%2FCSF-108-create-integration-main-document)
-
-[Atlassian](https://bitbucket.org/yalochat/salesforce-integration/src/develop/app/api/handlers/README.md)
+[API README](/app/api/handlers/README.md)

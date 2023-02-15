@@ -95,7 +95,7 @@ The **api/hadlers** package contains the endpoints available for this integratio
 in **integrations-api** so that **integrations-channels** can send us the messages between users and bots of *WhatsApp*
 and *Faceebook*.
 
-Each of them is detailed in the [README](https://bitbucket.org/yalochat/salesforce-integration/src/develop/app/api/handlers/README.md) file in ***app/api/handlers*** or in [Saleforce Integrations Endpoints](/docs/Salesforce-Integrations-Endpoints.md).
+Each of them is detailed in the [README](/app/api/handlers/README.md) file in ***app/api/handlers*** or in [Saleforce Integrations Endpoints](/docs/Salesforce-Integrations-Endpoints.md).
 
 In **/manager** folder we will find all the logic implemented to be able to manage the chats between the end users and the agents in Salesforce. For this we explain some components that we need to be able to perform these functions:
 
@@ -249,7 +249,7 @@ go test -coverprofile=coverage.txt -covermode=atomic ./...
 ```
 
 ## Environment ##
-Example environments for local development and for staging can be found in the [config directory](https://bitbucket.org/yalochat/salesforce-integration/src/develop/configs/). To get a definition of all the keys, you can see the section "How do I get set up?"
+Example environments for local development and for staging can be found in the [config directory](/configs/example.env). To get a definition of all the keys, you can see the section "How do I get set up?"
 
 Copy the local example environment and load it into your shell
 ``` sh
@@ -269,7 +269,7 @@ err := envconfig.Process("salesforce_integration", &envs)
 ## Running the project in Dev ##
 In order to test our changes in dev, you run your service in a development cluster.
 
-The stack will be in the Yalo staging cluster, accessible via:
+The stack will be in the staging cluster, accessible via:
 ```bash
 gcloud config configurations activate ${developmentCluster}
 gcloud container clusters get-credentials development
@@ -463,6 +463,9 @@ Regarding input-output messages, looks like the response rate from the agents is
 
 In the future, it will be necessary to perform stress tests, in order to have a configuration based on accurate data and not so empirical.
 It should be noted that such stress testing must be well designed because the long polling in the Salesforce service makes it difficult to automate. In addition, the requested test agent must have a higher number of incoming chats configured, since the current test agent only accepts 3 chats.
+
+## References ##
+- [Runbook](/docs/Salesforce-Integration-Runbook.md)
 
 ## Who do I talk to? ##
 

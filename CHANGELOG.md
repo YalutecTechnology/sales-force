@@ -1,44 +1,50 @@
 
 <a name="v2.1.0"></a>
-## [v2.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.1.0..v2.0.3) (2023-01-16)
-
-### Feature
-
-* **create-accounts:** add the possibility to send the AccountRecordTypeId on extraData
-* **docs:** improve salesforce integration tech documentation
-
-<a name="v2.0.3"></a>
-## [v2.0.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.3..v2.0.2) (2023-01-10)
-
-### Fix
-
-* fix(manager): update regex that defines the attach name
-* fix(manager): remove interconnection from logrus
-* fix: stop sending span error to DD if didn't find the contact
-* fix(long-polling-loop): increase long polling timeout to 60s
-
-<a name="v2.0.2"></a>
-## [v2.0.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.2..v2.0.1) (2023-01-06)
-
-### Feature
-
-* **search-contacts:** add the possibility to filter contacts by custom fields
-
-<a name="v2.1.0"></a>
-## [v2.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.1.0..v2.0.1) (2023-01-10)
+## [v2.1.0](https://github.com/yalochat/salesforce-integration/compare/v2.1.0..v2.0.3) (2023-01-16)
 
 ### Chore
 
+* **Documentation:** Removing sensible information from the files. Close #CS-2216
+* **Documentation:** Adding two missing diagrams to the README.md file. Close #CS-2216
 * **Documentation:** prepare documentation into the repo to have it available with no other deps. Close #CS-2216
 
 ### Feat
 
-* **searchContact:** update service to search contacts by custom fields
+* **salesforce_service:** add the possibility to send the AccountRecordTypeId on extraData
 * **version:** upgrade version for changes in documentation. Closes #CS-2216
+
+### Fix
+
+* **changelog:** fix changelog
+
+
+<a name="v2.0.3"></a>
+## [v2.0.3](https://github.com/yalochat/salesforce-integration/compare/v2.0.3..v2.0.2) (2023-01-10)
+
+### Fix
+
+* change to log warn when could not find a contact
+* stop sending span error to DD if didn't find the contact
+* **integrations-request:** stop loggin info for every ignored message
+* **interconnection_test:** fix flaky interconnection test
+* **long-polling-loop:** increase long polling timeout to 60s
+* **manager:** remove interconnection from logrus
+* **manager:** update regex that defines the attach name
+* **search-contact:** stop loggin error in case had not found the contact
+* **sfc_data:** update DD tag to be a slug
+* **webhook_handler:** fix DD span
+
+
+<a name="v2.0.2"></a>
+## [v2.0.2](https://github.com/yalochat/salesforce-integration/compare/v2.0.2..v2.0.1) (2023-01-09)
+
+### Feat
+
+* **searchContact:** update service to search contacts by custom fields
 
 
 <a name="v2.0.1"></a>
-## [v2.0.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.1..v2.0.0) (2023-01-06)
+## [v2.0.1](https://github.com/yalochat/salesforce-integration/compare/v2.0.1..v2.0.0) (2023-01-06)
 
 ### Hotfix
 
@@ -46,43 +52,19 @@
 
 
 <a name="v2.0.0"></a>
-## [v2.0.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v2.0.0..v1.1.9) (2023-01-05)
+## [v2.0.0](https://github.com/yalochat/salesforce-integration/compare/v2.0.0..v1.1.8) (2023-01-05)
 
 ### Feature
 
 * **get-messages:** adds the ack query parameters to get message requests. Closes #CS-2170
-
-
-<a name="v1.1.9"></a>
-## [v1.1.9](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.9..v1.1.8) (2023-01-03)
-
-### Feat
-
-* **General-improvements:** Clean legacy cache on redis when deploy reply improvement. Add process to legacy cache Redis structs when change set to hash. Closes #UI-55
-* **Improve Salesforce implementation:** Send reply messages on active chats. Closes #UI-44
-* **Improve Salesforce implementation:** Saves reply messages in context with reply message. Closes #UI-43
-* **Improve Salesforce implementation:** Change redis context from set to hashes. We need to change the saved user context in redis from sets to hashes, so we can receive messages by their id. Closes #UI-42
-* **Integration-interconnection:** Save active chat messages in context. Add logic to save all active chat messages in context. Closes #UI-45
-
-### Feature
-
-* **get-messages:** adds the ack query parameters to get message requests. Closes #CS-2170
-
-### Fix
-
-* **interconnection:** Fix the log message when Studio NG is enabled
-
-### Hotfix
-
-* **webhook integrations:** Add the possibility to filter the messages types
 
 
 <a name="v1.1.8"></a>
-## [v1.1.8](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.8..v1.1.7) (2022-08-18)
+## [v1.1.8](https://github.com/yalochat/salesforce-integration/compare/v1.1.8..v1.1.7) (2022-08-18)
 
 
 <a name="v1.1.7"></a>
-## [v1.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)
+## [v1.1.7](https://github.com/yalochat/salesforce-integration/compare/v1.1.7..v1.1.6) (2022-06-01)
 
 ### Hotfix
 
@@ -90,7 +72,7 @@
 
 
 <a name="v1.1.6"></a>
-## [v1.1.6](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.6..v1.1.5) (2022-05-02)
+## [v1.1.6](https://github.com/yalochat/salesforce-integration/compare/v1.1.6..v1.1.5) (2022-05-02)
 
 ### Feat
 
@@ -99,7 +81,7 @@
 
 
 <a name="v1.1.5"></a>
-## [v1.1.5](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-31)
+## [v1.1.5](https://github.com/yalochat/salesforce-integration/compare/v1.1.5..v1.1.4) (2022-03-31)
 
 ### Feat
 
@@ -111,7 +93,7 @@
 
 
 <a name="v1.1.4"></a>
-## [v1.1.4](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-25)
+## [v1.1.4](https://github.com/yalochat/salesforce-integration/compare/v1.1.4..v1.1.3) (2022-03-25)
 
 ### Feat
 
@@ -121,7 +103,7 @@
 
 
 <a name="v1.1.3"></a>
-## [v1.1.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.3..v1.1.2) (2022-03-02)
+## [v1.1.3](https://github.com/yalochat/salesforce-integration/compare/v1.1.3..v1.1.2) (2022-03-02)
 
 ### Feat
 
@@ -129,11 +111,11 @@
 
 
 <a name="v1.1.2"></a>
-## [v1.1.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-03-02)
+## [v1.1.2](https://github.com/yalochat/salesforce-integration/compare/v1.1.2..v1.1.1) (2022-03-02)
 
 
 <a name="v1.1.1"></a>
-## [v1.1.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
+## [v1.1.1](https://github.com/yalochat/salesforce-integration/compare/v1.1.1..v1.1.0) (2022-02-15)
 
 ### Feat
 
@@ -147,7 +129,7 @@
 
 
 <a name="v1.1.0"></a>
-## [v1.1.0](https://bitbucket.org/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
+## [v1.1.0](https://github.com/yalochat/salesforce-integration/compare/v1.1.0..v0.1.9) (2022-02-03)
 
 ### Feat
 
@@ -161,7 +143,7 @@
 
 
 <a name="v0.1.9"></a>
-## [v0.1.9](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.9..v0.1.8) (2021-12-22)
+## [v0.1.9](https://github.com/yalochat/salesforce-integration/compare/v0.1.9..v0.1.8) (2021-12-22)
 
 ### Feat
 
@@ -169,7 +151,7 @@
 
 
 <a name="v0.1.8"></a>
-## [v0.1.8](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
+## [v0.1.8](https://github.com/yalochat/salesforce-integration/compare/v0.1.8..V0.1.7) (2021-12-21)
 
 ### Chore
 
@@ -191,11 +173,11 @@
 
 
 <a name="V0.1.7"></a>
-## [V0.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
+## [V0.1.7](https://github.com/yalochat/salesforce-integration/compare/V0.1.7..v0.1.7) (2021-11-16)
 
 
 <a name="v0.1.7"></a>
-## [v0.1.7](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
+## [v0.1.7](https://github.com/yalochat/salesforce-integration/compare/v0.1.7..v0.1.6) (2021-11-16)
 
 ### Chore
 
@@ -207,7 +189,7 @@
 
 
 <a name="v0.1.6"></a>
-## [v0.1.6](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-16)
+## [v0.1.6](https://github.com/yalochat/salesforce-integration/compare/v0.1.6..v0.1.5) (2021-11-16)
 
 ### Chore
 
@@ -228,7 +210,7 @@
 
 
 <a name="v0.1.5"></a>
-## [v0.1.5](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-28)
+## [v0.1.5](https://github.com/yalochat/salesforce-integration/compare/v0.1.5..v0.1.4) (2021-10-28)
 
 ### Feat
 
@@ -244,7 +226,7 @@
 
 
 <a name="v0.1.4"></a>
-## [v0.1.4](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-25)
+## [v0.1.4](https://github.com/yalochat/salesforce-integration/compare/v0.1.4..v0.1.3) (2021-10-25)
 
 ### Feat
 
@@ -253,7 +235,7 @@
 
 
 <a name="v0.1.3"></a>
-## [v0.1.3](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
+## [v0.1.3](https://github.com/yalochat/salesforce-integration/compare/v0.1.3..v0.1.2) (2021-10-21)
 
 ### Feat
 
@@ -265,7 +247,7 @@
 
 
 <a name="v0.1.2"></a>
-## [v0.1.2](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
+## [v0.1.2](https://github.com/yalochat/salesforce-integration/compare/v0.1.2..v0.1.1) (2021-10-14)
 
 ### Chore
 
@@ -290,7 +272,7 @@
 
 
 <a name="v0.1.1"></a>
-## [v0.1.1](https://bitbucket.org/yalochat/salesforce-integration/compare/v0.1.1..v0.1.0-alpha) (2021-09-29)
+## [v0.1.1](https://github.com/yalochat/salesforce-integration/compare/v0.1.1..v0.1.0-alpha) (2021-09-29)
 
 ### Feat
 
@@ -329,3 +311,4 @@
 * **Integration-interconnection:** Interconnection for Message Handler(image). Add handler to send message to salesforce. Closes #CSF-82
 * **Integration-interconnection:** Interconnection for Message Handler. Add handler to send message to salesforce . Closes #CSF-82
 * **Integration-webhook:**  Set webhook in integrations. Add webhook endpoint  to save message form integrations Closes #CNF-140
+
