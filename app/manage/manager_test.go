@@ -2195,6 +2195,78 @@ func TestManager_SaveContext(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("Should send audio file to salesforce", func(t *testing.T) {
+		Messages = models.MessageTemplate{UploadAudioSuccess: "Audio was sent to SF, title: "}
+
+		SendImageNameInMessage = true
+		defer func() {
+			SendImageNameInMessage = false
+			interconnectionLocal.Clear()
+		}()
+
+		contextCache := new(mocks.IContextCache)
+		salesforceMock := new(mocks.SalesforceServiceInterface)
+
+		salesforceMock.On("GetMessages", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(&chat.MessagesResponse{}, nil)
+
+		fileId := "890930208883613"
+		salesforceMock.On("InsertFileInCase",
+			"http://test.com/"+fileId, "890930208883613.ogg", "audio/ogg; codecs=opus", "caseID").
+			Return(nil).Once()
+
+		salesforceMock.On("SendMessage", mock.Anything,
+			affinityToken, sessionKey, mock.Anything).
+			Return(false, nil).Once()
+
+		cacheMessage := new(mocks.IMessageCache)
+		cacheMessage.On("IsRepeatedMessage", messageID).Return(false).Once()
+
+		producerMock := new(mocks.Producer)
+		producerMock.On("SendMessage", mock.Anything).Return(nil).Twice()
+
+		manager := &Manager{
+			contextcache:                 contextCache,
+			finishInterconnection:        make(chan *Interconnection),
+			SalesforceService:            salesforceMock,
+			keywordsRestart:              []string{"restart", "test"},
+			cacheMessage:                 cacheMessage,
+			IntegrationChanRateLimiter:   rate.NewLimiter(rate.Limit(20), 21),
+			SalesforceChanRequestLimiter: rate.NewLimiter(rate.Limit(20), 21),
+			kafkaProducer:                producerMock,
+		}
+		go manager.handleInterconnection()
+
+		interconnectionLocal.Set(fmt.Sprintf(constants.UserKey, userID), &Interconnection{
+			Status:        Active,
+			AffinityToken: affinityToken,
+			SessionKey:    sessionKey,
+			SessionID:     sessionID,
+			UserID:        userID,
+			CaseID:        caseID,
+			finishChannel: manager.finishInterconnection,
+			kafkaProducer: producerMock,
+		}, time.Second)
+		interconnectionLocal.Wait()
+
+		manager.interconnectionMap = interconnectionLocal
+
+		integrations := &models.IntegrationsRequest{
+			ID:        messageID,
+			Timestamp: "123456789",
+			Type:      constants.AudioType,
+			From:      userID,
+			Audio: models.Media{
+				URL:      "http://test.com/" + fileId,
+				MIMEType: "audio/ogg; codecs=opus",
+			},
+		}
+		err := manager.SaveContext(context.Background(), integrations)
+
+		assert.NoError(t, err)
+	})
+
 }
 
 func TestManager_getContextByUserID(t *testing.T) {

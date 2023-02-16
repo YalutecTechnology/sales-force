@@ -814,7 +814,7 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			integration.Text.Body,
 			constants.SendMessageToSalesforce)
 
-	case constants.ImageType, constants.DocumentType:
+	case constants.ImageType, constants.DocumentType, constants.AudioType:
 		fileMessageError := Messages.UploadFileError
 		fileMessageSuccess := Messages.UploadFileSuccess
 		uri := integration.Document.URL
@@ -829,11 +829,18 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 			message = integration.Image.Caption
 		}
 
-		imageName := defineFileName(interconnection, integration)
+		if integration.Type == constants.AudioType {
+			fileMessageError = Messages.UploadAudioError
+			fileMessageSuccess = Messages.UploadAudioSuccess
+			uri = integration.Audio.URL
+			mime = integration.Audio.MIMEType
+		}
+
+		fileName := defineFileName(interconnection, integration)
 
 		err := m.SalesforceService.InsertFileInCase(
 			uri,
-			imageName,
+			fileName,
 			mime,
 			interconnection.CaseID)
 		if err != nil {
@@ -853,7 +860,7 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 		textMessage := fileMessageSuccess
 
 		if SendImageNameInMessage {
-			textMessage += imageName
+			textMessage += fileName
 		}
 
 		interconnection.sendMessageToQueue(mainSpan,
@@ -872,29 +879,46 @@ func (m *Manager) sendMessageComunication(mainSpan tracer.Span, interconnection 
 }
 
 func defineFileName(interconnection *Interconnection, integration *models.IntegrationsRequest) string {
-	caption := integration.Document.Caption
-	url := integration.Document.URL
+	caption := ""
+	url := ""
 
-	if integration.Type == constants.ImageType {
+	switch integration.Type {
+	case constants.DocumentType:
+		caption = integration.Document.Caption
+		url = integration.Document.URL
+
+	case constants.ImageType:
 		caption = integration.Image.Caption
 		url = integration.Image.URL
+
+	case constants.AudioType:
+		caption = integration.Audio.Caption
+		url = integration.Audio.URL
 	}
+
 	maxLength := 255
 	if caption != "" && len(caption) <= maxLength {
 		re, _ := regexp.Compile(`[^\w]`)
 		captionName := re.ReplaceAllString(caption, " ")
-		return strings.Trim(captionName, " ")
+		return addFileExtension(strings.Trim(captionName, " "), integration)
 	}
 
-	regexToFindImageId := regexp.MustCompile("\\/.+\\/(.+)")
+	regexToFindMediaId := regexp.MustCompile("\\/.+\\/(.+)")
 	// Original URL: https://api-global.yalochat.com/media-proxy/whatsapp/compra-agora-ng-wa-br-staging/media/920518159314377
 	// Final result: 920518159314377
-	imageId := regexToFindImageId.FindStringSubmatch(url)
-	if len(imageId) > 0 && imageId[1] != "" {
-		return imageId[1]
+	mediaId := regexToFindMediaId.FindStringSubmatch(url)
+	if len(mediaId) > 0 && mediaId[1] != "" {
+		return addFileExtension(mediaId[1], integration)
 	}
 
-	return interconnection.SessionID
+	return addFileExtension(interconnection.SessionID, integration)
+}
+
+func addFileExtension(fileName string, integration *models.IntegrationsRequest) string {
+	if integration.Type == constants.AudioType {
+		return fmt.Sprintf("%s%s", fileName, ".ogg")
+	}
+	return fileName
 }
 
 func (m *Manager) validInterconnection(from string) (*Interconnection, bool) {

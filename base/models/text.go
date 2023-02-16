@@ -16,6 +16,8 @@ type MessageTemplate struct {
 	UploadImageSuccess string `json:"uploadImageSuccess"`
 	UploadFileError    string `json:"uploadFileError"`
 	UploadFileSuccess  string `json:"uploadFileSuccess"`
+	UploadAudioError   string `json:"uploadAudioError"`
+	UploadAudioSuccess string `json:"uploadAudioSuccess"`
 	FirstNameContact   string `json:"firstNameContact"`
 	ClientLabel        string `json:"clientLabel"`
 	BotLabel           string `json:"botLabel"`
